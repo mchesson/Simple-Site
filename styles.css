@@ -1,0 +1,62 @@
+.content-footer,
+.masthead-heading,
+.masthead-intro {
+  text-align: center;
+}
+
+.masthead {
+  padding: 6em 0;
+  background-image: url("https://download.unsplash.com/reserve/iFJ5qQylTD2POC68qBgh_Uluru.jpg");
+  background-repeat: no-repeat;
+  background-size: cover;
+}
+
+.masthead-intro {
+  margin-bottom: 0.1em;
+  font-family: Georgia, serif;
+  font-size: 2em;
+}
+
+.masthead-heading {
+  margin-top: -0.1em;
+  font-family: Helvetica, sans-serif;
+  font-weight: bold;
+  font-size: 6em;
+  text-transform: uppercase;
+}
+
+.content-footer,
+.introduction-section,
+.location-section,
+.contact-section {
+    max-width: 38em;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 2em;
+}
+
+header {
+    background-size: 100% 100%;
+    height: 500px;
+    font-size: 20px;
+}
+
+body {
+  color: white;
+  background-color: black;
+  font-family: Helvetica, sans-serif;
+  font-size: 1em;
+}
+
+.social > li {
+  display: inline-block;
+  padding-right: 2em;
+}
+
+.contact-section > h2 {
+    font-family: Georgia, serif;
+    font-size: 1.2em;
+    font-weight: bold;
+    margin: 1em 0 1em 0;
+    padding-left: 2em;
+}
