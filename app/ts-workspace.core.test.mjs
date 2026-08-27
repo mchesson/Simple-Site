@@ -59,8 +59,8 @@ ok('renders the app chrome', await page.locator('.brand b').first().isVisible())
 await page.click('nav.tabs button[data-v="desk"]');
 await page.waitForTimeout(80);
 ok('app is branded TS Workspace', (await page.locator('.brand b').first().textContent()).trim() === 'TS Workspace');
-ok('sidebar nav has all six sections', (await page.locator('nav.tabs button').count()) === 6);
-ok('sidebar nav items carry real icons', (await page.locator('nav.tabs button svg').count()) === 6);
+ok('sidebar nav has all seven sections', (await page.locator('nav.tabs button').count()) === 7);
+ok('sidebar nav items carry real icons', (await page.locator('nav.tabs button svg').count()) === 7);
 ok('candidate rows show avatars', true);
 ok('shows sample-data banner', (await page.locator('.banner').count()) === 1);
 const tileVals = await page.locator('.tile .val').allTextContents();

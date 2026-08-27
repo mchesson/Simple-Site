@@ -473,6 +473,11 @@ a.chip.act:hover{text-decoration:none}
 .docrow .rrow{flex:1; margin-bottom:.35rem}
 .docrow > a.btn{flex-shrink:0; margin-bottom:.35rem; text-decoration:none}
 
+.chip.act.on{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+.chip.act b{font-weight:700; opacity:.65; margin-left:.1rem}
+.chip.act.on b{opacity:.8}
+td.mono{font-size:.8125rem}
+
 footer.ft{
   margin-top:2.25rem; padding-top:1.25rem; border-top:1px solid var(--line);
   color:var(--faint); font-size:.8125rem; max-width:78ch; line-height:1.6;
@@ -639,12 +644,12 @@ function loadState(){
 let S = loadState() || seedState();
 
 /* ---------- UI state (per viewer, survives the save-reload) ---------- */
-let UI = { view:"ask", sel:null, q:"", jobFilter:"Open", modal:null, md:null, err:null, focusId:null };
+let UI = { view:"ask", sel:null, q:"", jobFilter:"Open", docKind:"", modal:null, md:null, err:null, focusId:null };
 try{
   const st = sessionStorage.getItem("pd_ui");
   if(st) UI = Object.assign(UI, JSON.parse(st), { modal:null, md:null, err:null });
 }catch(e){}
-function saveUI(){ try{ sessionStorage.setItem("pd_ui", JSON.stringify({ view:UI.view, sel:UI.sel, q:UI.q, jobFilter:UI.jobFilter })); }catch(e){} }
+function saveUI(){ try{ sessionStorage.setItem("pd_ui", JSON.stringify({ view:UI.view, sel:UI.sel, q:UI.q, jobFilter:UI.jobFilter, docKind:UI.docKind })); }catch(e){} }
 
 let READONLY = false;
 let NOSAVE = false;
@@ -741,7 +746,8 @@ const ICONS = {
   jobs:'<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M3 12h18"/>',
   cands:'<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 20c0-3.1 2.5-5.3 5.5-5.3s5.5 2.2 5.5 5.3"/><path d="M16.5 6.2a3 3 0 0 1 0 5.6"/><path d="M18 14.9c1.7.7 2.8 2.3 2.8 4.4"/>',
   orgs:'<rect x="4" y="4" width="10" height="16" rx="1.8"/><path d="M14 9h5.5a.5.5 0 0 1 .5.5V20"/><path d="M7 8h4M7 12h4M7 16h4M17 13h1M17 16.5h1"/>',
-  place:'<path d="M20.5 6.5 10 17l-5.5-5.5"/>'
+  place:'<path d="M20.5 6.5 10 17l-5.5-5.5"/>',
+  docs:'<path d="M6 3.5h7.5L18.5 8v12.5H6z"/><path d="M13.5 3.5V8h5"/><path d="M9 12.5h6M9 16h4"/>'
 };
 function icon(k){
   return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '+
@@ -784,6 +790,7 @@ function topBar(){
       tab("jobs","Jobs", S.jobs.filter(j=>j.status==="Open").length)+
       tab("cands","Candidates", candidates().length)+
       tab("orgs","Accounts", S.orgs.filter(o=>!o.archived).length)+
+      tab("docs","Documents", (S.docs||[]).length)+
       tab("place","Placements", m.activePl.length)+
     '</nav>'+
     '<div class="sidefoot"><div class="status'+(SAVING?" busy":"")+'" id="status">'+esc(statusText())+'</div></div>'+
@@ -1410,6 +1417,8 @@ function modalHtml(){
             options:ls.map(l=>({v:l.id,l:l.name})),
             hint:"Account-wide, or one location only."})+
         '</div>'+
+        '<div class="note"><span class="w">Folder</span>'+esc(spPlannedPath(doc.kind, doc.orgId?orgName(doc.orgId):null))+
+          (doc.personId?' · attached to '+esc((person(doc.personId)||{}).name||""):"")+'</div>'+
         fld("link","Link to the original",doc.link||"",{ph:"https://…sharepoint.com/…",
           hint:"The file itself lives in SharePoint or Drive. Paste its link so anyone can open it."})+
         '<div class="note"><span class="w">Stored text — searchable</span>'+
@@ -2131,7 +2140,29 @@ function resolveOrg(name){
   S.orgs.push(o);
   return { org: o, created: true };
 }
-function commitDraft(id){
+/* files the resume against the person, and sends the original to Resumes/ */
+async function attachResumeDoc(f, pers){
+  const rd = f && f._doc;
+  if(!rd || !rd.text) return "";
+  const doc = addDoc({ name: rd.name, kind: "Resume", size: rd.text.length,
+    personId: pers.id, orgId: null, locationId: null, scope: "person", text: rd.text });
+  logChange("doc", doc.id, doc.name, [{ f:"filed", from:"—", to:"Resumes · " + pers.name }]);
+  const file = rd.ftok ? PENDING_FILES[rd.ftok] : null;
+  if(rd.ftok) delete PENDING_FILES[rd.ftok];
+  if(file && spCan(SP_TOOLS.upload) && spWriteState() !== "blocked" && S.sharepoint && S.sharepoint.driveId){
+    if(file.size > SP_UPLOAD_CAP) return " The resume text is filed under **Resumes**; the original is over the 1 MB connector limit so it was not uploaded.";
+    const up = await spUploadOriginal(file, { kind:"Resume" });
+    if(up.ok){
+      doc.link = up.webUrl || null; doc.spItemId = up.itemId || null;
+      doc.spUri = up.uri || null; doc.spDriveId = S.sharepoint.driveId; doc.spPath = up.path || null;
+      return " The resume is filed under **" + (up.path || "Resumes") + "** in SharePoint and linked to them.";
+    }
+    if(up.err) return " The resume text is filed under **Resumes**. I could not save the original: " + spErr(up.err).d;
+    if(up.blockedPath) return " The resume text is filed under **Resumes** here. I could not create that folder in SharePoint — " + spWriteNote();
+  }
+  return " The resume is filed under **Resumes** and attached to them.";
+}
+async function commitDraft(id){
   const d = CHAT.drafts[id];
   if(!d) return;
   const f = d.fields;
@@ -2146,11 +2177,12 @@ function commitDraft(id){
       if(ch.length) logChange("person", dupe.id, dupe.name, ch);
       delete CHAT.drafts[id];
       CHAT.msgs = CHAT.msgs.filter(msg => !(msg.k === "draft" && msg.d.id === id));
+      const rn1 = await attachResumeDoc(f, dupe);
       push("as", "saved", {
         text: "**" + dupe.name + "** was already here as " + wasRoles + "." +
               (added ? " I added the **candidate** role to that same record rather than creating a duplicate." : " No new record was needed.") +
               (ch.length ? " I also filled in " + ch.map(c => c.f).join(", ") + "." : "") +
-              " Nothing was overwritten.",
+              " Nothing was overwritten." + rn1,
         link: { type: "candidate", id: dupe.id, name: dupe.name, view: "cands" }
       });
       saveChat(); render(); save();
@@ -2163,6 +2195,7 @@ function commitDraft(id){
       orgId: null, lastContact: nowISO(), createdAt: nowISO() };
     S.people.push(p);
     logChange("person", p.id, p.name, [{ f: "created", from: "—", to: "candidate" }]);
+    extra += await attachResumeDoc(f, p);
     created = { type: "candidate", id: p.id, name: p.name, view: "cands" };
   }
   else if(d.kind === "contact"){
@@ -2271,7 +2304,9 @@ async function intakeFiles(files){
     const kindGuess = detectDocKind(text, file.name);
     const parsedTry = parseResume(text, file.name);
     if(kindGuess === "Resume" || looksLikeResume(text, parsedTry)){
-      ingestResumeText(text, file.name);
+      const rtok = uid("f");
+      PENDING_FILES[rtok] = file;
+      ingestResumeText(text, file.name, rtok);
     }else{
       if(stateBytes() > STATE_SOFT_CAP){
         say("This workspace is getting large, so I did not store the text of **"+esc(file.name)+"**. Keep the original in SharePoint and paste its link on the document record instead.");
@@ -2285,8 +2320,9 @@ async function intakeFiles(files){
     }
   }
 }
-function ingestResumeText(text, filename){
+function ingestResumeText(text, filename, ftok){
   const f = parseResume(text, filename || "pasted text");
+  f._doc = { name: filename || "pasted resume.txt", kind: "Resume", text: text, ftok: ftok || null };
   f.notes = "Imported from " + (filename || "pasted text") + ".";
   const found = [];
   if(f.name) found.push("name");
@@ -2634,19 +2670,24 @@ async function fileDocToOrg(doc, o, loc, createdOrg){
       upNote = " The original is over 1 MB, which is this connector's limit, so only the text is here. Put the file in **" +
                S.sharepoint.name + "** yourself and I can link it.";
     }else{
-      const up = await spUploadOriginal(file);
+      const up = await spUploadOriginal(file, { kind:d.kind, orgName:o.name });
       if(up.ok){
         d.link = up.webUrl || d.link;
         d.spItemId = up.itemId || null;
         d.spUri = up.uri || null;
         d.spDriveId = S.sharepoint.driveId;
-        upNote = " The original is saved in **" + S.sharepoint.name + "** and linked here.";
+        d.spPath = up.path || null;
+        upNote = " The original is saved in **" + S.sharepoint.name + "/" + (up.path || "") + "** and linked here.";
       }else if(up.err){
         upNote = " I could not save the original: " + spErr(up.err).d;
+      }else if(up.blockedPath){
+        upNote = " The original is not saved: I could not create the **" + up.blockedPath + "** folder. " + spWriteNote();
       }
     }
   }else if(file){
-    upNote = " Only the text is stored here — the original stays on your machine. " + spWriteNote();
+    upNote = " It belongs in **" + spPlannedPath(d.kind, o.name) + "**. Only the text is stored here — the original stays on your machine. " + spWriteNote();
+  }else{
+    upNote = " It is filed under **" + spPlannedPath(d.kind, o.name) + "**.";
   }
   push("as", "saved", {
     text: "Filed **" + d.name + "** (" + d.kind + ") against **" + o.name + "**" +
@@ -3319,7 +3360,8 @@ function timelineCard(p){
    ============================================================ */
 const SP_SERVER = "Microsoft 365";
 const SP_TOOLS = { search:"sharepoint_search", folders:"sharepoint_folder_search",
-                   read:"read_resource", upload:"sharepoint_upload_file" };
+                   read:"read_resource", upload:"sharepoint_upload_file",
+                   create:"sharepoint_create_folder" };
 const SP_TEXT_CAP = 60000;
 const SP_UPLOAD_CAP = 1048576;   /* the connector's hard limit */
 
@@ -3597,23 +3639,34 @@ function fileToBase64(file){
 /* Returns {ok,webUrl} | {skipped:reason} | {err}. The success path has not been
    exercised against a live tenant: this connector's writes require
    Files.ReadWrite.All, which was denied when built. */
-async function spUploadOriginal(file){
+async function spUploadOriginal(file, ctx){
+  ctx = ctx || {};
   if(!spCan(SP_TOOLS.upload)) return { skipped:"unavailable" };
   if(!S.sharepoint || !S.sharepoint.driveId) return { skipped:"no-target" };
   if(file.size > SP_UPLOAD_CAP) return { skipped:"too-big" };
   let b64;
   try{ b64 = await fileToBase64(file); }catch(e){ return { skipped:"unreadable" }; }
+
+  /* put it in the folder for its type, creating the path if needed */
+  const path = spPlannedPath(ctx.kind || "Other", ctx.orgName || null);
+  let target = { driveId:S.sharepoint.driveId, itemId:S.sharepoint.itemId || null, name:S.sharepoint.name };
+  let pathNote = "";
+  const ep = await spEnsurePath(path);
+  if(ep.folder){ target = ep.folder; pathNote = path; }
+  else if(ep.err) return { err:ep.err, wanted:path };
+  else return { blockedPath:path, reason:ep.blocked };
+
   try{
     const r = await MCP.callTool(SP_SERVER, SP_TOOLS.upload, {
-      driveId: S.sharepoint.driveId,
-      parentItemId: S.sharepoint.itemId || null,
+      driveId: target.driveId,
+      parentItemId: target.itemId || null,
       filename: file.name,
       contentBase64: b64,
       conflictBehavior: "rename"
     });
     const p = parseJsonStream(r && r.payload)[0] || {};
     setSpWriteState("ok");
-    return { ok:true, webUrl:p.webUrl || null, itemId:p.id || null, uri:p.uri || null };
+    return { ok:true, webUrl:p.webUrl || null, itemId:p.id || null, uri:p.uri || null, path:pathNote };
   }catch(e){
     let blob = (e && e.message) || "";
     try{ blob += " " + JSON.stringify(e && e.result); }catch(x){}
@@ -3673,6 +3726,9 @@ function trySharePoint(text){
     spSearchFor(o.name, o.id, { limit:10 });
     return true;
   }
+  if(/^\s*(?:set\s*up|create|make|build)\s+(?:the\s+)?(?:sharepoint\s+)?(?:document\s+)?folders?\b/i.test(text)){
+    spSetUpFolders(); return true;
+  }
   m = text.match(/^\s*(?:set|choose|pick)\s+(?:the\s+)?(?:sharepoint\s+)?(?:folder|destination|upload folder)\s*(?:to|:)?\s*(.+)$/i);
   if(m){ spPickFolder(m[1].trim()); return true; }
 
@@ -3691,10 +3747,187 @@ function trySharePoint(text){
   return false;
 }
 
+/* ============================================================
+   DOCUMENT FILING
+   One folder per document type. Account paperwork also gets an
+   account subfolder; resumes sit in one Resumes folder.
+
+     Resumes/
+     MSAs/<Account>/            Exhibits/<Account>/
+     SOWs/<Account>/            NDAs/<Account>/
+     Right to Represent/<Account>/
+     Rate Sheets/<Account>/     Purchase Orders/<Account>/
+     Other Documents/<Account>/
+
+   Creating these needs write access to SharePoint. Until an
+   administrator consents to Files.ReadWrite.All the scheme still
+   governs how documents are organised inside the workspace, and
+   folder creation reports exactly what is blocking it.
+   ============================================================ */
+const SP_FOLDER = {
+  "Resume":"Resumes", "MSA":"MSAs", "SOW":"SOWs", "Exhibit":"Exhibits",
+  "NDA":"NDAs", "RTR":"Right to Represent", "Rate sheet":"Rate Sheets",
+  "PO":"Purchase Orders", "Other":"Other Documents"
+};
+const spFolderFor = kind => SP_FOLDER[kind] || SP_FOLDER.Other;
+/* resumes are about a person, not an account, so they do not get an account subfolder */
+const spNeedsAccountFolder = kind => kind !== "Resume";
+function spPlannedPath(kind, orgNm){
+  const top = spFolderFor(kind);
+  return (spNeedsAccountFolder(kind) && orgNm) ? top + "/" + orgNm : top;
+}
+
+/* Find an existing child folder by name under a known parent, using the
+   folder search (clean JSON) rather than parsing a folder listing — that
+   listing is a display string with no delimiter between entries. */
+async function spFindChildFolder(name, parent){
+  if(!spCan(SP_TOOLS.folders)) return null;
+  let res;
+  try{
+    res = await MCP.callTool(SP_SERVER, SP_TOOLS.folders, { name:name, limit:25 }, { cache:{ staleTime:30000 } });
+  }catch(e){ return null; }
+  const wantBase = String(parent.webUrl || "").replace(/\/+$/, "");
+  const rows = parseJsonStream(res && res.payload).filter(r => r && r.name && r.driveId);
+  return rows.find(r =>
+    r.driveId === parent.driveId &&
+    String(r.name).toLowerCase() === String(name).toLowerCase() &&
+    (!wantBase || String(r.webUrl || "").replace(/\/+$/, "").toLowerCase() === (wantBase + "/" + name).toLowerCase())
+  ) || null;
+}
+/* Resolve (and create when missing) one level. Returns {folder} | {err} | {blocked} */
+async function spEnsureFolder(name, parent){
+  const found = await spFindChildFolder(name, parent);
+  if(found) return { folder:{ driveId:found.driveId, itemId:found.id, name:found.name, webUrl:found.webUrl }, created:false };
+  if(!spCan(SP_TOOLS.create)) return { blocked:"no-tool" };
+  if(spWriteState() === "blocked") return { blocked:"permission" };
+  try{
+    const r = await MCP.callTool(SP_SERVER, SP_TOOLS.create, {
+      driveId: parent.driveId, parentItemId: parent.itemId || null, name: name, conflictBehavior: "rename"
+    });
+    const p = parseJsonStream(r && r.payload)[0] || {};
+    setSpWriteState("ok");
+    return { folder:{ driveId: p.driveId || parent.driveId, itemId: p.id || null, name: p.name || name, webUrl: p.webUrl || null }, created:true };
+  }catch(e){
+    let blob = (e && e.message) || "";
+    try{ blob += " " + JSON.stringify(e && e.result); }catch(x){}
+    if(e && e.code === "tool_error" && /Files\.ReadWrite\.All|accessDenied|FORBIDDEN/i.test(blob)) setSpWriteState("blocked");
+    return { err:e };
+  }
+}
+/* Walk a slash-separated path from the destination root. */
+async function spEnsurePath(path){
+  if(!S.sharepoint || !S.sharepoint.driveId) return { blocked:"no-target" };
+  let parent = { driveId:S.sharepoint.driveId, itemId:S.sharepoint.itemId || null,
+                 name:S.sharepoint.name, webUrl:S.sharepoint.webUrl };
+  const made = [];
+  for(const seg of String(path).split("/").filter(Boolean)){
+    const r = await spEnsureFolder(seg, parent);
+    if(r.blocked) return { blocked:r.blocked, reached:parent, remaining:seg };
+    if(r.err) return { err:r.err, reached:parent, remaining:seg };
+    if(r.created) made.push(r.folder.name);
+    parent = r.folder;
+  }
+  return { folder:parent, made:made };
+}
+
+/* Create the whole scheme up front. Reports precisely what blocked it. */
+async function spSetUpFolders(){
+  if(!S.sharepoint || !S.sharepoint.driveId){
+    say("Tell me where first — “set the sharepoint folder to <name>”, then I can build the structure inside it.");
+    return finishTurn();
+  }
+  const wanted = [];
+  Object.keys(SP_FOLDER).forEach(k => { const f = SP_FOLDER[k]; if(wanted.indexOf(f) < 0) wanted.push(f); });
+  say("Setting up document folders in **" + esc(S.sharepoint.name) + "**…");
+  render();
+  const made = [], existed = [], failed = [];
+  let blockErr = null;
+  for(const name of wanted){
+    const r = await spEnsurePath(name);
+    if(r.folder && r.made && r.made.length) made.push(name);
+    else if(r.folder) existed.push(name);
+    else { failed.push(name); blockErr = blockErr || r; }
+  }
+  CHAT.msgs = CHAT.msgs.filter(m => !(m.k === "text" && m.d.text.indexOf("Setting up document folders") === 0));
+  let out = "";
+  if(made.length)   out += "Created " + made.map(n => "**"+n+"**").join(", ") + ". ";
+  if(existed.length) out += "Already there: " + existed.map(n => "**"+n+"**").join(", ") + ". ";
+  if(failed.length){
+    const why = blockErr && blockErr.err ? spErr(blockErr.err).d
+      : blockErr && blockErr.blocked === "permission"
+        ? "Creating folders needs the Files.ReadWrite.All permission, which a Microsoft 365 administrator has to consent to for the Claude connector."
+      : blockErr && blockErr.blocked === "no-tool"
+        ? "This connector does not offer folder creation."
+      : "I could not create them.";
+    out += "\n\nI could not create " + failed.length + " folder" + (failed.length===1?"":"s") + " — " + why +
+           "\n\nThe scheme still applies inside this workspace: every document is filed by type, and the type each one belongs to is shown against it. " +
+           "You can also create these by hand in **" + S.sharepoint.name + "** and I will use them:\n\n" +
+           failed.map(n => "· " + n).join("\n");
+  }
+  say(out || "Nothing to do.");
+  render(); save();
+}
+
+/* ---------- the in-app document library ---------- */
+function docKindCounts(){
+  const c = {};
+  DOC_KINDS.forEach(k => { c[k] = 0; });
+  (S.docs || []).forEach(d => { c[d.kind] = (c[d.kind] || 0) + 1; });
+  return c;
+}
+function docOwnerLabel(d){
+  if(d.personId){ const p = person(d.personId); return p ? p.name : "—"; }
+  if(d.orgId) return orgName(d.orgId) + (d.locationId ? " · " + locLabel(d.locationId) : "");
+  return "unfiled";
+}
+function viewDocs(){
+  const kind = UI.docKind || "";
+  const q = (UI.q || "").trim().toLowerCase();
+  let list = (S.docs || []).slice().reverse();
+  if(kind) list = list.filter(d => d.kind === kind);
+  if(q) list = list.filter(d => (d.name + " " + d.kind + " " + docOwnerLabel(d) + " " + (d.text || "")).toLowerCase().includes(q));
+  const counts = docKindCounts();
+  const chips = '<div class="chips" style="margin-bottom:1rem">'+
+    '<button class="chip act'+(kind===""?" on":"")+'" data-a="docKind" data-v="">All <b>'+(S.docs||[]).length+'</b></button>'+
+    DOC_KINDS.filter(k => counts[k]).map(k =>
+      '<button class="chip act'+(kind===k?" on":"")+'" data-a="docKind" data-v="'+esc(k)+'">'+
+        esc(k)+' <b>'+counts[k]+'</b></button>').join("")+
+  '</div>';
+  const body = list.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Document</th><th>Type</th><th>Filed against</th><th>Folder</th><th class="num">Added</th><th></th>'+
+    '</tr></thead><tbody>'+
+    list.map(d => '<tr class="clk" data-a="openDoc" data-id="'+d.id+'">'+
+      '<td><div class="who"><span class="av s '+avClass(d.kind)+'">'+esc(d.kind.slice(0,2).toUpperCase())+'</span>'+
+        '<div class="t"><span class="nm">'+esc(d.name)+'</span>'+
+        (d.text?'<br><span class="sec">'+esc(d.text.slice(0,64).replace(/\s+/g," "))+'…</span>':"")+'</div></div></td>'+
+      '<td><span class="pill '+(d.kind==="Resume"?"a":"m")+'">'+esc(d.kind)+'</span></td>'+
+      '<td>'+esc(docOwnerLabel(d))+'</td>'+
+      '<td class="sec mono">'+esc(spPlannedPath(d.kind, d.orgId?orgName(d.orgId):null))+'</td>'+
+      '<td class="num sec">'+esc(fmtDate(d.at))+'</td>'+
+      '<td class="num">'+(d.link?'<a class="btn sm" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open</a>':'<span class="sec">no original</span>')+'</td>'+
+    '</tr>').join("")+'</tbody></table></div>'
+    : emptyBox(q||kind?"Nothing here":"No documents yet",
+        q||kind?"Try a different type or clear the search.":"Drop a resume or an agreement anywhere on the page and I will read it and file it by type.",
+        '<button class="btn pri" data-a="pickFile">Upload a document</button>');
+  const dest = S.sharepoint
+    ? 'Originals go to <b>'+esc(S.sharepoint.name)+'</b> · '+esc(spWriteNote())
+    : 'No SharePoint destination set. Say “set the sharepoint folder to &lt;name&gt;” to choose one.';
+  return '<div class="ph"><h1>Documents</h1><span class="sub">'+list.length+' of '+(S.docs||[]).length+'</span>'+
+    '<span class="sp">'+
+      (S.sharepoint?'<button class="btn" data-a="spSetupFolders">Set up folders</button>':"")+
+      '<button class="btn pri" data-a="pickFile">Upload a document</button>'+
+    '</span></div>'+
+    '<div class="ro-note" style="margin-bottom:1rem">'+dest+'</div>'+
+    chips+
+    '<div class="search"><input type="search" id="q" data-a="q" placeholder="Search names, types, or inside the text…" value="'+esc(UI.q||"")+'"></div>'+
+    '<section class="card"><div class="card-b flush">'+body+'</div></section>';
+}
+
 /* ---------- render ---------- */
 function viewHtml(){
   switch(UI.view){
     case "ask": return viewAsk();
+    case "docs": return viewDocs();
     case "jobs": return viewJobs();
     case "cands": return viewCands();
     case "orgs": return viewOrgs();
@@ -4015,7 +4248,7 @@ function handleSubmitForm(form){
     heard("Pasted: " + fname);
     const kindGuess = detectDocKind(v.text, fname);
     const parsed = parseResume(v.text, fname);
-    if(kindGuess === "Resume" || looksLikeResume(v.text, parsed)) ingestResumeText(v.text, fname);
+    if(kindGuess === "Resume" || looksLikeResume(v.text, parsed)) ingestResumeText(v.text, fname, null);
     else { askWhereToFile({ name:fname, kind:kindGuess, size:v.text.length, text:v.text }); finishTurn(); }
     return;
   }
@@ -4173,6 +4406,8 @@ document.addEventListener("click", function(e){
     case "spFind":          { const o = org(id); if(o){ UI.view="ask"; saveUI(); heard("find agreements for "+o.name); spSearchFor(o.name, o.id, { limit:10 }); } return; }
     case "spAttach":        spAttach(id, true); return;
     case "spSetFolder":     spSetFolder(id); return;
+    case "spSetupFolders":  { UI.view="ask"; saveUI(); heard("set up the sharepoint folders"); spSetUpFolders(); return; }
+    case "docKind":         UI.docKind = t.dataset.v; UI.q=""; saveUI(); render(); return;
     case "pickFile":        { const fi = document.getElementById("filein"); if(fi) fi.click(); return; }
     case "pasteResume":     modal("pasteResume", {}); return;
     case "whoami":          modal("whoami", {}); return;
@@ -4284,7 +4519,7 @@ document.addEventListener("drop", function(e){
 /* ---------- boot ---------- */
 migrateState();
 if(!S.docs) S.docs = [];
-if(!UI.view || ["desk","jobs","cands","orgs","place","ask"].indexOf(UI.view) < 0) UI.view = "ask";
+if(!UI.view || ["desk","jobs","cands","orgs","place","ask","docs"].indexOf(UI.view) < 0) UI.view = "ask";
 render();
 getApi().then(function(api){
   if(!api){ NOSAVE = true; render(); }
