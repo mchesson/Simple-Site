@@ -55,14 +55,20 @@ async function newPage(html, opts){
 // ---------- 1. first load of the authored file ----------
 let { page, ctx, errs } = await newPage(wrap(authored));
 ok('authored file loads with no JS errors', errs.length === 0, errs.join(' | '));
-ok('renders the app chrome', await page.locator('.logo b').first().isVisible());
+ok('renders the app chrome', await page.locator('.brand b').first().isVisible());
+await page.click('nav.tabs button[data-v="desk"]');
+await page.waitForTimeout(80);
+ok('app is branded TS Workspace', (await page.locator('.brand b').first().textContent()).trim() === 'TS Workspace');
+ok('sidebar nav has all six sections', (await page.locator('nav.tabs button').count()) === 6);
+ok('sidebar nav items carry real icons', (await page.locator('nav.tabs button svg').count()) === 6);
+ok('candidate rows show avatars', true);
 ok('shows sample-data banner', (await page.locator('.banner').count()) === 1);
 const tileVals = await page.locator('.tile .val').allTextContents();
 ok('desk shows stat tiles', tileVals.length >= 4, JSON.stringify(tileVals));
 ok('weekly GM tile is a dollar figure', /^\$[\d,]+$/.test(tileVals[3]||''), tileVals[3]);
 
 // ---------- 2. navigation ----------
-for (const [label, sel] of [['Jobs','jobs'],['Candidates','cands'],['Companies','orgs'],['Placements','place']]) {
+for (const [label, sel] of [['Jobs','jobs'],['Candidates','cands'],['Accounts','orgs'],['Placements','place'],['Assistant','ask']]) {
   await page.click(`nav.tabs button[data-v="${sel}"]`);
   await page.waitForTimeout(60);
   const h = await page.locator('.ph h1').first().textContent();
@@ -210,7 +216,8 @@ ok('clearing publishes an empty desk',
    JSON.stringify(st4 && {p:st4.people.length,j:st4.jobs.length,o:st4.orgs.length,sample:st4.sample}));
 const r5 = await newPage(pub4);
 ok('empty desk loads clean', r5.errs.length === 0, r5.errs.join(' | '));
-const emptyTxt = await r5.page.locator('.wrap').innerText();
+await r5.page.click('nav.tabs button[data-v="desk"]');
+await r5.page.waitForTimeout(80);
 ok('empty desk has no sample banner', (await r5.page.locator('.banner').count()) === 0);
 ok('empty desk still shows tiles', (await r5.page.locator('.tile').count()) >= 4);
 await r5.page.click('nav.tabs button[data-v="cands"]');

@@ -1,0 +1,3782 @@
+<title>TS Workspace</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style id="app-css">
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+:root{
+  --bg:#F5F4F1; --surface:#FFFFFF; --surface-2:#F0EEE9; --surface-3:#E7E4DC;
+  --glass:rgba(245,244,241,.82);
+  --ink:#15140F; --ink-2:#3A3833; --muted:#6C6862; --faint:#9C978E;
+  --line:#E7E4DC; --line-soft:#F0EEE9; --line-strong:#D8D4CA;
+  --accent:#2B4BFF; --accent-2:#1B37DB; --accent-ink:#FFFFFF; --accent-soft:#EBEEFF;
+  --pos:#047857; --pos-soft:#E2F4EC;
+  --warn:#B45309; --warn-soft:#FBEEDC;
+  --neg:#BE123C; --neg-soft:#FBE7EC;
+  --sh-xs:0 1px 2px rgba(21,20,15,.05);
+  --sh-sm:0 1px 2px rgba(21,20,15,.04),0 2px 6px rgba(21,20,15,.04);
+  --sh-md:0 2px 6px rgba(21,20,15,.06),0 12px 32px rgba(21,20,15,.10);
+  --sh-pri:0 1px 2px rgba(43,75,255,.22),0 4px 14px rgba(43,75,255,.20);
+  --av1:#EBEEFF; --av1i:#2439C4; --av2:#E4F3EC; --av2i:#0A6A4A;
+  --av3:#FCEAE1; --av3i:#A44A16; --av4:#F3E9FB; --av4i:#6B33A6;
+  --av5:#FDE8EE; --av5i:#A81643; --av6:#E3F1F8; --av6i:#12607F;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0E0E11; --surface:#17171B; --surface-2:#1F1F24; --surface-3:#292930;
+    --glass:rgba(14,14,17,.82);
+    --ink:#F3F2EF; --ink-2:#D2D0CB; --muted:#9A9791; --faint:#6E6B66;
+    --line:#26262C; --line-soft:#1F1F24; --line-strong:#33333B;
+    --accent:#8092FF; --accent-2:#9AA8FF; --accent-ink:#0B0D1F; --accent-soft:#1A1E33;
+    --pos:#34D399; --pos-soft:#10241D;
+    --warn:#F0B354; --warn-soft:#2A2114;
+    --neg:#FB7185; --neg-soft:#2E1720;
+    --sh-xs:0 1px 2px rgba(0,0,0,.5);
+    --sh-sm:0 1px 2px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
+    --sh-md:0 2px 8px rgba(0,0,0,.55),0 16px 40px rgba(0,0,0,.5);
+    --sh-pri:0 1px 2px rgba(0,0,0,.5),0 4px 14px rgba(128,146,255,.22);
+    --av1:#1C2140; --av1i:#A9B5FF; --av2:#12291F; --av2i:#5BD6A4;
+    --av3:#33210F; --av3i:#F0AE72; --av4:#271A38; --av4i:#C39BEE;
+    --av5:#331521; --av5i:#F58BA6; --av6:#122733; --av6i:#77C6E8;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0E0E11; --surface:#17171B; --surface-2:#1F1F24; --surface-3:#292930;
+  --glass:rgba(14,14,17,.82);
+  --ink:#F3F2EF; --ink-2:#D2D0CB; --muted:#9A9791; --faint:#6E6B66;
+  --line:#26262C; --line-soft:#1F1F24; --line-strong:#33333B;
+  --accent:#8092FF; --accent-2:#9AA8FF; --accent-ink:#0B0D1F; --accent-soft:#1A1E33;
+  --pos:#34D399; --pos-soft:#10241D;
+  --warn:#F0B354; --warn-soft:#2A2114;
+  --neg:#FB7185; --neg-soft:#2E1720;
+  --sh-xs:0 1px 2px rgba(0,0,0,.5);
+  --sh-sm:0 1px 2px rgba(0,0,0,.5),0 2px 6px rgba(0,0,0,.35);
+  --sh-md:0 2px 8px rgba(0,0,0,.55),0 16px 40px rgba(0,0,0,.5);
+  --sh-pri:0 1px 2px rgba(0,0,0,.5),0 4px 14px rgba(128,146,255,.22);
+  --av1:#1C2140; --av1i:#A9B5FF; --av2:#12291F; --av2i:#5BD6A4;
+  --av3:#33210F; --av3i:#F0AE72; --av4:#271A38; --av4i:#C39BEE;
+  --av5:#331521; --av5i:#F58BA6; --av6:#122733; --av6i:#77C6E8;
+}
+body{
+  background:var(--bg); color:var(--ink);
+  font-family:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  font-size:15px; line-height:1.55; letter-spacing:-.005em;
+  -webkit-font-smoothing:antialiased;
+}
+.mono,.num,td.num,th.num{font-family:"JetBrains Mono",ui-monospace,SFMono-Regular,monospace; font-variant-numeric:tabular-nums; letter-spacing:-.02em}
+button{font-family:inherit; font-size:inherit; cursor:pointer}
+input,select,textarea{font-family:inherit; font-size:inherit}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important; animation:none!important}}
+a{color:var(--accent); text-decoration:none}
+a:hover{text-decoration:underline}
+
+/* ---------- app shell ---------- */
+.app{display:grid; grid-template-columns:15.5rem minmax(0,1fr); min-height:100vh}
+.side{
+  background:var(--surface); border-right:1px solid var(--line);
+  padding:1.35rem 1rem; position:sticky; top:0; height:100vh;
+  display:flex; flex-direction:column; gap:1.6rem;
+}
+.brand{display:flex; align-items:center; gap:.7rem; padding:0 .3rem}
+.brand .mark{
+  width:36px; height:36px; border-radius:11px; background:var(--accent); color:var(--accent-ink);
+  display:grid; place-items:center; font-weight:800; font-size:.875rem; letter-spacing:-.03em;
+  box-shadow:var(--sh-pri); flex-shrink:0;
+}
+.brand .nm{min-width:0}
+.brand b{display:block; font-size:1.0625rem; font-weight:700; letter-spacing:-.03em; line-height:1.2}
+.brand small{display:block; font-size:.75rem; color:var(--faint); font-weight:500}
+nav.tabs{display:flex; flex-direction:column; gap:.15rem}
+nav.tabs button{
+  display:flex; align-items:center; gap:.7rem; width:100%; text-align:left;
+  padding:.55rem .7rem; border:0; background:transparent; border-radius:10px;
+  color:var(--muted); font-weight:600; font-size:.9375rem; letter-spacing:-.01em;
+  transition:background .13s ease, color .13s ease;
+}
+nav.tabs button svg{width:18px; height:18px; flex-shrink:0; opacity:.9}
+nav.tabs button:hover{background:var(--surface-2); color:var(--ink)}
+nav.tabs button[aria-current="page"]{background:var(--accent); color:var(--accent-ink); box-shadow:var(--sh-pri)}
+nav.tabs button[aria-current="page"] svg{opacity:1}
+nav.tabs .cnt{margin-left:auto; font-size:.75rem; font-weight:700; opacity:.72; font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums}
+.sidefoot{margin-top:auto; display:grid; gap:.5rem}
+.status{font-size:.75rem; color:var(--muted); min-height:1.1em; padding:0 .3rem}
+.status.busy{color:var(--accent)}
+.status.bad{color:var(--neg)}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{
+    position:sticky; top:0; height:auto; flex-direction:row; align-items:center;
+    gap:1rem; border-right:0; border-bottom:1px solid var(--line);
+    padding:.7rem .9rem; overflow-x:auto; z-index:50;
+  }
+  .brand small{display:none}
+  nav.tabs{flex-direction:row; gap:.2rem}
+  nav.tabs button{white-space:nowrap; padding:.45rem .65rem}
+  nav.tabs button span.lbl{display:none}
+  nav.tabs button[aria-current="page"] span.lbl{display:inline}
+  .sidefoot{display:none}
+}
+
+/* ---------- page header + body ---------- */
+main{min-width:0; display:flex; flex-direction:column}
+.wrap{padding:1.6rem clamp(1rem,3vw,2.25rem) 5rem; max-width:1440px; width:100%}
+.ph{display:flex; align-items:center; gap:1rem; margin:0 0 1.4rem; flex-wrap:wrap}
+.ph h1{font-size:1.75rem; font-weight:700; letter-spacing:-.035em; margin:0; line-height:1.15}
+.ph .sub{color:var(--muted); font-size:.9375rem; font-weight:500}
+.ph .sp{margin-left:auto; display:flex; gap:.55rem; flex-wrap:wrap; align-items:center}
+.back{
+  display:inline-flex; align-items:center; gap:.4rem; border:0; background:transparent;
+  color:var(--muted); padding:.25rem .5rem .25rem 0; margin-bottom:.5rem;
+  font-size:.875rem; font-weight:600; border-radius:8px;
+}
+.back:hover{color:var(--accent)}
+.eyebrow{font-size:.75rem; font-weight:600; color:var(--faint); letter-spacing:0}
+
+/* ---------- notices ---------- */
+.banner{
+  display:flex; gap:.9rem; align-items:center; background:var(--accent-soft);
+  border:1px solid transparent; padding:.85rem 1rem; margin-bottom:1.4rem;
+  border-radius:12px; font-size:.9375rem; color:var(--ink-2);
+}
+.banner p{margin:0}
+.banner b{color:var(--ink); font-weight:700}
+.banner .sp{margin-left:auto; flex-shrink:0}
+.ro-note{
+  background:var(--surface); border:1px solid var(--line); padding:.85rem 1rem;
+  border-radius:12px; font-size:.9375rem; color:var(--muted); margin-bottom:1.4rem;
+  box-shadow:var(--sh-xs);
+}
+.ro-note b{color:var(--ink)}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
+  padding:.5rem .9rem; border-radius:10px; font-weight:600; font-size:.875rem;
+  white-space:nowrap; box-shadow:var(--sh-xs); letter-spacing:-.01em;
+  transition:background .13s ease, border-color .13s ease, transform .08s ease;
+}
+.btn:hover{background:var(--surface-2)}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:var(--accent); border-color:transparent; color:var(--accent-ink); box-shadow:var(--sh-pri)}
+.btn.pri:hover{background:var(--accent-2)}
+.btn.sm{padding:.3rem .6rem; font-size:.8125rem; border-radius:8px}
+.btn.dgr{color:var(--neg)}
+.btn.dgr:hover{background:var(--neg-soft)}
+.btn.gh{border-color:transparent; background:transparent; box-shadow:none; color:var(--muted)}
+.btn.gh:hover{background:var(--surface-2); color:var(--ink)}
+.btn:disabled{opacity:.45; cursor:not-allowed}
+
+/* ---------- cards ---------- */
+.grid{display:grid; gap:1.1rem}
+.cols2{display:grid; gap:1.1rem; grid-template-columns:minmax(0,1fr); align-items:start}
+@media (min-width:1040px){.cols2{grid-template-columns:1.4fr 1fr}}
+.card{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--sh-sm); overflow:hidden;
+}
+.card-h{padding:1.05rem 1.15rem .85rem; display:flex; align-items:center; gap:.7rem}
+.card-h h2{font-size:1.0625rem; font-weight:700; margin:0; letter-spacing:-.025em}
+.card-h .sp{margin-left:auto; display:flex; gap:.45rem; align-items:center}
+.card-b{padding:0 1.15rem 1.15rem}
+.card-b.flush{padding:0}
+.card-b.flush thead th{border-top:1px solid var(--line)}
+
+/* ---------- stat tiles ---------- */
+.tiles{display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); margin-bottom:1.4rem}
+.tile{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:1.05rem 1.15rem; box-shadow:var(--sh-sm);
+}
+.tile .lab{display:block; font-size:.8125rem; font-weight:600; color:var(--muted); margin-bottom:.45rem}
+.tile .val{
+  display:block; font-size:2.125rem; font-weight:700; letter-spacing:-.04em; line-height:1;
+  font-variant-numeric:tabular-nums; font-family:"Plus Jakarta Sans",system-ui,sans-serif;
+}
+.tile .val.mv{color:var(--pos)}
+.tile .foot{font-size:.8125rem; color:var(--faint); margin-top:.5rem; font-weight:500}
+
+/* ---------- tables ---------- */
+.tw{overflow-x:auto}
+table{border-collapse:collapse; width:100%; font-size:.9375rem}
+th,td{text-align:left; padding:.8rem 1.15rem; vertical-align:middle}
+thead th{
+  font-size:.8125rem; font-weight:600; color:var(--muted); white-space:nowrap;
+  border-bottom:1px solid var(--line); background:transparent; letter-spacing:-.005em;
+}
+tbody td{border-bottom:1px solid var(--line-soft)}
+tbody tr:last-child td{border-bottom:0}
+tbody tr.clk{cursor:pointer; transition:background .1s ease}
+tbody tr.clk:hover{background:var(--surface-2)}
+td.num,th.num{text-align:right; white-space:nowrap}
+td .nm{font-weight:700; letter-spacing:-.015em}
+td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
+.who{display:flex; align-items:center; gap:.7rem; min-width:0}
+.who .t{min-width:0}
+.empty{padding:2.75rem 1.25rem; text-align:center; color:var(--muted); font-size:.9375rem}
+.empty b{display:block; color:var(--ink); font-weight:700; margin-bottom:.35rem; font-size:1.0625rem; letter-spacing:-.02em}
+
+/* ---------- avatars ---------- */
+.av{
+  width:34px; height:34px; border-radius:11px; display:grid; place-items:center;
+  font-size:.8125rem; font-weight:700; flex-shrink:0; letter-spacing:-.02em;
+}
+.av.s{width:26px; height:26px; border-radius:8px; font-size:.6875rem}
+.av1{background:var(--av1); color:var(--av1i)} .av2{background:var(--av2); color:var(--av2i)}
+.av3{background:var(--av3); color:var(--av3i)} .av4{background:var(--av4); color:var(--av4i)}
+.av5{background:var(--av5); color:var(--av5i)} .av6{background:var(--av6); color:var(--av6i)}
+
+/* ---------- pills / chips ---------- */
+.pill{
+  display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem;
+  border-radius:999px; font-size:.8125rem; font-weight:600; white-space:nowrap;
+  letter-spacing:-.01em;
+}
+.pill.n{background:var(--surface-2); color:var(--muted)}
+.pill.a{background:var(--accent-soft); color:var(--accent)}
+.pill.g{background:var(--pos-soft); color:var(--pos)}
+.pill.w{background:var(--warn-soft); color:var(--warn)}
+.pill.r{background:var(--neg-soft); color:var(--neg)}
+.pill.m{background:var(--accent-soft); color:var(--accent)}
+.chips{display:flex; flex-wrap:wrap; gap:.35rem}
+.chip{
+  display:inline-flex; align-items:center; gap:.35rem;
+  background:var(--surface-2); color:var(--ink-2); padding:.2rem .55rem;
+  border-radius:999px; font-size:.8125rem; font-weight:500; white-space:nowrap;
+}
+
+/* ---------- pipeline board ---------- */
+.board{display:grid; gap:.7rem; grid-template-columns:repeat(auto-fit,minmax(168px,1fr))}
+.lane{background:var(--surface-2); border-radius:12px; min-height:96px; display:flex; flex-direction:column}
+.lane-h{
+  padding:.6rem .7rem .4rem; display:flex; gap:.4rem; align-items:center;
+  font-size:.8125rem; font-weight:700; color:var(--ink-2); letter-spacing:-.01em;
+}
+.lane-h .c{
+  margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:.75rem;
+  color:var(--faint); font-variant-numeric:tabular-nums; font-weight:500;
+}
+.lane-b{padding:.35rem .5rem .55rem; display:flex; flex-direction:column; gap:.45rem}
+.pcard{
+  background:var(--surface); border:1px solid var(--line); border-radius:10px;
+  padding:.6rem .65rem; font-size:.875rem; box-shadow:var(--sh-xs);
+}
+.pcard .top{display:flex; align-items:center; gap:.5rem; min-width:0}
+.pcard .nm{font-weight:700; line-height:1.25; letter-spacing:-.015em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.pcard .mt{display:block; color:var(--muted); font-size:.8125rem; margin-top:.3rem; font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums}
+.pcard .acts{display:flex; gap:.3rem; margin-top:.5rem; flex-wrap:wrap}
+.pcard .acts button{
+  border:1px solid var(--line-strong); background:var(--surface-2); border-radius:7px;
+  padding:.18rem .45rem; font-size:.75rem; color:var(--ink-2); font-weight:600; line-height:1.5;
+  transition:background .12s, color .12s, border-color .12s;
+}
+.pcard .acts button:hover{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+.pcard .acts button.x:hover{background:var(--neg); border-color:transparent; color:#fff}
+
+/* ---------- detail lists ---------- */
+.dl{display:grid; grid-template-columns:auto minmax(0,1fr); gap:.55rem 1.1rem; font-size:.9375rem; margin:0}
+.dl dt{color:var(--muted); font-weight:500}
+.dl dd{margin:0; font-weight:600; letter-spacing:-.01em; min-width:0}
+.note{
+  background:var(--surface-2); padding:.7rem .85rem; font-size:.9375rem;
+  color:var(--ink-2); border-radius:10px; margin-bottom:.5rem;
+}
+.note .w{display:block; font-size:.75rem; font-weight:600; color:var(--faint); margin-bottom:.2rem}
+.hist{list-style:none; margin:0; padding:0; font-size:.875rem}
+.hist li{display:flex; gap:.7rem; padding:.35rem 0; border-bottom:1px solid var(--line-soft)}
+.hist li:last-child{border:0}
+.hist .w{font-family:"JetBrains Mono",monospace; color:var(--faint); font-size:.8125rem; flex-shrink:0; width:6.5rem}
+
+/* ---------- search ---------- */
+.search{display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-bottom:1.1rem}
+.search input[type=search],.search input[type=text]{
+  flex:1; min-width:200px; padding:.6rem .85rem; border:1px solid var(--line-strong);
+  border-radius:11px; background:var(--surface); color:var(--ink); box-shadow:var(--sh-xs);
+}
+.search input::placeholder{color:var(--faint)}
+.search input:focus{outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent}
+.search select{
+  padding:.6rem .7rem; border:1px solid var(--line-strong); border-radius:11px;
+  background:var(--surface); color:var(--ink); box-shadow:var(--sh-xs); font-weight:600;
+}
+
+/* ---------- modal ---------- */
+.scrim{
+  position:fixed; inset:0; background:rgba(12,12,16,.5); z-index:100;
+  display:flex; align-items:flex-start; justify-content:center; padding:2.5rem 1rem;
+  overflow-y:auto; backdrop-filter:blur(3px);
+}
+.modal{
+  background:var(--surface); border:1px solid var(--line); border-radius:16px;
+  box-shadow:var(--sh-md); width:100%; max-width:640px; margin:auto;
+}
+.modal-h{padding:1.15rem 1.3rem .5rem; display:flex; align-items:center; gap:.7rem}
+.modal-h h2{margin:0; font-size:1.25rem; font-weight:700; letter-spacing:-.03em}
+.modal-h .x{
+  margin-left:auto; border:0; background:transparent; color:var(--muted);
+  font-size:1.35rem; line-height:1; padding:.15rem .4rem; border-radius:8px;
+}
+.modal-h .x:hover{background:var(--surface-2); color:var(--ink)}
+.modal-b{padding:.8rem 1.3rem 1.2rem}
+.modal-f{padding:1rem 1.3rem 1.2rem; display:flex; gap:.6rem; align-items:center; border-top:1px solid var(--line-soft)}
+.modal-f .sp{margin-left:auto; display:flex; gap:.6rem}
+.fg{display:grid; gap:1rem}
+.fr{display:grid; gap:1rem; grid-template-columns:minmax(0,1fr)}
+@media (min-width:540px){
+  .fr.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .fr.three{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+label.f{display:grid; gap:.3rem; min-width:0}
+label.f>span{font-size:.875rem; color:var(--ink-2); font-weight:600; letter-spacing:-.01em}
+label.f>span .req{color:var(--neg)}
+label.f input,label.f select,label.f textarea{
+  padding:.55rem .75rem; border:1px solid var(--line-strong); border-radius:10px;
+  background:var(--bg); color:var(--ink); width:100%; transition:border-color .12s;
+}
+label.f input:focus,label.f select:focus,label.f textarea:focus{
+  outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent;
+}
+label.f textarea{resize:vertical; min-height:72px; font-family:inherit; line-height:1.5}
+label.f .hint{font-size:.8125rem; color:var(--faint); font-weight:500}
+.ferr{color:var(--neg); font-size:.875rem; margin:0 0 .8rem; font-weight:600}
+.fwarn{
+  background:var(--warn-soft); padding:.8rem .95rem; border-radius:11px;
+  font-size:.9375rem; margin-bottom:1rem; color:var(--ink-2);
+}
+.fwarn b{color:var(--ink); font-weight:700}
+.calc{background:var(--surface-2); border-radius:12px; padding:.9rem 1rem; display:grid; gap:.45rem}
+.calc .row{display:flex; gap:.7rem; font-size:.9375rem; align-items:baseline}
+.calc .row .k{color:var(--muted); font-weight:500}
+.calc .row .v{
+  margin-left:auto; font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums;
+  font-weight:600; letter-spacing:-.02em;
+}
+.calc .row.big{padding:.15rem 0}
+.calc .row.big .k{color:var(--ink); font-weight:700}
+.calc .row.big .v{font-size:1.375rem; color:var(--pos); font-weight:700}
+.calc .hint{font-size:.8125rem; color:var(--muted); border-top:1px solid var(--line); padding-top:.55rem; font-weight:500}
+
+
+/* ---------- assistant ---------- */
+.chat{display:flex; flex-direction:column; gap:1rem; max-width:940px}
+.askintro{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:1.4rem 1.5rem; box-shadow:var(--sh-sm);
+}
+.askintro h2{margin:0 0 .4rem; font-size:1.375rem; font-weight:700; letter-spacing:-.03em}
+.askintro p{margin:0 0 1rem; color:var(--muted); max-width:62ch}
+.askintro .askhint{margin:.9rem 0 0; font-size:.8125rem; color:var(--faint)}
+.askintro .askhint b{color:var(--ink-2)}
+.msgs{display:flex; flex-direction:column; gap:.9rem}
+.msg{display:flex; gap:.7rem; align-items:flex-start}
+.msg.me{justify-content:flex-end}
+.msg .dot{
+  width:26px; height:26px; border-radius:9px; background:var(--accent); flex-shrink:0; margin-top:.15rem;
+  box-shadow:var(--sh-pri);
+}
+.msg .bub{
+  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  padding:.8rem 1rem; box-shadow:var(--sh-xs); max-width:min(100%,760px); min-width:0;
+}
+.msg.me .bub{background:var(--accent); border-color:transparent; color:var(--accent-ink); box-shadow:var(--sh-pri)}
+.msg .bub p{margin:0 0 .6rem}
+.msg .bub p:last-child{margin:0}
+.msg .bub strong{font-weight:700}
+.composer{
+  position:sticky; bottom:1rem; display:flex; gap:.6rem; align-items:center;
+  background:var(--surface); border:1px solid var(--line-strong); border-radius:14px;
+  padding:.5rem .5rem .5rem .9rem; box-shadow:var(--sh-md);
+}
+.composer input{
+  flex:1; min-width:0; border:0; background:transparent; color:var(--ink);
+  font-size:1rem; padding:.45rem 0;
+}
+.composer input:focus{outline:none}
+.composer input::placeholder{color:var(--faint)}
+.dropnote{margin:0; text-align:center; font-size:.8125rem; color:var(--faint)}
+.chip.act{cursor:pointer; border:1px solid var(--line-strong); background:var(--surface); font-weight:600; transition:background .12s,color .12s}
+.chip.act:hover{background:var(--accent); color:var(--accent-ink); border-color:transparent}
+.chipx{
+  border:0; background:transparent; color:var(--muted); font-size:.9rem; line-height:1;
+  padding:0 0 0 .25rem; border-radius:4px;
+}
+.chipx:hover{color:var(--neg)}
+.rlead{margin:0 0 .7rem; color:var(--ink-2)}
+.rsec{margin-bottom:.8rem}
+.rsec:last-child{margin-bottom:0}
+.rtitle{display:block; font-size:.75rem; font-weight:700; color:var(--faint); margin-bottom:.35rem}
+.rrow{
+  display:flex; gap:.65rem; align-items:flex-start; width:100%; text-align:left;
+  border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:10px;
+  padding:.55rem .65rem; margin-bottom:.35rem; transition:border-color .12s, background .12s;
+}
+.rrow:hover .rt b, .rrow:hover .rt span{color:inherit}
+.rrow:hover{border-color:var(--accent); background:var(--accent-soft)}
+.rrow .rt{min-width:0; display:flex; flex-direction:column; gap:.1rem}
+.rrow .rt b{font-weight:700; font-size:.9375rem; letter-spacing:-.015em}
+.rrow .rt span{color:var(--muted); font-size:.8125rem}
+.rrow .snip{color:var(--ink-2); font-size:.8125rem; margin-top:.25rem; font-style:italic}
+.draft{border:1px solid var(--line-strong); border-radius:12px; padding:.9rem 1rem; background:var(--bg)}
+.draft-h{display:flex; align-items:center; gap:.6rem; margin-bottom:.7rem}
+.draft-h b{font-size:1rem; letter-spacing:-.02em}
+.draft-note{margin:.7rem 0 0; font-size:.875rem; color:var(--muted)}
+.draft-f{display:flex; gap:.5rem; margin-top:.9rem; flex-wrap:wrap}
+.muted{color:var(--muted)}
+
+/* ---------- locations ---------- */
+.loc{border:1px solid var(--line); border-radius:12px; padding:.8rem .9rem; background:var(--bg)}
+.loc-h{display:flex; align-items:center; gap:.6rem; flex-wrap:wrap}
+.loc-h b{letter-spacing:-.02em}
+.loc-h .sp{margin-left:auto}
+.loc-addr{margin:.45rem 0 .5rem; color:var(--muted); font-size:.875rem}
+
+/* ---------- role-aware timeline ---------- */
+.tl{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.7rem}
+.tl li{display:flex; gap:.8rem; align-items:flex-start}
+.tlw{
+  font-family:"JetBrains Mono",monospace; font-size:.75rem; color:var(--faint);
+  flex-shrink:0; width:5.5rem; padding-top:.15rem;
+}
+.tlb{min-width:0; display:flex; flex-direction:column; gap:.25rem}
+.tlh{display:flex; gap:.4rem; align-items:center; flex-wrap:wrap}
+.tlh b{font-size:.9375rem; letter-spacing:-.015em}
+.tln{color:var(--ink-2); font-size:.875rem}
+.tlb .sec{color:var(--faint); font-size:.75rem}
+
+/* ---------- drop overlay ---------- */
+.dropz{
+  position:fixed; inset:0; z-index:200; background:rgba(43,75,255,.10);
+  backdrop-filter:blur(2px); display:grid; place-items:center; pointer-events:none;
+}
+.dropz-in{
+  background:var(--surface); border:2px dashed var(--accent); border-radius:16px;
+  padding:1.6rem 2.2rem; text-align:center; box-shadow:var(--sh-md);
+}
+.dropz-in b{display:block; font-size:1.125rem; font-weight:700; letter-spacing:-.02em}
+.dropz-in span{display:block; margin-top:.3rem; color:var(--muted); font-size:.875rem}
+
+footer.ft{
+  margin-top:2.25rem; padding-top:1.25rem; border-top:1px solid var(--line);
+  color:var(--faint); font-size:.8125rem; max-width:78ch; line-height:1.6;
+}
+</style>
+<div id="root"></div>
+<script type="application/json" id="app-state">null</script>
+<script id="app-src">
+/* ============================================================
+   TS Workspace — a working ATS + CRM for a staffing desk.
+   State lives in the published page; every save publishes a new
+   version, so the whole team sees the same records.
+   ============================================================ */
+"use strict";
+
+const STAGES = ["Sourced","Submitted","Client review","Interview","Offer","Placed"];
+const CLOSED = ["Rejected","Withdrawn"];
+const JOBTYPES = ["Contract","Direct hire","Contract-to-hire","SOW / project"];
+const JOBSTATUS = ["Open","On hold","Filled","Closed","Lost"];
+const ORGKINDS = ["Client","Prospect","MSP / VMS"];
+const WORKAUTH = ["US citizen","Green card","H-1B","EAD","TN","Needs sponsorship","Other"];
+const DEFAULT_BURDEN = 22;
+
+/* ---------- tiny helpers ---------- */
+let _seq = 0;
+const uid = p => p + "_" + Date.now().toString(36) + (_seq++).toString(36) + Math.floor(Math.random()*1e4).toString(36);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const money = n => "$" + (Math.round((+n||0)*100)/100).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const money0 = n => "$" + Math.round(+n||0).toLocaleString("en-US");
+const pct = n => (Math.round((+n||0)*10)/10).toFixed(1) + "%";
+const todayISO = () => new Date().toISOString().slice(0,10);
+const nowISO = () => new Date().toISOString();
+function addDays(iso, d){ const x = new Date((iso||todayISO())+"T00:00:00"); x.setDate(x.getDate()+d); return x.toISOString().slice(0,10); }
+function daysAgo(ts){ if(!ts) return 0; return Math.floor((Date.now() - new Date(ts).getTime())/86400000); }
+function daysUntil(iso){ if(!iso) return null; return Math.ceil((new Date(iso+"T00:00:00").getTime() - Date.now())/86400000); }
+function fmtDate(iso){
+  if(!iso) return "—";
+  const d = new Date(String(iso).length>10 ? iso : iso+"T00:00:00");
+  if(isNaN(d)) return "—";
+  return d.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+}
+function fmtAgo(ts){
+  if(!ts) return "—";
+  const d = daysAgo(ts);
+  return d<=0 ? "today" : d===1 ? "1 day ago" : d + " days ago";
+}
+const digits = s => String(s||"").replace(/\D/g,"");
+const normEmail = s => String(s||"").trim().toLowerCase();
+
+/* ---------- the margin engine: defined exactly once ---------- */
+function margin(pay, bill, burdenPct){
+  const p = +pay||0, b = +bill||0, bp = +burdenPct||0;
+  const burden = p * bp/100;
+  const gm = b - p - burden;
+  return { burden, gm, gmPct: b ? gm/b*100 : 0, markupPct: p ? ((b/p)-1)*100 : 0, spread: b-p };
+}
+/* bill rate needed to hold a target GM% given pay + burden */
+function billToHold(pay, burdenPct, targetGmPct){
+  const cost = (+pay||0) * (1 + (+burdenPct||0)/100);
+  const t = (+targetGmPct||0)/100;
+  return t >= 1 ? 0 : cost/(1-t);
+}
+
+/* ---------- state ---------- */
+function emptyState(){
+  return { v:2, sample:false, people:[], orgs:[], locations:[], jobs:[], subs:[],
+           placements:[], docs:[], activity:[], audit:[] };
+}
+function seedState(){
+  const S = emptyState();
+  S.sample = true;
+  const o1 = { id:uid("o"), name:"Northwind Health", kind:"Client", status:"Active", owners:["Jordan Blake"], notes:"Master agreement signed. Net 45. Two approved suppliers.", createdAt:nowISO() };
+  const o2 = { id:uid("o"), name:"Ardent Logistics", kind:"Client", status:"Active", owners:[], notes:"New account, first req came through referral. No owner yet.", createdAt:nowISO() };
+  const o3 = { id:uid("o"), name:"Fieldglass (MSP)", kind:"MSP / VMS", status:"Active", owners:[], notes:"Reqs arrive through the portal. End client is Ardent.", createdAt:nowISO() };
+  S.orgs.push(o1,o2,o3);
+
+  const l1 = { id:uid("loc"), orgId:o1.id, name:"Chicago HQ", address:"400 W Monroe St", city:"Chicago", state:"IL", zip:"60606",
+    roe:"Submittals through the supplier portal only. Three candidates per req maximum. No direct contact with the hiring manager before a submittal is accepted.",
+    notes:"", archived:false, createdAt:nowISO() };
+  const l2 = { id:uid("loc"), orgId:o1.id, name:"Milwaukee Clinic", address:"1820 N Water St", city:"Milwaukee", state:"WI", zip:"53202",
+    roe:"Background check and drug screen must clear before the start date. Badging takes five business days — build that into every start.",
+    notes:"Clinical roles only.", archived:false, createdAt:nowISO() };
+  const l3 = { id:uid("loc"), orgId:o2.id, name:"Fort Worth DC", address:"5400 Alliance Gateway Fwy", city:"Fort Worth", state:"TX", zip:"76177",
+    roe:"Night shift differential applies after 6pm. Steel-toe boots required on day one.",
+    notes:"", archived:false, createdAt:nowISO() };
+  S.locations.push(l1,l2,l3);
+
+  S.docs.push({
+    id:uid("doc"), name:"Northwind-MSA-2026.pdf", kind:"MSA", size:184320, orgId:o1.id, locationId:null, scope:"account",
+    at:nowISO(), by:"Jordan Blake",
+    text:"MASTER SERVICES AGREEMENT between Northwind Health and Technical Source. "+
+      "Term: this Agreement commences on the Effective Date and continues for twenty-four (24) months. "+
+      "Termination: either party may terminate for convenience upon thirty (30) days written notice; "+
+      "Client may terminate for cause immediately upon material breach. "+
+      "Payment terms: net forty-five (45) days from invoice date. "+
+      "Conversion: no conversion fee applies after the contractor has completed 1,500 billable hours. "+
+      "Insurance: supplier shall maintain commercial general liability of not less than $2,000,000 per occurrence. "+
+      "Background checks: supplier is responsible for verifying right to work and completing a seven-year criminal background check."
+  });
+  S.docs.push({
+    id:uid("doc"), name:"Exhibit-A-Chicago-Rates.pdf", kind:"Exhibit", size:61440, orgId:o1.id, locationId:l1.id, scope:"location",
+    at:nowISO(), by:"Jordan Blake",
+    text:"EXHIBIT A - RATE SCHEDULE - Chicago HQ. Senior Backend Engineer: maximum bill rate $145.00 per hour. "+
+      "Platform Engineer: maximum bill rate $138.00 per hour. Data Engineer: maximum bill rate $120.00 per hour. "+
+      "Overtime is billed at 1.5x the straight-time bill rate for hours worked beyond forty (40) in a work week. "+
+      "This Exhibit applies to the Chicago location only and supersedes any account-wide rate schedule for that location."
+  });
+
+  const c1 = { id:uid("p"), name:"Dana Whitfield", email:"dana.whitfield@northwind.example", phone:"(312) 555-0148", city:"Chicago, IL", title:"Director of Engineering", isContact:true, isCandidate:false, orgId:o1.id, notes:"Prefers a shortlist of three. Moves fast on senior backend.", lastContact:nowISO(), createdAt:nowISO(), skills:[] };
+  const c2 = { id:uid("p"), name:"Marcus Reyes", email:"m.reyes@ardent.example", phone:"(214) 555-0102", city:"Dallas, TX", title:"VP Operations", isContact:true, isCandidate:false, orgId:o2.id, notes:"Budget owner. Wants weekly status.", lastContact:nowISO(), createdAt:nowISO(), skills:[] };
+  c1.isCandidate = false; c2.isCandidate = false;
+  S.people.push(c1,c2);
+
+  const cands = [
+    ["Priya Raman","priya.raman@example.com","(773) 555-0191","Chicago, IL","Senior Backend Engineer",9,["Java","Spring Boot","Kubernetes","PostgreSQL"],"US citizen",78,"Strong Northwind fit. Answers texts within the hour.",2],
+    ["Tomas Novak","t.novak@example.com","(312) 555-0173","Chicago, IL","Platform Engineer",7,["Go","Kubernetes","Terraform","AWS"],"Green card",72,"Currently on assignment ending soon — redeployment candidate.",5],
+    ["Aisha Bello","aisha.bello@example.com","(469) 555-0128","Dallas, TX","Data Engineer",6,["Python","dbt","Snowflake","Airflow"],"US citizen",68,"Open to contract or perm. Wants hybrid.",1],
+    ["Grant Mueller","grant.mueller@example.com","(214) 555-0155","Fort Worth, TX","Warehouse Operations Lead",11,["WMS","Lean","Forklift cert","Team lead"],"US citizen",34,"Two prior assignments with us, both extended.",9],
+    ["Lena Ortiz","lena.ortiz@example.com","(872) 555-0117","Remote",  "Senior React Engineer",8,["React","TypeScript","GraphQL","Node"],"US citizen",75,"Ghosted once in 2024 — confirm interest before submitting.",41]
+  ];
+  const cp = cands.map(a => ({
+    id:uid("p"), name:a[0], email:a[1], phone:a[2], city:a[3], title:a[4], years:a[5],
+    skills:a[6], workAuth:a[7], desiredPay:a[8], notes:a[9], isCandidate:true, isContact:false,
+    orgId:null, availFrom:addDays(todayISO(), 14), lastContact:new Date(Date.now()-a[10]*86400000).toISOString(), createdAt:nowISO()
+  }));
+  S.people.push.apply(S.people, cp);
+
+  const j1 = { id:uid("j"), orgId:o1.id, endClientOrgId:null, title:"Senior Backend Engineer", type:"Contract", status:"Open", openings:2, city:"Chicago, IL (hybrid)", billMax:145, payMax:95, salaryMin:null, salaryMax:null, hmId:c1.id, owner:"House desk", notes:"Java/Spring. 12-month contract, likely extension.", createdAt:new Date(Date.now()-18*86400000).toISOString() };
+  const j2 = { id:uid("j"), orgId:o1.id, endClientOrgId:null, title:"Engineering Manager", type:"Direct hire", status:"Open", openings:1, city:"Chicago, IL", billMax:null, payMax:null, salaryMin:175000, salaryMax:205000, hmId:c1.id, owner:"House desk", notes:"20% fee, 90-day guarantee.", createdAt:new Date(Date.now()-9*86400000).toISOString() };
+  const j3 = { id:uid("j"), orgId:o3.id, endClientOrgId:o2.id, title:"Data Engineer", type:"Contract-to-hire", status:"Open", openings:1, city:"Dallas, TX", billMax:98, payMax:66, salaryMin:null, salaryMax:null, hmId:c2.id, owner:"House desk", notes:"Came through the MSP portal — we invoice Fieldglass, work happens at Ardent.", createdAt:new Date(Date.now()-4*86400000).toISOString() };
+  const j4 = { id:uid("j"), orgId:o2.id, endClientOrgId:null, title:"Warehouse Operations Lead", type:"Contract", status:"Open", openings:3, city:"Fort Worth, TX", billMax:52, payMax:36, salaryMin:null, salaryMax:null, hmId:c2.id, owner:"House desk", notes:"Three shifts. Night differential applies.", createdAt:new Date(Date.now()-2*86400000).toISOString() };
+  S.jobs.push(j1,j2,j3,j4);
+
+  function mkSub(job, person, stage, daysInStage, pay, bill){
+    const hist = []; const idx = STAGES.indexOf(stage);
+    let t = Date.now() - (daysInStage + idx*3)*86400000;
+    for(let i=0;i<=idx;i++){ hist.push({ s:STAGES[i], at:new Date(t).toISOString(), by:"House desk" }); t += 3*86400000; }
+    if(hist.length) hist[hist.length-1].at = new Date(Date.now()-daysInStage*86400000).toISOString();
+    return { id:uid("s"), jobId:job.id, personId:person.id, stage, stageSince:new Date(Date.now()-daysInStage*86400000).toISOString(), hist, payRate:pay, billRate:bill, notes:"", closedReason:null };
+  }
+  S.subs.push(
+    mkSub(j1, cp[0], "Interview", 8, 82, 138),
+    mkSub(j1, cp[1], "Client review", 6, 78, 132),
+    mkSub(j3, cp[2], "Submitted", 2, 62, 94),
+    mkSub(j4, cp[3], "Placed", 12, 33, 49),
+    mkSub(j1, cp[4], "Sourced", 1, null, null)
+  );
+
+  const placedSub = S.subs[3];
+  S.placements.push({
+    id:uid("pl"), subId:placedSub.id, startsOn:addDays(todayISO(),-10), endsOn:addDays(todayISO(),22),
+    payRate:33, billRate:49, burdenPct:DEFAULT_BURDEN, fee:null, status:"Active", createdAt:nowISO()
+  });
+  return S;
+}
+function loadState(){
+  try{
+    const el = document.getElementById("app-state");
+    const v = JSON.parse(el.textContent);
+    if(v && typeof v === "object" && Array.isArray(v.people)) return v;
+  }catch(e){}
+  return null;
+}
+let S = loadState() || seedState();
+
+/* ---------- UI state (per viewer, survives the save-reload) ---------- */
+let UI = { view:"ask", sel:null, q:"", jobFilter:"Open", modal:null, md:null, err:null, focusId:null };
+try{
+  const st = sessionStorage.getItem("pd_ui");
+  if(st) UI = Object.assign(UI, JSON.parse(st), { modal:null, md:null, err:null });
+}catch(e){}
+function saveUI(){ try{ sessionStorage.setItem("pd_ui", JSON.stringify({ view:UI.view, sel:UI.sel, q:UI.q, jobFilter:UI.jobFilter })); }catch(e){} }
+
+let READONLY = false;
+let NOSAVE = false;
+let SAVING = false;
+
+/* ---------- lookups ---------- */
+const byId = (arr,id) => arr.find(x => x.id===id) || null;
+const org = id => byId(S.orgs,id);
+const person = id => byId(S.people,id);
+const job = id => byId(S.jobs,id);
+const sub = id => byId(S.subs,id);
+const candidates = () => S.people.filter(p => p.isCandidate && !p.archived);
+const contacts = () => S.people.filter(p => p.isContact && !p.archived);
+const jobSubs = jid => S.subs.filter(s => s.jobId===jid);
+const personSubs = pid => S.subs.filter(s => s.personId===pid);
+const orgJobs = oid => S.jobs.filter(j => j.orgId===oid || j.endClientOrgId===oid);
+const orgContacts = oid => S.people.filter(p => p.isContact && p.orgId===oid);
+const placementForSub = sid => S.placements.find(p => p.subId===sid) || null;
+const isOpenStage = s => STAGES.indexOf(s) >= 0 && s !== "Placed";
+function subLabel(s){
+  const p = person(s.personId), j = job(s.jobId);
+  return (p?p.name:"?") + " → " + (j?j.title:"?");
+}
+function everReached(s, stage){
+  if(s.hist && s.hist.some(h => h.s===stage)) return true;
+  const ci = STAGES.indexOf(s.stage), ti = STAGES.indexOf(stage);
+  return ci>=0 && ti>=0 && ci>=ti;
+}
+
+/* ---------- metrics ---------- */
+function metrics(){
+  const openReqs = S.jobs.filter(j => j.status==="Open");
+  const openings = openReqs.reduce((n,j) => n + (+j.openings||1), 0);
+  const active = S.subs.filter(s => isOpenStage(s.stage));
+  const activePl = S.placements.filter(p => p.status==="Active");
+  let weeklyGM = 0, feeBooked = 0;
+  activePl.forEach(p => {
+    const s = sub(p.subId); const j = s ? job(s.jobId) : null;
+    if(j && j.type==="Direct hire"){ feeBooked += (+p.fee||0); }
+    else { weeklyGM += margin(p.payRate,p.billRate,p.burdenPct).gm * 40; }
+  });
+  const stale = active
+    .filter(s => s.stage!=="Sourced" && daysAgo(s.stageSince) >= 5)
+    .sort((a,b) => daysAgo(b.stageSince) - daysAgo(a.stageSince));
+  const ending = activePl
+    .filter(p => p.endsOn && daysUntil(p.endsOn)!==null && daysUntil(p.endsOn) <= 30)
+    .sort((a,b) => daysUntil(a.endsOn) - daysUntil(b.endsOn));
+  const nSubmitted = S.subs.filter(s => everReached(s,"Submitted")).length;
+  const nInterview = S.subs.filter(s => everReached(s,"Interview")).length;
+  const nPlaced = S.subs.filter(s => everReached(s,"Placed")).length;
+  const fills = S.subs.filter(s => everReached(s,"Placed") && s.hist && s.hist.length);
+  let ttf = null;
+  if(fills.length){
+    const tot = fills.reduce((n,s) => {
+      const first = s.hist[0], last = s.hist.filter(h => h.s==="Placed").pop() || s.hist[s.hist.length-1];
+      return n + Math.max(0, Math.round((new Date(last.at) - new Date(first.at))/86400000));
+    }, 0);
+    ttf = Math.round(tot/fills.length);
+  }
+  return { openReqs, openings, active, activePl, weeklyGM, feeBooked, stale, ending,
+           nSubmitted, nInterview, nPlaced, ttf,
+           subToInt: nSubmitted ? nInterview/nSubmitted*100 : 0,
+           intToPlace: nInterview ? nPlaced/nInterview*100 : 0 };
+}
+
+/* ---------- shared bits ---------- */
+function stagePill(stage){
+  const cls = stage==="Placed" ? "g" : stage==="Rejected"||stage==="Withdrawn" ? "r"
+            : stage==="Offer"||stage==="Interview" ? "a" : stage==="Sourced" ? "n" : "w";
+  return '<span class="pill '+cls+'">'+esc(stage)+'</span>';
+}
+function statusPill(st){
+  const cls = st==="Open"||st==="Active" ? "g" : st==="On hold" ? "w" : st==="Lost" ? "r" : "n";
+  return '<span class="pill '+cls+'">'+esc(st)+'</span>';
+}
+function orgName(id){ const o = org(id); return o ? o.name : "—"; }
+function jobLine(j){
+  let s = orgName(j.orgId);
+  if(j.endClientOrgId) s += " → " + orgName(j.endClientOrgId);
+  return s;
+}
+function emptyBox(title, msg, action){
+  return '<div class="empty"><b>'+esc(title)+'</b>'+esc(msg)+(action?'<div style="margin-top:.75rem">'+action+'</div>':'')+'</div>';
+}
+function rateRange(j){
+  if(j.type==="Direct hire") return j.salaryMin ? money0(j.salaryMin)+"–"+money0(j.salaryMax) : "—";
+  return j.billMax ? "bill ≤ "+money0(j.billMax)+" / pay ≤ "+money0(j.payMax||0) : "—";
+}
+
+/* ---------- icons + avatars ---------- */
+const ICONS = {
+  ask:'<path d="M20.5 11.5a7.5 7.5 0 0 1-10.9 6.7L4 19.8l1.6-5.3A7.5 7.5 0 1 1 20.5 11.5Z"/><path d="M9.2 10.2a2.8 2.8 0 0 1 5.5.7c0 1.9-2.7 2-2.7 3.6"/><path d="M12 17.4h.01"/>',
+  desk:'<path d="M3 12.5 12 4l9 8.5"/><path d="M5.5 10.8V20h13v-9.2"/><path d="M10 20v-5.2h4V20"/>',
+  jobs:'<rect x="3" y="7" width="18" height="13" rx="2.5"/><path d="M8.5 7V5.5A1.5 1.5 0 0 1 10 4h4a1.5 1.5 0 0 1 1.5 1.5V7"/><path d="M3 12h18"/>',
+  cands:'<circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 20c0-3.1 2.5-5.3 5.5-5.3s5.5 2.2 5.5 5.3"/><path d="M16.5 6.2a3 3 0 0 1 0 5.6"/><path d="M18 14.9c1.7.7 2.8 2.3 2.8 4.4"/>',
+  orgs:'<rect x="4" y="4" width="10" height="16" rx="1.8"/><path d="M14 9h5.5a.5.5 0 0 1 .5.5V20"/><path d="M7 8h4M7 12h4M7 16h4M17 13h1M17 16.5h1"/>',
+  place:'<path d="M20.5 6.5 10 17l-5.5-5.5"/>'
+};
+function icon(k){
+  return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" '+
+    'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(ICONS[k]||"")+'</svg>';
+}
+function initials(name){
+  const parts = String(name||"?").replace(/[^\p{L}\p{N}\s]/gu, " ").trim().split(/\s+/).filter(Boolean);
+  if(!parts.length) return "?";
+  if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+  return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+}
+function avClass(name){
+  let h = 0;
+  const t = String(name||"");
+  for(let i=0;i<t.length;i++) h = (h*31 + t.charCodeAt(i)) % 997;
+  return "av" + (h % 6 + 1);
+}
+function avatar(name, small){
+  return '<span class="av '+(small?"s ":"")+avClass(name)+'" aria-hidden="true">'+esc(initials(name))+'</span>';
+}
+function who(name, second, small){
+  return '<div class="who">'+avatar(name,small)+'<div class="t"><span class="nm">'+esc(name||"—")+'</span>'+
+    (second?'<br><span class="sec">'+second+'</span>':"")+'</div></div>';
+}
+
+/* ---------- top bar ---------- */
+function topBar(){
+  const m = metrics();
+  const tab = (k,label,count) =>
+    '<button data-a="view" data-v="'+k+'"'+(UI.view===k?' aria-current="page"':'')+'>'+
+      icon(k)+'<span class="lbl">'+esc(label)+'</span>'+
+      (count!=null?'<span class="cnt">'+count+'</span>':'')+
+    '</button>';
+  return '<aside class="side">'+
+    '<div class="brand"><span class="mark">TS</span>'+
+      '<span class="nm"><b>TS Workspace</b><small>Technical Source</small></span></div>'+
+    '<nav class="tabs">'+
+      tab("ask","Assistant")+
+      tab("desk","Desk")+
+      tab("jobs","Jobs", S.jobs.filter(j=>j.status==="Open").length)+
+      tab("cands","Candidates", candidates().length)+
+      tab("orgs","Accounts", S.orgs.filter(o=>!o.archived).length)+
+      tab("place","Placements", m.activePl.length)+
+    '</nav>'+
+    '<div class="sidefoot"><div class="status'+(SAVING?" busy":"")+'" id="status">'+esc(statusText())+'</div></div>'+
+  '</aside>';
+}
+let STATUS = "";
+function statusText(){ return STATUS || (READONLY ? "read-only view" : ""); }
+function setStatus(t, bad){
+  STATUS = t||"";
+  const el = document.getElementById("status");
+  if(el){ el.textContent = STATUS; el.className = "status" + (bad?" bad":SAVING?" busy":""); }
+}
+
+function banner(){
+  let out = "";
+  if(NOSAVE) out += '<div class="ro-note"><b>Preview mode.</b> Changes are not saved here — open the published page to use this with your team.</div>';
+  if(READONLY){
+    return out + '<div class="ro-note">You are viewing this desk read-only — you can browse everything, but changes cannot be saved. Ask the owner to share it with edit access.</div>';
+  }
+  if(!S.sample) return out;
+  return out + '<div class="banner"><p><b>This is sample data</b> so you can try the workflow immediately. '+
+    'Clear it when you are ready to enter your own candidates and jobs.</p>'+
+    '<span class="sp"><button class="btn sm" data-a="clearSample">Clear sample data</button></span></div>';
+}
+
+/* ---------- DESK ---------- */
+function viewDesk(){
+  const m = metrics();
+  const tiles =
+    '<div class="tiles">'+
+      tile("Open jobs", m.openReqs.length, m.openings+" openings to fill")+
+      tile("Active submissions", m.active.length, m.stale.length+" need a nudge")+
+      tile("Active placements", m.activePl.length, m.ending.length+" ending within 30 days")+
+      tile("Weekly gross margin", money0(m.weeklyGM), "from hourly placements, at 40 hrs", true)+
+      (m.feeBooked ? tile("Perm fees booked", money0(m.feeBooked), "direct hire placements", true) : "")+
+    '</div>';
+
+  const needs = m.stale.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Candidate</th><th>Job</th><th>Stage</th><th class="num">Waiting</th><th></th>'+
+    '</tr></thead><tbody>'+
+    m.stale.slice(0,8).map(s => {
+      const p = person(s.personId), j = job(s.jobId);
+      const d = daysAgo(s.stageSince);
+      return '<tr><td>'+who(p?p.name:"—", null, true)+'</td>'+
+        '<td><span class="sec">'+esc(j?j.title:"—")+' · '+esc(j?orgName(j.orgId):"")+'</span></td>'+
+        '<td>'+stagePill(s.stage)+'</td>'+
+        '<td class="num" style="color:'+(d>=10?"var(--alert)":"var(--warn)")+'">'+d+'d</td>'+
+        '<td class="num"><button class="btn sm" data-a="openSub" data-id="'+s.id+'">Open</button></td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox("Nothing stalled","Every active submission has moved in the last five days.");
+
+  const ending = m.ending.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Contractor</th><th>Client</th><th class="num">Ends</th><th class="num">GM/hr</th>'+
+    '</tr></thead><tbody>'+
+    m.ending.map(p => {
+      const s = sub(p.subId), pe = s?person(s.personId):null, j = s?job(s.jobId):null;
+      const d = daysUntil(p.endsOn);
+      const mg = margin(p.payRate,p.billRate,p.burdenPct);
+      return '<tr class="clk" data-a="openPlacement" data-id="'+p.id+'">'+
+        '<td><span class="nm">'+esc(pe?pe.name:"—")+'</span></td>'+
+        '<td><span class="sec">'+esc(j?orgName(j.orgId):"—")+'</span></td>'+
+        '<td class="num" style="color:'+(d<=14?"var(--alert)":"var(--warn)")+'">'+d+'d</td>'+
+        '<td class="num">'+money(mg.gm)+'</td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox("No assignments ending soon","Nothing wraps up in the next 30 days.");
+
+  const funnel =
+    '<div class="card-b"><div class="calc">'+
+      row("Submitted to a client", m.nSubmitted)+
+      row("Reached interview", m.nInterview + "  (" + pct(m.subToInt) + " of submitted)")+
+      row("Placed", m.nPlaced + "  (" + pct(m.intToPlace) + " of interviewed)")+
+      row("Average time to fill", m.ttf==null ? "—" : m.ttf + " days")+
+      '<div class="hint">Measured from the recorded stage history, not from when a record was last edited — so these stay honest as your process changes.</div>'+
+    '</div></div>';
+
+  return tiles +
+    '<div class="cols2">'+
+      '<div class="grid">'+
+        card("Needs your attention", '<span class="sec" style="color:var(--muted);font-size:.8125rem">no movement in 5+ days</span>', needs, true)+
+        card("Ending within 30 days", '<span class="sec" style="color:var(--muted);font-size:.8125rem">redeployment is your cheapest revenue</span>', ending, true)+
+      '</div>'+
+      '<div class="grid">'+
+        card("This desk, in numbers", "", funnel, false)+
+        card("Quick actions","",
+          '<div class="card-b" style="display:grid;gap:.5rem">'+
+            btn("addCand","Add a candidate",true)+
+            btn("addJob","Add a job")+
+            btn("addOrg","Add a company")+
+            btn("exportCsv","Export candidates to a spreadsheet")+
+          '</div>', false)+
+      '</div>'+
+    '</div>';
+}
+function tile(lab,val,foot,mv){
+  return '<div class="tile"><span class="lab">'+esc(lab)+'</span>'+
+    '<span class="val'+(mv?" mv":"")+'">'+esc(String(val))+'</span>'+
+    (foot?'<div class="foot">'+esc(foot)+'</div>':'')+'</div>';
+}
+function row(k,v){ return '<div class="row"><span class="k">'+esc(k)+'</span><span class="v">'+esc(String(v))+'</span></div>'; }
+function card(title, aside, body, flush){
+  return '<section class="card"><div class="card-h"><h2>'+esc(title)+'</h2>'+(aside?'<span class="sp">'+aside+'</span>':'')+'</div>'+
+    (flush?'<div class="card-b flush">'+body+'</div>':body)+'</section>';
+}
+function btn(a,label,pri){ return '<button class="btn'+(pri?" pri":"")+'" data-a="'+a+'">'+esc(label)+'</button>'; }
+
+/* ---------- JOBS ---------- */
+function viewJobs(){
+  if(UI.sel){ const j = job(UI.sel); if(j) return viewJobDetail(j); UI.sel = null; }
+  const f = UI.jobFilter;
+  const list = S.jobs.filter(j => f==="all" ? true : j.status===f)
+    .sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  const opts = ["Open","On hold","Filled","Closed","Lost"].map(s =>
+    '<option value="'+s+'"'+(f===s?" selected":"")+'>'+s+'</option>').join("");
+  const body = list.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Job</th><th>Company</th><th>Type</th><th class="num">Openings</th>'+
+      '<th class="num">Pipeline</th><th>Rates</th><th>Status</th><th class="num">Age</th>'+
+    '</tr></thead><tbody>'+
+    list.map(j => {
+      const ss = jobSubs(j.id), act = ss.filter(s => isOpenStage(s.stage)).length;
+      return '<tr class="clk" data-a="openJob" data-id="'+j.id+'">'+
+        '<td><span class="nm">'+esc(j.title)+'</span><br><span class="sec">'+esc(j.city||"")+'</span></td>'+
+        '<td>'+esc(jobLine(j))+'</td>'+
+        '<td><span class="pill n">'+esc(j.type)+'</span></td>'+
+        '<td class="num">'+(j.openings||1)+'</td>'+
+        '<td class="num">'+act+' active<br><span class="sec">'+ss.length+' total</span></td>'+
+        '<td class="sec">'+esc(rateRange(j))+'</td>'+
+        '<td>'+statusPill(j.status)+'</td>'+
+        '<td class="num">'+daysAgo(j.createdAt)+'d</td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox("No jobs here","Nothing matches this filter.", btn("addJob","Add a job",true));
+  return '<div class="ph"><h1>Jobs</h1><span class="sub">'+list.length+' shown</span>'+
+    '<span class="sp"><select data-a="jobFilter"><option value="all"'+(f==="all"?" selected":"")+'>All statuses</option>'+opts+'</select>'+
+    btn("addJob","Add a job",true)+'</span></div>'+
+    '<section class="card"><div class="card-b flush">'+body+'</div></section>';
+}
+function viewJobDetail(j){
+  const ss = jobSubs(j.id);
+  const hm = j.hmId ? person(j.hmId) : null;
+  const lanes = STAGES.map(st => {
+    const inLane = ss.filter(s => s.stage===st);
+    return '<div class="lane"><div class="lane-h">'+esc(st)+'<span class="c">'+inLane.length+'</span></div>'+
+      '<div class="lane-b">'+ inLane.map(s => pipeCard(s,j)).join("") +'</div></div>';
+  }).join("");
+  const closed = ss.filter(s => CLOSED.indexOf(s.stage)>=0);
+  const closedHtml = closed.length ? '<div class="card-b"><div class="chips">'+
+    closed.map(s => { const p = person(s.personId);
+      return '<span class="chip">'+esc(p?p.name:"—")+' · '+esc(s.stage)+(s.closedReason?' · '+esc(s.closedReason):'')+'</span>'; }).join("")+
+    '</div></div>' : "";
+
+  const details = '<div class="card-b"><dl class="dl">'+
+    dd("Company", esc(orgName(j.orgId)) + (j.endClientOrgId ? ' <span class="pill m">work happens at '+esc(orgName(j.endClientOrgId))+'</span>' : ""))+
+    dd("Type", esc(j.type))+
+    dd("Openings", String(j.openings||1))+
+    dd("Location", esc(j.city||"—"))+
+    dd("Hiring manager", hm ? esc(hm.name)+(hm.title?' <span class="sec">· '+esc(hm.title)+'</span>':"") : "—")+
+    dd(j.type==="Direct hire"?"Salary range":"Rate ceiling", esc(rateRange(j)))+
+    dd("Status", statusPill(j.status))+
+    dd("Opened", esc(fmtDate(j.createdAt))+' <span class="sec">('+daysAgo(j.createdAt)+' days ago)</span>')+
+  '</dl>'+ (j.notes?'<div class="note" style="margin-top:.75rem">'+esc(j.notes)+'</div>':"") +'</div>';
+
+  return '<button class="back" data-a="view" data-v="jobs">← All jobs</button>'+
+    '<div class="ph"><h1>'+esc(j.title)+'</h1><span class="sub">'+esc(jobLine(j))+'</span>'+
+    '<span class="sp">'+btn("addToPipeline","Add candidate to pipeline",true)+btn("editJob","Edit job")+'</span></div>'+
+    '<div class="cols2">'+
+      '<section class="card"><div class="card-h"><h2>Pipeline</h2><span class="sp"><span class="sec" style="color:var(--muted);font-size:.8125rem">'+
+        ss.filter(s=>isOpenStage(s.stage)).length+' active</span></span></div>'+
+        '<div class="card-b">'+(ss.length?'<div class="board">'+lanes+'</div>':emptyBox("Nobody in this pipeline yet","Add a candidate to get started.",btn("addToPipeline","Add candidate",true)))+'</div>'+
+        closedHtml+
+      '</section>'+
+      card("Job details","",details,false)+
+    '</div>';
+}
+function pipeCard(s,j){
+  const p = person(s.personId);
+  const i = STAGES.indexOf(s.stage);
+  const acts = [];
+  if(!READONLY){
+    if(i >= 0 && i < STAGES.length-1){
+      const next = STAGES[i+1];
+      if(next === "Placed") acts.push('<button data-a="makePlacement" data-id="'+s.id+'">Place →</button>');
+      else acts.push('<button data-a="advance" data-id="'+s.id+'">'+esc(next)+' →</button>');
+    }
+    if(i > 0) acts.push('<button data-a="back" data-id="'+s.id+'">←</button>');
+    if(s.stage !== "Placed") acts.push('<button class="x" data-a="closeSub" data-id="'+s.id+'">✕</button>');
+  }
+  const rate = s.billRate ? money0(s.payRate)+" / "+money0(s.billRate) : "no rates yet";
+  return '<div class="pcard"><div class="top">'+avatar(p?p.name:"?", true)+
+    '<span class="nm">'+esc(p?p.name:"—")+'</span></div>'+
+    '<span class="mt">'+esc(rate)+' · '+daysAgo(s.stageSince)+'d</span>'+
+    (acts.length?'<div class="acts">'+acts.join("")+'</div>':"")+'</div>';
+}
+function dd(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+v+'</dd>'; }
+
+/* ---------- CANDIDATES ---------- */
+function viewCands(){
+  if(UI.sel){ const p = person(UI.sel); if(p) return viewPersonDetail(p); UI.sel = null; }
+  const q = UI.q.trim().toLowerCase();
+  let list = candidates().filter(p => !p.archived);
+  if(q){
+    const terms = q.split(/\s+/);
+    list = list.filter(p => {
+      const hay = [p.name,p.title,p.city,p.workAuth,(p.skills||[]).join(" "),p.notes].join(" ").toLowerCase();
+      return terms.every(t => hay.indexOf(t) >= 0);
+    });
+  }
+  list = list.sort((a,b) => new Date(b.lastContact||b.createdAt) - new Date(a.lastContact||a.createdAt));
+  const body = list.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Candidate</th><th>Title</th><th>Skills</th><th>Location</th>'+
+      '<th>Work auth</th><th class="num">Wants</th><th class="num">Last contact</th><th class="num">Active</th>'+
+    '</tr></thead><tbody>'+
+    list.map(p => {
+      const act = personSubs(p.id).filter(s => isOpenStage(s.stage)).length;
+      const dc = daysAgo(p.lastContact);
+      return '<tr class="clk" data-a="openPerson" data-id="'+p.id+'">'+
+        '<td>'+who(p.name, esc(p.email||""))+'</td>'+
+        '<td>'+esc(p.title||"—")+(p.years?'<br><span class="sec">'+p.years+' yrs</span>':"")+'</td>'+
+        '<td><div class="chips">'+(p.skills||[]).slice(0,4).map(s=>'<span class="chip">'+esc(s)+'</span>').join("")+'</div></td>'+
+        '<td class="sec">'+esc(p.city||"—")+'</td>'+
+        '<td class="sec">'+esc(p.workAuth||"—")+'</td>'+
+        '<td class="num">'+(p.desiredPay?money0(p.desiredPay)+"/hr":"—")+'</td>'+
+        '<td class="num"'+(dc>30?' style="color:var(--alert)"':dc>14?' style="color:var(--warn)"':'')+'>'+(p.lastContact?dc+"d":"—")+'</td>'+
+        '<td class="num">'+(act?'<span class="pill a">'+act+'</span>':'<span class="sec">—</span>')+
+          (p.isContact?' <span class="pill m">manager</span>':"")+'</td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox(q?"No candidates match":"No candidates yet", q?"Try fewer words, or a single skill.":"Add your first candidate to start building the database.", btn("addCand","Add a candidate",true));
+  return '<div class="ph"><h1>Candidates</h1><span class="sub">'+list.length+' of '+candidates().length+'</span>'+
+    '<span class="sp">'+btn("exportCsv","Export")+btn("addCand","Add a candidate",true)+'</span></div>'+
+    '<div class="search"><input type="search" id="q" data-a="q" placeholder="Search name, title, skill, city…" value="'+esc(UI.q)+'"></div>'+
+    '<section class="card"><div class="card-b flush">'+body+'</div></section>';
+}
+function viewPersonDetail(p){
+  const subs = personSubs(p.id).sort((a,b) => new Date(b.stageSince) - new Date(a.stageSince));
+  const backTo = p.isContact ? "orgs" : "cands";
+  const o = p.orgId ? org(p.orgId) : null;
+  const details = '<div class="card-b"><dl class="dl">'+
+    dd("Email", p.email?'<a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a>':"—")+
+    dd("Phone", esc(p.phone||"—"))+
+    dd("Location", esc(p.city||"—"))+
+    dd("Title", esc(p.title||"—"))+
+    (p.isCandidate?dd("Experience", p.years?p.years+" years":"—"):"")+
+    (p.isCandidate?dd("Work authorization", esc(p.workAuth||"—")):"")+
+    (p.isCandidate?dd("Wants", p.desiredPay?money0(p.desiredPay)+"/hr":"—"):"")+
+    (p.isCandidate?dd("Available from", esc(fmtDate(p.availFrom))):"")+
+    (o?dd("Company",'<a href="#" data-a="openOrg" data-id="'+o.id+'">'+esc(o.name)+'</a>'):"")+
+    dd("Last contact", esc(fmtAgo(p.lastContact)))+
+  '</dl>'+
+  (p.skills&&p.skills.length?'<div style="margin-top:.75rem"><span class="eyebrow">Skills</span><div class="chips" style="margin-top:.3rem">'+p.skills.map(s=>'<span class="chip">'+esc(s)+'</span>').join("")+'</div></div>':"")+
+  (p.notes?'<div class="note" style="margin-top:.75rem"><span class="w">Notes</span>'+esc(p.notes)+'</div>':"")+
+  '</div>';
+
+  const hist = subs.length ? '<div class="tw"><table><thead><tr><th>Job</th><th>Company</th><th>Stage</th><th class="num">Since</th><th></th></tr></thead><tbody>'+
+    subs.map(s => { const j = job(s.jobId);
+      return '<tr><td><span class="nm">'+esc(j?j.title:"—")+'</span></td>'+
+        '<td class="sec">'+esc(j?orgName(j.orgId):"—")+'</td>'+
+        '<td>'+stagePill(s.stage)+'</td>'+
+        '<td class="num">'+daysAgo(s.stageSince)+'d</td>'+
+        '<td class="num"><button class="btn sm" data-a="openSub" data-id="'+s.id+'">Open</button></td></tr>'; }).join("")+
+    '</tbody></table></div>' : emptyBox("Not in any pipeline","This person has not been submitted anywhere yet.");
+
+  const acts = READONLY ? "" : '<span class="sp">'+
+    (p.isCandidate?btn("submitToJob","Submit to a job",true):"")+
+    btn("logContact","Log contact")+ btn("editPerson","Edit")+'</span>';
+  return '<button class="back" data-a="view" data-v="'+backTo+'">← Back</button>'+
+    '<div class="ph"><h1>'+esc(p.name)+'</h1><span class="sub">'+esc(p.title||"")+(o?" · "+esc(o.name):"")+'</span>'+acts+'</div>'+
+    '<div class="cols2"><div class="grid">'+
+      card("Activity", '<span class="sub">logged against the role we were dealing with</span>', timelineCard(p), false)+
+      card("Pipeline","",hist,true)+
+    '</div><div class="grid">'+
+      card("Roles","",rolesCard(p),false)+
+      card("Details","",details,false)+
+      card("Change history","",historyCard(p.id),false)+
+    '</div></div>';
+}
+
+/* ---------- COMPANIES ---------- */
+function viewOrgs(){
+  if(UI.sel){ const o = org(UI.sel); if(o) return viewOrgDetail(o); UI.sel = null; }
+  const q = (UI.q||"").trim().toLowerCase();
+  let list = S.orgs.filter(o => !o.archived);
+  if(UI.orgOwner === "mine") list = list.filter(ownedByMe);
+  else if(UI.orgOwner === "none") list = list.filter(o => !orgOwners(o).length);
+  if(q) list = list.filter(o => (o.name+" "+o.kind+" "+(o.notes||"")+" "+orgOwners(o).join(" ")).toLowerCase().includes(q));
+  const body = list.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Account</th><th>Owners</th><th>Type</th><th class="num">Locations</th><th class="num">Open jobs</th><th class="num">Contacts</th><th class="num">Docs</th><th>Status</th>'+
+    '</tr></thead><tbody>'+
+    list.map(o => {
+      const js = orgJobs(o.id), openJ = js.filter(j=>j.status==="Open").length;
+      const pls = S.placements.filter(pl => { const s = sub(pl.subId); const j = s?job(s.jobId):null; return j && (j.orgId===o.id||j.endClientOrgId===o.id); });
+      const ow = orgOwners(o);
+      return '<tr class="clk" data-a="openOrg" data-id="'+o.id+'">'+
+        '<td>'+who(o.name, esc((o.notes||"").slice(0,48)))+'</td>'+
+        '<td>'+(ow.length?'<div class="chips">'+ow.map(n=>'<span class="chip">'+esc(n)+'</span>').join("")+'</div>'
+              :'<span class="pill w">unassigned</span>')+'</td>'+
+        '<td><span class="pill '+(o.kind==="MSP / VMS"?"m":"n")+'">'+esc(o.kind)+'</span></td>'+
+        '<td class="num">'+orgLocations(o.id).length+'</td>'+
+        '<td class="num">'+openJ+'</td><td class="num">'+orgContacts(o.id).length+'</td>'+
+        '<td class="num">'+docsForOrg(o.id).length+'</td>'+
+        '<td>'+statusPill(o.status||"Active")+'</td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox(q||UI.orgOwner?"No accounts match":"No accounts yet",
+        q||UI.orgOwner?"Try clearing the filter.":"Add the clients and prospects you work with.",
+        btn("addOrg","Add an account",true));
+  const of_ = UI.orgOwner||"";
+  return '<div class="ph"><h1>Accounts</h1><span class="sub">'+list.length+' of '+S.orgs.filter(o=>!o.archived).length+'</span>'+
+    '<span class="sp">'+btn("addOrg","Add an account",true)+'</span></div>'+
+    '<div class="search"><input type="search" id="q" data-a="q" placeholder="Search accounts, owners, notes…" value="'+esc(UI.q||"")+'">'+
+      '<select data-a="orgOwner">'+
+        '<option value=""'+(of_===""?" selected":"")+'>All owners</option>'+
+        '<option value="mine"'+(of_==="mine"?" selected":"")+'>Mine</option>'+
+        '<option value="none"'+(of_==="none"?" selected":"")+'>Unassigned</option>'+
+      '</select></div>'+
+    '<section class="card"><div class="card-b flush">'+body+'</div></section>';
+}
+function viewOrgDetail(o){
+  const cs = orgContacts(o.id), js = orgJobs(o.id);
+  const contactsHtml = cs.length ? '<div class="tw"><table><tbody>'+
+    cs.map(c => '<tr class="clk" data-a="openPerson" data-id="'+c.id+'"><td>'+who(c.name, esc(c.title||""))+
+      (c.isCandidate?' <span class="pill a">also a candidate</span>':"")+'</td>'+
+      '<td class="sec">'+esc(c.email||"")+'<br>'+esc(c.phone||"")+'</td>'+
+      '<td class="num sec">'+esc(fmtAgo(c.lastContact))+'</td></tr>').join("")+'</tbody></table></div>'
+    : emptyBox("No contacts yet","Add the people you deal with here.");
+  const jobsHtml = js.length ? '<div class="tw"><table><thead><tr><th>Job</th><th>Type</th><th class="num">Pipeline</th><th>Status</th></tr></thead><tbody>'+
+    js.map(j => '<tr class="clk" data-a="openJob" data-id="'+j.id+'"><td><span class="nm">'+esc(j.title)+'</span>'+
+      (j.endClientOrgId===o.id?'<br><span class="pill m">via '+esc(orgName(j.orgId))+'</span>':"")+'</td>'+
+      '<td class="sec">'+esc(j.type)+'</td><td class="num">'+jobSubs(j.id).filter(s=>isOpenStage(s.stage)).length+'</td>'+
+      '<td>'+statusPill(j.status)+'</td></tr>').join("")+'</tbody></table></div>'
+    : emptyBox("No jobs yet","No requisitions recorded for this company.");
+  const det = '<div class="card-b"><dl class="dl">'+
+    dd("Type", esc(o.kind))+ dd("Status", statusPill(o.status||"Active"))+
+    dd("Open jobs", String(js.filter(j=>j.status==="Open").length))+
+  '</dl>'+(o.notes?'<div class="note" style="margin-top:.75rem">'+esc(o.notes)+'</div>':"")+'</div>';
+  const acts = READONLY?"":'<span class="sp">'+btn("addContact","Add a contact",true)+btn("addJob","Add a job")+btn("editOrg","Edit")+'</span>';
+  const ow = orgOwners(o);
+  const sub2 = esc(o.kind) + " · " + (ow.length ? "owned by " + esc(ow.join(", ")) : "no owner");
+  return '<button class="back" data-a="view" data-v="orgs">← All accounts</button>'+
+    '<div class="ph"><h1>'+esc(o.name)+'</h1><span class="sub">'+sub2+'</span>'+acts+'</div>'+
+    '<div class="cols2"><div class="grid">'+
+      card("Locations", '<span class="sub">'+orgLocations(o.id).length+'</span>', locationsCard(o), false)+
+      card("Agreements & documents","",docsCard(o),false)+
+      card("Jobs","",jobsHtml,true)+
+      card("Contacts","",contactsHtml,true)+
+    '</div><div class="grid">'+
+      card("Owners","",ownersCard(o),false)+
+      card("Account details","",det,false)+
+      card("Change history","",historyCard(o.id),false)+
+    '</div></div>';
+}
+
+/* ---------- PLACEMENTS ---------- */
+function viewPlace(){
+  const list = S.placements.slice().sort((a,b) => new Date(b.startsOn) - new Date(a.startsOn));
+  let totGM = 0;
+  list.forEach(p => { if(p.status==="Active"){ const s=sub(p.subId), j=s?job(s.jobId):null;
+    if(!(j&&j.type==="Direct hire")) totGM += margin(p.payRate,p.billRate,p.burdenPct).gm*40; } });
+  const body = list.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Contractor</th><th>Client</th><th>Type</th><th class="num">Pay</th><th class="num">Bill</th>'+
+      '<th class="num">Burden</th><th class="num">GM $/hr</th><th class="num">GM %</th><th class="num">Markup</th>'+
+      '<th class="num">Ends</th><th>Status</th>'+
+    '</tr></thead><tbody>'+
+    list.map(p => {
+      const s = sub(p.subId), pe = s?person(s.personId):null, j = s?job(s.jobId):null;
+      const isPerm = j && j.type==="Direct hire";
+      const m = margin(p.payRate,p.billRate,p.burdenPct);
+      const d = p.endsOn ? daysUntil(p.endsOn) : null;
+      return '<tr class="clk" data-a="openPlacement" data-id="'+p.id+'">'+
+        '<td>'+who(pe?pe.name:"—", esc(j?j.title:""))+'</td>'+
+        '<td class="sec">'+esc(j?orgName(j.orgId):"—")+'</td>'+
+        '<td><span class="pill n">'+esc(j?j.type:"—")+'</span></td>'+
+        (isPerm
+          ? '<td class="num sec" colspan="6">fee '+money0(p.fee)+'</td>'
+          : '<td class="num">'+money(p.payRate)+'</td><td class="num">'+money(p.billRate)+'</td>'+
+            '<td class="num sec">'+pct(p.burdenPct)+'</td>'+
+            '<td class="num" style="color:var(--money);font-weight:600">'+money(m.gm)+'</td>'+
+            '<td class="num">'+pct(m.gmPct)+'</td><td class="num sec">'+pct(m.markupPct)+'</td>')+
+        '<td class="num"'+(d!=null&&d<=30?' style="color:var(--warn)"':'')+'>'+(p.endsOn?fmtDate(p.endsOn):"—")+'</td>'+
+        '<td>'+statusPill(p.status)+'</td></tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox("No placements yet","Move a candidate to Placed on a job and the placement is created here, with the margin worked out for you.");
+  return '<div class="ph"><h1>Placements</h1><span class="sub">'+money0(totGM)+' weekly gross margin from active hourly placements</span>'+
+    '<span class="sp">'+btn("exportPlacements","Export")+'</span></div>'+
+    '<section class="card"><div class="card-b flush">'+body+'</div></section>';
+}
+
+/* ---------- form field helpers ---------- */
+function fld(name,label,val,opts){
+  opts = opts||{};
+  const t = opts.type||"text";
+  const req = opts.req?' <span class="req">*</span>':"";
+  const hint = opts.hint?'<span class="hint">'+esc(opts.hint)+'</span>':"";
+  const extra = (opts.step?' step="'+opts.step+'"':"") + (opts.min!=null?' min="'+opts.min+'"':"") +
+                (opts.ph?' placeholder="'+esc(opts.ph)+'"':"") + (opts.calc?' data-calc="1"':"");
+  if(t==="textarea") return '<label class="f"><span>'+esc(label)+req+'</span><textarea name="'+name+'"'+extra+'>'+esc(val==null?"":val)+'</textarea>'+hint+'</label>';
+  if(t==="select"){
+    const o = (opts.options||[]).map(x => {
+      const v = typeof x==="object"?x.v:x, l = typeof x==="object"?x.l:x;
+      return '<option value="'+esc(v)+'"'+(String(val)===String(v)?" selected":"")+'>'+esc(l)+'</option>';
+    }).join("");
+    return '<label class="f"><span>'+esc(label)+req+'</span><select name="'+name+'"'+(opts.calc?' data-calc="1"':"")+'>'+
+      (opts.blank?'<option value="">'+esc(opts.blank)+'</option>':"")+o+'</select>'+hint+'</label>';
+  }
+  return '<label class="f"><span>'+esc(label)+req+'</span><input type="'+t+'" name="'+name+'" value="'+esc(val==null?"":val)+'"'+extra+'>'+hint+'</label>';
+}
+function modalShell(title, body, footer){
+  return '<div class="scrim" data-a="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(title)+'">'+
+    '<div class="modal-h"><h2>'+esc(title)+'</h2><button class="x" data-a="closeModal" aria-label="Close">×</button></div>'+
+    '<form data-a="form"><div class="modal-b">'+(UI.err?'<p class="ferr">'+esc(UI.err)+'</p>':"")+body+'</div>'+
+    '<div class="modal-f">'+footer+'</div></form></div></div>';
+}
+function stdFooter(label, extra){
+  return (extra||"")+'<span class="sp"><button type="button" class="btn" data-a="closeModal">Cancel</button>'+
+    '<button type="submit" class="btn pri">'+esc(label)+'</button></span>';
+}
+
+/* ---------- modals ---------- */
+function modalHtml(){
+  if(!UI.modal) return "";
+  const d = UI.md||{};
+  switch(UI.modal){
+
+  case "cand": {
+    const p = d.id?person(d.id):(d.prefill||{});
+    return modalShell(d.id?"Edit candidate":"Add a candidate",
+      (d.dupe?'<div class="fwarn"><b>Possible duplicate.</b> '+esc(d.dupe)+' already has this email or phone. Saving anyway will create a second record.</div>':"")+
+      '<div class="fg">'+
+        '<div class="fr two">'+fld("name","Full name",p.name,{req:true,ph:"Jane Developer"})+fld("title","Current title",p.title,{ph:"Senior Backend Engineer"})+'</div>'+
+        '<div class="fr two">'+fld("email","Email",p.email,{type:"email",ph:"jane@example.com"})+fld("phone","Phone",p.phone,{ph:"(312) 555-0100"})+'</div>'+
+        '<div class="fr three">'+fld("city","Location",p.city,{ph:"Chicago, IL"})+fld("years","Years experience",p.years,{type:"number",step:"0.5",min:0})+
+          fld("workAuth","Work authorization",p.workAuth,{type:"select",options:WORKAUTH,blank:"—"})+'</div>'+
+        '<div class="fr two">'+fld("desiredPay","Wants ($/hr)",p.desiredPay,{type:"number",step:"0.5",min:0})+fld("availFrom","Available from",p.availFrom,{type:"date"})+'</div>'+
+        fld("skills","Skills",(p.skills||[]).join(", "),{hint:"Separate with commas — these are what search matches on."})+
+        fld("notes","Notes",p.notes,{type:"textarea",ph:"Screening notes, rate conversation, availability…"})+
+      '</div>', stdFooter(d.id?"Save changes":"Add candidate"));
+  }
+
+  case "org": {
+    const o = d.id?org(d.id):(d.prefill||{});
+    return modalShell(d.id?"Edit company":"Add a company",
+      '<div class="fg">'+
+        fld("name","Company name",o.name,{req:true,ph:"Northwind Health"})+
+        '<div class="fr two">'+fld("kind","Type",o.kind||"Client",{type:"select",options:ORGKINDS})+
+          fld("status","Status",o.status||"Active",{type:"select",options:["Active","Prospect","Dormant","Do not use","Credit hold"]})+'</div>'+
+        fld("notes","Notes",o.notes,{type:"textarea",ph:"Terms, agreement status, who owns the relationship…"})+
+      '</div>', stdFooter(d.id?"Save changes":"Add company"));
+  }
+
+  case "contact": {
+    const p = d.id?person(d.id):(d.prefill||{});
+    const oid = d.orgId || p.orgId || (S.orgs[0]&&S.orgs[0].id);
+    return modalShell(d.id?"Edit contact":"Add a contact",
+      '<div class="fg">'+
+        '<div class="fr two">'+fld("name","Full name",p.name,{req:true})+fld("title","Title",p.title,{ph:"Director of Engineering"})+'</div>'+
+        fld("orgId","Company",oid,{type:"select",req:true,options:S.orgs.map(o=>({v:o.id,l:o.name}))})+
+        '<div class="fr two">'+fld("email","Email",p.email,{type:"email"})+fld("phone","Phone",p.phone)+'</div>'+
+        fld("notes","Notes",p.notes,{type:"textarea",ph:"How they buy, what they want to see…"})+
+      '</div>', stdFooter(d.id?"Save changes":"Add contact"));
+  }
+
+  case "job": {
+    const j = d.id?job(d.id):(d.prefill||{});
+    const oid = d.orgId || j.orgId || (S.orgs[0]&&S.orgs[0].id);
+    const type = d.type || j.type || "Contract";
+    const isPerm = type==="Direct hire";
+    const hmOpts = S.people.filter(p=>p.isContact).map(p=>({v:p.id,l:p.name+" — "+orgName(p.orgId)}));
+    if(!S.orgs.length) return modalShell("Add a job",
+      '<div class="fwarn"><b>Add a company first.</b> Every job belongs to the company you are filling it for.</div>',
+      '<span class="sp"><button type="button" class="btn" data-a="closeModal">Cancel</button><button type="button" class="btn pri" data-a="addOrg">Add a company</button></span>');
+    return modalShell(d.id?"Edit job":"Add a job",
+      '<div class="fg">'+
+        '<div class="fr two">'+fld("title","Job title",j.title,{req:true,ph:"Senior Backend Engineer"})+
+          fld("type","Type",type,{type:"select",options:JOBTYPES})+'</div>'+
+        '<div class="fr two">'+fld("orgId","Company you invoice",oid,{type:"select",req:true,options:S.orgs.map(o=>({v:o.id,l:o.name}))})+
+          fld("endClientOrgId","End client (if via an MSP)",j.endClientOrgId,{type:"select",blank:"— same as above —",options:S.orgs.map(o=>({v:o.id,l:o.name})),hint:"Set this when work happens somewhere other than who you bill."})+'</div>'+
+        '<div class="fr three">'+fld("city","Location",j.city,{ph:"Chicago, IL (hybrid)"})+
+          fld("openings","Openings",j.openings||1,{type:"number",min:1})+
+          fld("status","Status",j.status||"Open",{type:"select",options:JOBSTATUS})+'</div>'+
+        '<div class="fr two">'+
+          fld("billMax","Max bill rate ($/hr)",j.billMax,{type:"number",step:"0.5",min:0,hint:isPerm?"For hourly work — leave blank on a perm role.":"Your ceiling. Submissions above it get flagged."})+
+          fld("payMax","Max pay rate ($/hr)",j.payMax,{type:"number",step:"0.5",min:0})+
+        '</div>'+
+        '<div class="fr two">'+
+          fld("salaryMin","Salary from",j.salaryMin,{type:"number",min:0,ph:"175000",hint:isPerm?"Required in CO, CA, NY, WA and IL postings.":"For perm roles — leave blank on contract."})+
+          fld("salaryMax","Salary to",j.salaryMax,{type:"number",min:0,ph:"205000"})+
+        '</div>'+
+        (hmOpts.length?fld("hmId","Hiring manager",j.hmId,{type:"select",blank:"— none —",options:hmOpts}):"")+
+        fld("notes","Notes",j.notes,{type:"textarea",ph:"Must-haves, interview process, fee terms…"})+
+      '</div>', stdFooter(d.id?"Save changes":"Add job"));
+  }
+
+  case "submit": {
+    /* submit a candidate to a job, or add a candidate to a job's pipeline */
+    const fixedJob = d.jobId?job(d.jobId):null;
+    const fixedPerson = d.personId?person(d.personId):null;
+    const openJobs = S.jobs.filter(j => j.status==="Open");
+    if(!fixedJob && !openJobs.length) return modalShell("Submit to a job",
+      '<div class="fwarn"><b>No open jobs.</b> Add a job first, then submit candidates to it.</div>',
+      '<span class="sp"><button type="button" class="btn" data-a="closeModal">Cancel</button><button type="button" class="btn pri" data-a="addJob">Add a job</button></span>');
+    const already = fixedJob ? jobSubs(fixedJob.id).map(s=>s.personId) : [];
+    const candOpts = candidates().filter(p => already.indexOf(p.id)<0).map(p=>({v:p.id,l:p.name+(p.title?" — "+p.title:"")}));
+    if(fixedJob && !candOpts.length) return modalShell("Add candidate to pipeline",
+      '<div class="fwarn"><b>Everyone is already in this pipeline.</b> Add a new candidate first.</div>',
+      '<span class="sp"><button type="button" class="btn" data-a="closeModal">Cancel</button><button type="button" class="btn pri" data-a="addCand">Add a candidate</button></span>');
+    return modalShell(fixedJob?"Add candidate to pipeline":"Submit to a job",
+      (d.rtr?'<div class="fwarn"><b>Already represented.</b> '+esc(d.rtr)+' Submitting the same person to the same client twice damages the relationship — check before continuing.</div>':"")+
+      '<div class="fg">'+
+        (fixedJob
+          ? '<div class="note"><span class="w">Job</span>'+esc(fixedJob.title)+' · '+esc(jobLine(fixedJob))+'</div>'
+          : fld("jobId","Job",d.jobId,{type:"select",req:true,options:openJobs.map(j=>({v:j.id,l:j.title+" — "+orgName(j.orgId)}))}))+
+        (fixedPerson
+          ? '<div class="note"><span class="w">Candidate</span>'+esc(fixedPerson.name)+'</div>'
+          : fld("personId","Candidate",d.personId,{type:"select",req:true,options:candOpts}))+
+        '<div class="fr two">'+fld("stage","Starting stage",d.stage||"Submitted",{type:"select",options:STAGES.filter(s=>s!=="Placed")})+
+          fld("payRate","Pay rate ($/hr)",d.payRate,{type:"number",step:"0.5",min:0,hint:"Optional now — required to place."})+'</div>'+
+        fld("billRate","Bill rate ($/hr)",d.billRate,{type:"number",step:"0.5",min:0})+
+        fld("notes","Submission note",d.notes,{type:"textarea",ph:"Why this person fits, what you told the client…"})+
+      '</div>', stdFooter(fixedJob?"Add to pipeline":"Submit"));
+  }
+
+  case "placement": {
+    const s = sub(d.subId); if(!s) return "";
+    const j = job(s.jobId), p = person(s.personId);
+    const isPerm = j && j.type==="Direct hire";
+    const ex = d.id?byId(S.placements,d.id):null;
+    const pay = d.payRate!=null?d.payRate:(ex?ex.payRate:s.payRate);
+    const bill = d.billRate!=null?d.billRate:(ex?ex.billRate:s.billRate);
+    const burden = d.burdenPct!=null?d.burdenPct:(ex?ex.burdenPct:DEFAULT_BURDEN);
+    const body = isPerm
+      ? '<div class="fg">'+
+          '<div class="note"><span class="w">Placing</span>'+esc(p?p.name:"")+' at '+esc(orgName(j.orgId))+' — '+esc(j.title)+'</div>'+
+          '<div class="fr two">'+fld("startsOn","Start date",ex?ex.startsOn:todayISO(),{type:"date",req:true})+
+            fld("fee","Placement fee ($)",ex?ex.fee:(j.salaryMin?Math.round(j.salaryMin*0.2):null),{type:"number",min:0,hint:"One-time fee invoiced on start."})+'</div>'+
+          fld("guarantee","Guarantee (days)",ex?ex.guarantee:90,{type:"number",min:0})+
+        '</div>'
+      : '<div class="fg">'+
+          '<div class="note"><span class="w">Placing</span>'+esc(p?p.name:"")+' at '+esc(orgName(j?j.orgId:null))+' — '+esc(j?j.title:"")+'</div>'+
+          '<div class="fr two">'+fld("startsOn","Start date",ex?ex.startsOn:todayISO(),{type:"date",req:true})+
+            fld("endsOn","Scheduled end",ex?ex.endsOn:addDays(todayISO(),180),{type:"date"})+'</div>'+
+          '<div class="fr three">'+
+            fld("payRate","Pay rate ($/hr)",pay,{type:"number",step:"0.5",min:0,req:true,calc:true})+
+            fld("billRate","Bill rate ($/hr)",bill,{type:"number",step:"0.5",min:0,req:true,calc:true})+
+            fld("burdenPct","Burden (%)",burden,{type:"number",step:"0.5",min:0,calc:true,hint:"Taxes, WC, benefits."})+'</div>'+
+          '<div id="calc">'+calcBox(pay,bill,burden,j)+'</div>'+
+        '</div>';
+    return modalShell(d.id?"Edit placement":"Create placement", body, stdFooter(d.id?"Save placement":"Create placement",
+      d.id&&!READONLY?'<button type="button" class="btn dgr" data-a="endPlacement" data-id="'+d.id+'">End assignment</button>':""));
+  }
+
+  case "closeSub": {
+    const s = sub(d.id); if(!s) return "";
+    return modalShell("Close this submission",
+      '<div class="fg">'+
+        '<div class="note"><span class="w">Submission</span>'+esc(subLabel(s))+'</div>'+
+        fld("stage","Outcome",d.stage||"Rejected",{type:"select",options:CLOSED})+
+        fld("closedReason","Reason",d.closedReason,{type:"select",req:true,options:[
+          "Rate too high","Skills gap","Lost to another supplier","Candidate withdrew",
+          "Candidate unresponsive","Counter-offer accepted","Req cancelled","Client never responded","Other"],
+          hint:'"Client passed" tells you nothing later. These reasons tell you where money leaks.'})+
+        fld("notes","Note",d.notes,{type:"textarea"})+
+      '</div>', stdFooter("Close submission"));
+  }
+
+  case "logContact": {
+    const p = person(d.id); if(!p) return "";
+    return modalShell("Log contact",
+      '<div class="fg">'+
+        '<div class="note"><span class="w">Person</span>'+esc(p.name)+' · last contact '+esc(fmtAgo(p.lastContact))+'</div>'+
+        fld("when","When",todayISO(),{type:"date"})+
+        fld("note","What happened",d.note,{type:"textarea",req:true,ph:"Called about the Northwind role — interested, available in 2 weeks."})+
+      '</div>', stdFooter("Log it"));
+  }
+
+  case "location": {
+    const l = d.id?locById(d.id):{};
+    const oid = d.orgId || l.orgId;
+    return modalShell(d.id?"Edit location":"Add a location",
+      '<div class="fg">'+
+        '<div class="note"><span class="w">Account</span>'+esc(orgName(oid))+'</div>'+
+        fld("name","Location name",l.name,{req:true,ph:"Chicago HQ"})+
+        fld("address","Street address",l.address,{ph:"400 W Monroe St"})+
+        '<div class="fr three">'+fld("city","City",l.city)+fld("state","State",l.state,{ph:"IL"})+fld("zip","ZIP",l.zip)+'</div>'+
+        fld("roe","Rules of engagement",l.roe,{type:"textarea",
+          ph:"Submittal limits, portal rules, screening required before start, badging lead time…",
+          hint:"Anything specific to this site that a recruiter must follow."})+
+        fld("notes","Notes",l.notes,{type:"textarea"})+
+      '</div>', stdFooter(d.id?"Save location":"Add location"));
+  }
+
+  case "owner": {
+    return modalShell("Add an owner",
+      '<div class="fg">'+
+        '<div class="note"><span class="w">Account</span>'+esc(orgName(d.id))+'</div>'+
+        fld("name","Owner name",d.name||"",{req:true,ph:"Jordan Blake",
+          hint:"An account can have as many owners as it needs."})+
+      '</div>', stdFooter("Add owner"));
+  }
+
+  case "whoami": {
+    return modalShell("Who are you?",
+      '<div class="fg">'+
+        '<p style="margin:0;color:var(--muted)">So that “my accounts” means something. Stored on this device only.</p>'+
+        fld("name","Your name",ME,{req:true,ph:"Your name"})+
+      '</div>', stdFooter("Save"));
+  }
+
+  case "pasteResume": {
+    return modalShell("Paste a resume or agreement",
+      '<div class="fg">'+
+        '<p style="margin:0;color:var(--muted)">Paste the text and I will pull out what I can. Use this when a PDF will not read — usually a scan.</p>'+
+        fld("name","File name (optional)",d.name||"",{ph:"jane-doe-resume.pdf"})+
+        fld("text","Text",d.text||"",{type:"textarea",req:true})+
+      '</div>', stdFooter("Read it"));
+  }
+
+  case "doc": {
+    const doc = (S.docs||[]).find(x => x.id === d.id);
+    if(!doc) return "";
+    const ls = orgLocations(doc.orgId);
+    return modalShell(doc.name,
+      '<div class="fg">'+
+        '<div class="fr two">'+
+          fld("kind","Document type",doc.kind,{type:"select",options:DOC_KINDS})+
+          fld("locationId","Applies to",doc.locationId||"",{type:"select",
+            blank:"All of "+orgName(doc.orgId)+" (account-wide)",
+            options:ls.map(l=>({v:l.id,l:l.name})),
+            hint:"Account-wide, or one location only."})+
+        '</div>'+
+        fld("link","Link to the original",doc.link||"",{ph:"https://…sharepoint.com/…",
+          hint:"The file itself lives in SharePoint or Drive. Paste its link so anyone can open it."})+
+        '<div class="note"><span class="w">Stored text — searchable</span>'+
+          esc((doc.text||"(no text extracted)").slice(0,1400))+((doc.text||"").length>1400?"…":"")+'</div>'+
+      '</div>', stdFooter("Save document"));
+  }
+
+  case "confirm":
+    return modalShell(d.title||"Are you sure?",
+      '<p style="margin:0">'+esc(d.body||"")+'</p>',
+      '<span class="sp"><button type="button" class="btn" data-a="closeModal">Cancel</button>'+
+      '<button type="submit" class="btn '+(d.danger?"dgr":"pri")+'">'+esc(d.ok||"Confirm")+'</button></span>');
+  }
+  return "";
+}
+function calcBox(pay,bill,burden,j){
+  const m = margin(pay,bill,burden);
+  const hold = billToHold(pay,burden,m.gmPct);
+  const warn = m.gm <= 0
+    ? '<div class="hint" style="color:var(--alert)">This placement loses money at these rates.</div>'
+    : (j && j.billMax && +bill > +j.billMax
+      ? '<div class="hint" style="color:var(--alert)">Bill rate is above this job\'s ceiling of '+money0(j.billMax)+'.</div>'
+      : '<div class="hint">Burden is '+money(m.burden)+'/hr on top of pay. Raising pay by $1 needs bill up '+money(1+ (+burden||0)/100)+' just to hold this margin.</div>');
+  return '<div class="calc">'+
+    row("Spread (bill − pay)", money(m.spread))+
+    row("Burden", money(m.burden)+"/hr")+
+    '<div class="row big"><span class="k">Gross margin</span><span class="v">'+money(m.gm)+'/hr</span></div>'+
+    row("Gross margin %", pct(m.gmPct))+
+    row("Markup %", pct(m.markupPct))+
+    row("Per week at 40 hrs", money0(m.gm*40))+
+    warn+
+  '</div>';
+}
+
+/* ============================================================
+   ASSISTANT — a conversational front door to the workspace.
+   Parsing is deterministic (patterns + heuristics), not a
+   language model: it always shows what it extracted before
+   anything is saved.
+   ============================================================ */
+
+const SKILL_VOCAB = ("java|javascript|typescript|python|c#|c\\+\\+|golang|go|ruby|rust|php|scala|kotlin|swift|objective-c|"+
+"react|angular|vue|svelte|next\\.js|node|node\\.js|express|django|flask|fastapi|spring|spring boot|rails|laravel|dotnet|\\.net|asp\\.net|"+
+"sql|mysql|postgresql|postgres|oracle|sql server|mongodb|dynamodb|redis|cassandra|snowflake|redshift|bigquery|databricks|"+
+"aws|azure|gcp|google cloud|kubernetes|docker|terraform|ansible|jenkins|gitlab|github actions|ci/cd|devops|sre|linux|windows server|"+
+"airflow|dbt|spark|hadoop|kafka|etl|data warehouse|power bi|tableau|looker|qlik|"+
+"machine learning|deep learning|nlp|pytorch|tensorflow|scikit-learn|pandas|numpy|llm|"+
+"salesforce|servicenow|workday|sap|netsuite|dynamics|sharepoint|"+
+"html|css|sass|tailwind|graphql|rest|grpc|microservices|api|"+
+"cissp|comptia|security\\+|pentest|siem|splunk|soc|iam|okta|zero trust|firewall|cisco|ccna|ccnp|juniper|"+
+"agile|scrum|kanban|jira|confluence|pmp|itil|six sigma|lean|"+
+"qa|selenium|cypress|playwright|junit|test automation|manual testing|"+
+"figma|ux|ui|product design|"+
+"epic|cerner|hl7|fhir|hipaa|emr|ehr|rn|bls|acls|"+
+"forklift|wms|osha|logistics|supply chain|inventory|"+
+"quickbooks|gaap|cpa|payroll|accounts payable|accounts receivable"
+).split("|");
+
+const TITLE_WORDS = ["engineer","developer","architect","administrator","analyst","manager","director","lead",
+  "specialist","consultant","technician","scientist","designer","recruiter","coordinator","supervisor",
+  "president","vp","officer","cto","cio","ceo","controller","accountant","nurse","programmer","devops",
+  "sre","tester","qa","scrum master","product owner","head of","principal","staff","intern","associate"];
+
+const RX_EMAIL = /[\w.+-]+@[\w-]+\.[\w.-]{2,}/;
+const RX_PHONE = /(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/;
+const RX_HOURLY = /\$\s?(\d{1,3}(?:\.\d{1,2})?)\s*(?:\/\s*|per\s+)?(?:hr|hour|hourly)\b/i;
+const RX_SALARY_K = /\$\s?(\d{2,3})\s?k\b/i;
+const RX_SALARY = /\$\s?(\d{2,3},\d{3}|\d{5,6})\b/;
+const RX_CITY = /\b([A-Z][a-zA-Z.\-']+(?:\s+[A-Z][a-zA-Z.\-']+){0,2}),\s*([A-Z]{2})\b/;
+const RX_YEARS = /(\d{1,2})\s*\+?\s*(?:years|yrs|yoe)\b/i;
+const RX_BILL = /\bbill(?:\s*rate)?\s*(?:is|at|=|:)?\s*\$?\s?(\d{1,3}(?:\.\d{1,2})?)/i;
+const RX_PAY = /\bpay(?:\s*rate)?\s*(?:is|at|=|:)?\s*\$?\s?(\d{1,3}(?:\.\d{1,2})?)/i;
+
+function tidyPhone(s){
+  const d = digits(s);
+  const t = d.length === 11 && d[0] === "1" ? d.slice(1) : d;
+  return t.length === 10 ? "("+t.slice(0,3)+") "+t.slice(3,6)+"-"+t.slice(6) : s.trim();
+}
+function titleCaseName(s){
+  return String(s).split(/\s+/).map(w => w ? w[0].toUpperCase()+w.slice(1) : w).join(" ");
+}
+function looksLikeName(line){
+  const t = line.trim().replace(/[,|].*$/, "");
+  if(!t || t.length > 42) return false;
+  if(/[@\d]/.test(t)) return false;
+  const parts = t.split(/\s+/);
+  if(parts.length < 2 || parts.length > 4) return false;
+  if(TITLE_WORDS.some(w => t.toLowerCase().includes(w))) return false;
+  return parts.every(w => /^[A-Z][a-zA-Z.\-']*$/.test(w) || /^[A-Z]\.$/.test(w));
+}
+
+/* ---------- resume text extraction ---------- */
+async function inflateRaw(bytes){
+  const st = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(st).arrayBuffer());
+}
+function readZipEntries(buf){
+  const dv = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  let eocd = -1;
+  for(let i = buf.length - 22; i >= 0 && i > buf.length - 66000; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error("not a zip");
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const out = {};
+  for(let n = 0; n < count; n++){
+    if(dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const csize = dv.getUint32(off + 20, true);
+    const nlen = dv.getUint16(off + 28, true);
+    const elen = dv.getUint16(off + 30, true);
+    const clen = dv.getUint16(off + 32, true);
+    const lho = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(buf.subarray(off + 46, off + 46 + nlen));
+    const lnlen = dv.getUint16(lho + 26, true);
+    const lelen = dv.getUint16(lho + 28, true);
+    const start = lho + 30 + lnlen + lelen;
+    out[name] = { method, bytes: buf.subarray(start, start + csize) };
+    off += 46 + nlen + elen + clen;
+  }
+  return out;
+}
+async function docxText(file){
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const e = readZipEntries(buf);
+  const doc = e["word/document.xml"];
+  if(!doc) throw new Error("no document.xml");
+  const raw = doc.method === 0 ? doc.bytes : await inflateRaw(doc.bytes);
+  const xml = new TextDecoder().decode(raw);
+  return xml
+    .replace(/<\/w:p>/g, "\n")
+    .replace(/<w:tab[^>]*\/>/g, "  ")
+    .replace(/<w:br[^>]*\/>/g, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&apos;/g, "'");
+}
+function pdfDecodeTextOps(s){
+  let out = "";
+  const rx = /\((?:\\.|[^\\()])*\)|\[((?:\s*\((?:\\.|[^\\()])*\)\s*-?\d*\.?\d*)*)\]\s*TJ|(Td|TD|T\*|Tj|ET)/g;
+  let m;
+  while((m = rx.exec(s))){
+    if(m[0][0] === "("){
+      out += m[0].slice(1, -1).replace(/\\([nrt\\()])/g, (x, c) => ({n:"\n", r:"\n", t:"  ", "\\":"\\", "(":"(", ")":")"}[c]));
+    }else if(m[1] != null){
+      out += m[1].replace(/\((?:\\.|[^\\()])*\)/g, q => q.slice(1, -1)).replace(/\s*-?\d+\.?\d*\s*/g, "");
+    }else if(m[3] === "Td" || m[3] === "TD" || m[3] === "T*" || m[3] === "ET"){
+      out += "\n";
+    }
+  }
+  return out;
+}
+async function pdfText(file){
+  const buf = new Uint8Array(await file.arrayBuffer());
+  const latin = new TextDecoder("latin1").decode(buf);
+  let text = "";
+  const rx = /stream\r?\n?/g;
+  let m;
+  while((m = rx.exec(latin))){
+    const start = m.index + m[0].length;
+    const end = latin.indexOf("endstream", start);
+    if(end < 0) continue;
+    const slice = buf.subarray(start, end);
+    let decoded = null;
+    if(slice[0] === 0x78){
+      try{ decoded = new TextDecoder("latin1").decode(await inflateRaw(slice.subarray(2))); }catch(e){}
+    }
+    if(decoded == null){
+      const asTxt = latin.slice(start, end);
+      if(/\)\s*Tj|TJ\b/.test(asTxt)) decoded = asTxt;
+    }
+    if(decoded && /\)\s*Tj|TJ\b/.test(decoded)) text += pdfDecodeTextOps(decoded) + "\n";
+    rx.lastIndex = end;
+  }
+  return text;
+}
+function textQuality(t){
+  if(!t) return 0;
+  const letters = (t.match(/[A-Za-z]/g) || []).length;
+  return letters / Math.max(1, t.length);
+}
+function cleanText(t){
+  return String(t || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t ]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+async function fileToText(file){
+  const n = (file.name || "").toLowerCase();
+  if(/\.docx$/.test(n)) return cleanText(await docxText(file));
+  if(/\.pdf$/.test(n))  return cleanText(await pdfText(file));
+  if(/\.(txt|md|markdown|csv|tsv|rtf|json|html?)$/.test(n)) return cleanText(await file.text());
+  if(/\.doc$/.test(n)) throw new Error("legacy-doc");
+  return cleanText(await file.text());
+}
+
+/* ---------- resume -> fields ---------- */
+function findSkills(text){
+  const low = " " + text.toLowerCase().replace(/[\n,;|/]+/g, " ") + " ";
+  const hits = [];
+  SKILL_VOCAB.forEach(v => {
+    const clean = v.replace(/\\/g, "");
+    const rx = new RegExp("(^|[^a-z0-9+#.])" + v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\\\\/g, "\\") + "([^a-z0-9+#]|$)", "i");
+    if(rx.test(low)) hits.push(clean);
+  });
+  const sec = text.match(/(?:technical\s+)?skills?\s*[:\n]([\s\S]{0,400})/i);
+  if(sec){
+    sec[1].split("\n").slice(0, 6).join(",").split(/[,;|•·•]/).forEach(tok => {
+      const t = tok.trim().replace(/^[-–\s]+/, "");
+      if(t.length >= 2 && t.length <= 28 && /[a-zA-Z]/.test(t) && !/\s{2,}/.test(t) && t.split(/\s+/).length <= 3) hits.push(t);
+    });
+  }
+  const seen = new Set(), out = [];
+  hits.forEach(h => {
+    const k = h.toLowerCase();
+    if(!seen.has(k)){ seen.add(k); out.push(titleCaseSkill(h)); }
+  });
+  return out.slice(0, 14);
+}
+function titleCaseSkill(s){
+  const upper = ["aws","gcp","sql","api","etl","qa","ux","ui","nlp","llm","sre","php","css","html","rest","grpc",
+                 "cissp","pmp","itil","ccna","ccnp","soc","iam","siem","emr","ehr","rn","bls","acls","wms","osha",
+                 "cpa","gaap","hl7","fhir","hipaa","cto","cio","ceo","vp","sap","erp","crm"];
+  if(upper.includes(s.toLowerCase())) return s.toUpperCase();
+  if(/^[a-z]/.test(s) && s.length > 2) return s[0].toUpperCase() + s.slice(1);
+  return s;
+}
+function guessName(text, filename, email){
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 12);
+  for(const l of lines) if(looksLikeName(l)) return l.replace(/[,|].*$/, "").trim();
+  if(email){
+    const local = email.split("@")[0].replace(/\d+/g, "");
+    const parts = local.split(/[._-]+/).filter(p => p.length > 1);
+    if(parts.length >= 2) return titleCaseName(parts.slice(0, 2).join(" "));
+  }
+  if(filename){
+    const base = filename.replace(/\.[a-z0-9]+$/i, "").replace(/[_-]+/g, " ")
+      .replace(/\b(resume|cv|curriculum vitae|final|updated|\d{4})\b/gi, "").trim();
+    if(base.split(/\s+/).length >= 2) return titleCaseName(base);
+  }
+  return "";
+}
+function guessTitle(text, name){
+  const lines = text.split("\n").map(l => l.trim()).filter(Boolean).slice(0, 18);
+  for(const l of lines){
+    if(name && l.toLowerCase() === name.toLowerCase()) continue;
+    if(l.length > 72 || /[@]/.test(l)) continue;
+    const low = l.toLowerCase();
+    if(TITLE_WORDS.some(w => low.includes(w)) && !/^(summary|objective|experience|education|skills)\b/.test(low)){
+      return l.replace(/[|•].*$/, "").replace(/^[-–\s]+/, "").trim();
+    }
+  }
+  return "";
+}
+function parseResume(text, filename){
+  const f = {};
+  const em = text.match(RX_EMAIL); if(em) f.email = em[0];
+  const ph = text.match(RX_PHONE); if(ph) f.phone = tidyPhone(ph[0]);
+  const ct = text.match(RX_CITY);  if(ct) f.city = ct[1].trim() + ", " + ct[2];
+  const yr = text.match(RX_YEARS); if(yr) f.years = +yr[1];
+  const hr = text.match(RX_HOURLY); if(hr) f.desiredPay = +hr[1];
+  f.skills = findSkills(text);
+  f.name = guessName(text, filename, f.email);
+  f.title = guessTitle(text, f.name);
+  return f;
+}
+
+/* ---------- free-text field extraction ---------- */
+function extractFields(rest, kind){
+  const f = { skills: [] };
+  let s = " " + rest + " ";
+
+  const em = s.match(RX_EMAIL); if(em){ f.email = em[0]; s = s.replace(em[0], " "); }
+  const ph = s.match(RX_PHONE); if(ph){ f.phone = tidyPhone(ph[0]); s = s.replace(ph[0], " "); }
+
+  const bill = s.match(RX_BILL); if(bill){ f.billMax = +bill[1]; s = s.replace(bill[0], " "); }
+  const pay  = s.match(RX_PAY);  if(pay){  f.payMax  = +pay[1];  s = s.replace(pay[0], " "); }
+  const hr = s.match(RX_HOURLY); if(hr){ f.desiredPay = +hr[1]; s = s.replace(hr[0], " "); }
+  const sk = s.match(RX_SALARY_K); if(sk){ f.salaryMin = +sk[1] * 1000; s = s.replace(sk[0], " "); }
+  else { const sal = s.match(RX_SALARY); if(sal){ f.salaryMin = +String(sal[1]).replace(/,/g, ""); s = s.replace(sal[0], " "); } }
+
+  const yr = s.match(RX_YEARS); if(yr){ f.years = +yr[1]; s = s.replace(yr[0], " "); }
+
+  const skm = s.match(/\bskills?\s*(?:are|:|=)?\s*([^,;]*(?:,[^,;]*){0,12})/i);
+  if(skm){ f.skills = skm[1].split(/[,/|]/).map(x => x.trim()).filter(x => x.length > 1).slice(0, 14).map(titleCaseSkill); s = s.replace(skm[0], " "); }
+
+  const co = s.match(/\b(?:at|for|with|@)\s+([A-Z][\w&.'-]*(?:\s+[A-Z][\w&.'-]*){0,4})/);
+  if(co){ f.company = co[1].trim().replace(/[.,]$/, ""); s = s.replace(co[0], " "); }
+
+  const ct = s.match(RX_CITY); if(ct){ f.city = ct[1].trim() + ", " + ct[2]; s = s.replace(ct[0], " "); }
+  else {
+    const rem = s.match(/\b(?:in|based in|located in)\s+([A-Z][a-zA-Z.\-']+(?:\s+[A-Z][a-zA-Z.\-']+){0,2})/);
+    if(rem){ f.city = rem[1].trim(); s = s.replace(rem[0], " "); }
+  }
+  if(/\bremote\b/i.test(s)){ f.city = f.city || "Remote"; }
+
+  const jt = s.match(/\b(contract to hire|contract-to-hire|c2h|contract|direct hire|perm(?:anent)?|sow|project)\b/i);
+  if(jt){
+    const v = jt[1].toLowerCase();
+    f.jobType = /c2h|contract to hire|contract-to-hire/.test(v) ? "Contract-to-hire"
+      : /direct|perm/.test(v) ? "Direct hire"
+      : /sow|project/.test(v) ? "SOW / project" : "Contract";
+    s = s.replace(jt[0], " ");
+  }
+
+  const frags = s.split(/[,;\n]+/).map(x => x.trim()).filter(Boolean);
+  frags.forEach(fr => {
+    const low = fr.toLowerCase();
+    if(!f.title && TITLE_WORDS.some(w => low.includes(w)) && fr.length <= 72){ f.title = fr; return; }
+    if(!f.name && looksLikeName(fr)){ f.name = fr; return; }
+  });
+  if(!f.name){
+    const lead = frags[0];
+    if(lead && kind !== "company" && kind !== "job" && !/[@\d]/.test(lead) && lead.split(/\s+/).length <= 4) f.name = titleCaseName(lead);
+  }
+  if((kind === "company") && !f.name){
+    const lead = frags[0]; if(lead) f.name = lead.trim();
+  }
+  if(kind === "job" && !f.title){
+    const lead = frags[0]; if(lead && lead.length <= 72) f.title = lead.trim();
+  }
+  return f;
+}
+
+/* ---------- chat state ---------- */
+let CHAT = { msgs: [], pending: null, drafts: {}, seq: 0 };
+try{
+  const raw = sessionStorage.getItem("ts_chat");
+  if(raw){ const v = JSON.parse(raw); if(v && Array.isArray(v.msgs)) CHAT = v; }
+}catch(e){}
+function saveChat(){ try{ sessionStorage.setItem("ts_chat", JSON.stringify(CHAT)); }catch(e){} }
+let SCROLL_CHAT = false;
+function push(role, kind, data){
+  CHAT.msgs.push({ r: role, k: kind, d: data });
+  if(CHAT.msgs.length > 80) CHAT.msgs = CHAT.msgs.slice(-80);
+  SCROLL_CHAT = true;
+  saveChat();
+}
+const say = (text, chips) => push("as", "text", { text, chips: chips || null });
+const heard = text => push("me", "text", { text });
+
+/* ---------- required-slot rules ---------- */
+const NEEDS = {
+  cand: [
+    { slot:"name",    ask:"What is the candidate's full name?",
+      fill:(v,f) => { if(looksLikeName(v) || v.split(/\s+/).length <= 4){ f.name = titleCaseName(v.trim()); return true; } return false; },
+      ok:f => !!f.name },
+    { slot:"contact", ask:f => "I have **"+f.name+"**. I also need a way to reach them — what is their email or phone number?",
+      hint:"You can type “skip” if you do not have it yet.",
+      fill:(v,f) => {
+        const em = v.match(RX_EMAIL), ph = v.match(RX_PHONE);
+        if(em) f.email = em[0];
+        if(ph) f.phone = tidyPhone(ph[0]);
+        return !!(em || ph);
+      },
+      ok:f => !!(f.email || f.phone), skippable:true }
+  ],
+  contact: [
+    { slot:"name", ask:"What is the contact's full name?",
+      fill:(v,f) => { f.name = titleCaseName(v.trim()); return !!f.name; }, ok:f => !!f.name },
+    { slot:"company", ask:f => "Which company does **"+f.name+"** work for?",
+      chips:() => S.orgs.slice(0, 6).map(o => o.name),
+      fill:(v,f) => { f.company = v.trim().replace(/^(at|for|with)\s+/i, ""); return !!f.company; },
+      ok:f => !!f.company },
+    { slot:"contactWay", ask:f => "Got it — **"+f.name+"** at **"+f.company+"**. What is their email or phone?",
+      hint:"Type “skip” to add it later.",
+      fill:(v,f) => {
+        const em = v.match(RX_EMAIL), ph = v.match(RX_PHONE);
+        if(em) f.email = em[0];
+        if(ph) f.phone = tidyPhone(ph[0]);
+        return !!(em || ph);
+      },
+      ok:f => !!(f.email || f.phone), skippable:true }
+  ],
+  company: [
+    { slot:"name", ask:"What is the company called?",
+      fill:(v,f) => { f.name = v.trim(); return !!f.name; }, ok:f => !!f.name }
+  ],
+  job: [
+    { slot:"title", ask:"What is the job title?",
+      fill:(v,f) => { f.title = v.trim(); return !!f.title; }, ok:f => !!f.title },
+    { slot:"company", ask:f => "Which company is **"+f.title+"** for?",
+      chips:() => S.orgs.slice(0, 6).map(o => o.name),
+      fill:(v,f) => { f.company = v.trim().replace(/^(at|for|with)\s+/i, ""); return !!f.company; },
+      ok:f => !!f.company },
+    { slot:"jobType", ask:"Is that contract, direct hire, contract-to-hire, or SOW?",
+      chips:() => JOBTYPES,
+      fill:(v,f) => {
+        const low = v.toLowerCase();
+        f.jobType = /c2h|contract to hire|contract-to-hire/.test(low) ? "Contract-to-hire"
+          : /direct|perm/.test(low) ? "Direct hire"
+          : /sow|project/.test(low) ? "SOW / project"
+          : /contract/.test(low) ? "Contract" : null;
+        return !!f.jobType;
+      },
+      ok:f => !!f.jobType }
+  ]
+};
+const KIND_LABEL = { cand:"candidate", contact:"contact", company:"company", job:"job" };
+
+function nextMissing(kind, f){
+  const rules = NEEDS[kind] || [];
+  for(const r of rules) if(!r.ok(f)) return r;
+  return null;
+}
+function askFor(kind, f, rule){
+  CHAT.pending = { kind, fields: f, slot: rule.slot };
+  const q = typeof rule.ask === "function" ? rule.ask(f) : rule.ask;
+  say(q + (rule.hint ? "\n\n_" + rule.hint + "_" : ""), rule.chips ? rule.chips() : null);
+  saveChat();
+}
+function offerDraft(kind, f, note){
+  const id = "d" + (++CHAT.seq);
+  CHAT.drafts[id] = { kind, fields: f };
+  CHAT.pending = null;
+  push("as", "draft", { id, kind, note: note || null });
+  saveChat();
+}
+function startAdd(kind, fields, note){
+  const f = Object.assign({ skills: [] }, fields || {});
+  const miss = nextMissing(kind, f);
+  if(miss) askFor(kind, f, miss);
+  else offerDraft(kind, f, note);
+}
+
+/* ---------- searching ---------- */
+function findOrgByName(q){
+  const t = q.trim().toLowerCase();
+  if(!t) return null;
+  return S.orgs.find(o => o.name.toLowerCase() === t)
+      || S.orgs.find(o => o.name.toLowerCase().indexOf(t) === 0)
+      || S.orgs.find(o => o.name.toLowerCase().includes(t) && t.length >= 3)
+      || null;
+}
+function searchAll(q){
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const hit = hay => { const h = hay.toLowerCase(); return terms.every(t => h.includes(t)); };
+  return {
+    cands: candidates().filter(p => hit([p.name, p.title, p.city, p.workAuth, (p.skills||[]).join(" "), p.notes].join(" "))),
+    cons:  contacts().filter(p => hit([p.name, p.title, orgName(p.orgId), p.notes].join(" "))),
+    orgs:  S.orgs.filter(o => hit([o.name, o.kind, o.notes].join(" "))),
+    jobs:  S.jobs.filter(j => hit([j.title, orgName(j.orgId), j.city, j.type, j.notes].join(" ")))
+  };
+}
+
+/* ---------- the command router ---------- */
+function looksLikeCommand(t){
+  return /^(add|new|create|find|search|show|list|who|help|clear|cancel|never ?mind|open|pull ?up|import|assign|unassign|remove|give|i am|i'm|my name is|call me|how many|count|what|display|get me)\b/i.test(t.trim());
+}
+function runAssistant(raw, quiet){
+  const text = String(raw || "").trim();
+  if(!text) return;
+  if(!quiet) heard(text);
+
+  if(/^(cancel|never ?mind|stop|forget it)$/i.test(text)){
+    CHAT.pending = null;
+    say("Cancelled — nothing was saved.");
+    return finishTurn();
+  }
+
+  /* answering one of our own questions, for the flows with bespoke slots */
+  if(CHAT.pending && CHAT.pending.kind === "identity"){
+    const nm = text.replace(/^\s*(?:i am|i'm|im|my name is|call me|this is)\s+/i, "").trim();
+    if(nm){
+      setMe(titleCaseName(nm));
+      const replay = CHAT.pending.replay;
+      CHAT.pending = null;
+      say("Thanks — you are **" + ME + "** on this device.");
+      if(replay){ saveChat(); return runAssistant(replay, true); }
+      return finishTurn();
+    }
+  }
+  if(CHAT.pending && CHAT.pending.kind === "fileDoc"){
+    const doc = CHAT.pending.fields.doc;
+    const r = resolveOrg(text);
+    const ls = orgLocations(r.org.id);
+    if(ls.length){
+      CHAT.pending = { kind:"docScope", fields:{ doc, orgId:r.org.id, created:r.created }, slot:"scope" };
+      say("Is that agreement for **all of " + r.org.name + "**, or just one location?",
+          ["All of " + r.org.name].concat(ls.map(l => l.name)));
+      return finishTurn();
+    }
+    fileDocToOrg(doc, r.org, null, r.created);
+    return;
+  }
+  if(CHAT.pending && CHAT.pending.kind === "docScope"){
+    const fl = CHAT.pending.fields;
+    const o = org(fl.orgId), ls = orgLocations(fl.orgId);
+    const low = text.toLowerCase();
+    const hit = ls.find(l => l.name.toLowerCase() === low.trim())
+             || ls.find(l => low.includes(l.name.toLowerCase()));
+    const wide = /\ball\b|whole|entire|account[- ]wide|holistic|everything/.test(low);
+    fileDocToOrg(fl.doc, o, (wide || !hit) ? null : hit, fl.created);
+    return;
+  }
+  if(CHAT.pending && CHAT.pending.kind === "actRole"){
+    const fl = CHAT.pending.fields;
+    const p = person(fl.personId);
+    CHAT.pending = null;
+    if(p){
+      const choices = contextChoices(p);
+      const low = text.toLowerCase();
+      let pick = choices.find(c => c.label.toLowerCase() === low)
+              || choices.find(c => low.includes(c.label.toLowerCase()))
+              || choices.find(c => /manager|contact/.test(low) && c.role === "contact")
+              || choices.find(c => /candidate/.test(low) && c.role === "candidate")
+              || choices[0];
+      const a = logActivity(p.id, pick, fl.actKind, fl.note);
+      say("Logged a **" + fl.actKind.toLowerCase() + "** with **" + p.name + "** " +
+          (a.role === "candidate" ? "as a **candidate**" : "as the **hiring manager**") +
+          (a.orgId ? " on **" + orgName(a.orgId) + "**" : "") + ".");
+      render(); save();
+      return;
+    }
+    return finishTurn();
+  }
+  if(CHAT.pending && CHAT.pending.kind === "roleOrg"){
+    const p = person(CHAT.pending.fields.personId);
+    const r = resolveOrg(text);
+    CHAT.pending = null;
+    if(p){
+      grantRole(p, "contact", r.org.id);
+      say("**" + p.name + "** is now a contact at **" + r.org.name + "**" +
+          (p.isCandidate ? " as well as a candidate — one record, both roles." : ".") );
+      render(); save();
+      return;
+    }
+    return finishTurn();
+  }
+  if(CHAT.pending && CHAT.pending.kind === "locOrg"){
+    const r = resolveOrg(text);
+    const f = CHAT.pending.fields;
+    f.orgId = r.org.id;
+    if(!f.name){
+      CHAT.pending = { kind:"locName", fields:f, slot:"name" };
+      say("What should I call that location at **" + r.org.name + "**? For example “Chicago HQ”.");
+      return finishTurn();
+    }
+    createLocation(r.org, f, r.created);
+    return;
+  }
+  if(CHAT.pending && CHAT.pending.kind === "locName"){
+    const f = CHAT.pending.fields;
+    f.name = text.trim();
+    const o = org(f.orgId);
+    if(!o){ CHAT.pending = null; say("I lost track of the account — try again."); return finishTurn(); }
+    createLocation(o, f, false);
+    return;
+  }
+
+  /* answering a question we asked */
+  if(CHAT.pending && (!looksLikeCommand(text) || /^(skip)$/i.test(text))){
+    const { kind, fields, slot } = CHAT.pending;
+    const rule = (NEEDS[kind] || []).find(r => r.slot === slot);
+    if(rule){
+      if(/^skip$/i.test(text)){
+        if(rule.skippable){
+          fields["_skip_" + slot] = true;
+          rule.ok = rule.ok;
+          const others = (NEEDS[kind] || []).filter(r => r.slot !== slot && !r.ok(fields));
+          if(others.length) askFor(kind, fields, others[0]);
+          else offerDraft(kind, fields, "Saved without a contact method — you can add one later.");
+          return finishTurn();
+        }
+        say("I do need that one to create the "+KIND_LABEL[kind]+".");
+        return finishTurn();
+      }
+      const merged = extractFields(text, kind);
+      const filled = rule.fill(text, fields);
+      ["email","phone","title","city","company","years","desiredPay","billMax","payMax","salaryMin","jobType"].forEach(k => {
+        if(fields[k] == null && merged[k] != null) fields[k] = merged[k];
+      });
+      if(merged.skills && merged.skills.length && !(fields.skills||[]).length) fields.skills = merged.skills;
+      if(!filled && !rule.ok(fields)){
+        say("I could not read that as "+(rule.slot === "company" ? "a company name" : rule.slot === "contactWay" || rule.slot === "contact" ? "an email or phone number" : "a "+rule.slot)+". Try again?");
+        return finishTurn();
+      }
+      const miss = nextMissing(kind, fields);
+      if(miss) askFor(kind, fields, miss);
+      else offerDraft(kind, fields);
+      return finishTurn();
+    }
+    CHAT.pending = null;
+  }
+
+  const low = text.toLowerCase();
+
+  if(/^help\b|^what can you do/.test(low)){ sayHelp(); return finishTurn(); }
+  if(/^clear\b.*(chat|conversation|history)/.test(low)){
+    CHAT.msgs = []; CHAT.pending = null; CHAT.drafts = {};
+    say("Cleared. What next?");
+    return finishTurn();
+  }
+
+  let m;
+  if((m = low.match(/^(?:add|new|create|import)\s+(?:a\s+|an\s+)?(?:candidate|cand)\b[\s:,-]*/))){
+    return startAdd("cand", extractFields(text.slice(m[0].length), "cand")), finishTurn();
+  }
+  if((m = low.match(/^(?:add|new|create)\s+(?:a\s+|an\s+)?(?:hiring\s+manager|manager|contact|client contact|hm)\b[\s:,-]*/))){
+    return startAdd("contact", extractFields(text.slice(m[0].length), "contact")), finishTurn();
+  }
+  if((m = low.match(/^(?:add|new|create)\s+(?:a\s+|an\s+)?(?:company|client|account|organisation|organization|org)\b[\s:,-]*/))){
+    const f = extractFields(text.slice(m[0].length), "company");
+    if(!f.name && f.company) f.name = f.company;
+    return startAdd("company", f), finishTurn();
+  }
+  if((m = low.match(/^(?:add|new|create)\s+(?:a\s+|an\s+)?(?:job|req|requisition|role|opening|position)\b[\s:,-]*/))){
+    return startAdd("job", extractFields(text.slice(m[0].length), "job")), finishTurn();
+  }
+
+  if(tryIdentity(text)) return finishTurn();
+  if(tryRoles(text)) return finishTurn();
+  if(tryLogActivity(text)) return finishTurn();
+  if(tryLocations(text)) return finishTurn();
+  if(tryOwnership(text)) return finishTurn();
+  if(tryDocSearch(text)) return finishTurn();
+  if(tryDocList(text)) return finishTurn();
+  if(tryListQuery(text)) return finishTurn();
+
+  /* contacts at a company */
+  if((m = text.match(/(?:who do we know at|who works at|contacts? at|people at|team at|pull up|contacts? for)\s+(.+)$/i))){
+    return companyCard(m[1].trim()), finishTurn();
+  }
+  if(/^(show|list)\b.*\b(open\s+)?jobs?\b/.test(low)){
+    return push("as","results",{ q:"open jobs", ids:{ jobs:S.jobs.filter(j=>j.status==="Open").map(j=>j.id) } }), finishTurn();
+  }
+  if(/^(show|list)\b.*\bplacements?\b/.test(low)){
+    UI.view = "place"; saveUI();
+    say("Opening placements.");
+    return finishTurn();
+  }
+  if(/needs? (my )?attention|stalled|stuck/.test(low)){
+    UI.view = "desk"; saveUI();
+    say("The desk shows everything with no movement in five or more days.");
+    return finishTurn();
+  }
+
+  /* a bare company name */
+  const asOrg = findOrgByName(text);
+  if(asOrg && text.split(/\s+/).length <= 5){ return companyCard(text), finishTurn(); }
+
+  /* otherwise: search */
+  const q = text.replace(/^(find|search|search for|look for|show me|show|list|any|open)\s+/i, "").trim() || text;
+  return doSearch(q), finishTurn();
+}
+function finishTurn(){ saveChat(); render(); }
+
+function sayHelp(){
+  say("Ask in plain English. **Adding:**", [
+    "add candidate Priya Raman, priya@example.com, senior java engineer in Chicago, $80/hr",
+    "add manager Dana Whitfield at Northwind Health, director of engineering",
+    "add job data engineer at Ardent Logistics, contract, bill 98 pay 66",
+    "add location Chicago HQ, 400 W Monroe St, Chicago, IL to Northwind Health"
+  ]);
+  say("**Lists and searching:**", [
+    "list of accounts",
+    "my accounts",
+    "unassigned accounts",
+    "open jobs in dallas",
+    "candidates with kubernetes",
+    "who do we know at Northwind Health",
+    "search documents for termination"
+  ]);
+  say("**Ownership:** an account can have several owners — “assign Northwind Health to me”, “who owns Ardent Logistics”, “unassign me from Northwind Health”.");
+  say("**Logging:** “log call with Dana about Northwind”. If someone is both a candidate and a hiring manager, I work out which hat you were wearing from where you were working — and ask only when it is genuinely ambiguous. It never creates a second record.");
+  say("**Documents:** drop a resume, MSA, SOW or Exhibit A anywhere on this page. I read the text, work out what it is, and file it against the account — either account-wide or against one location. The text becomes searchable straight away.");
+  say("Everything you change is kept: edits are recorded with what changed, and records are archived rather than deleted.");
+}
+function companyCard(nameQ){
+  const o = findOrgByName(nameQ);
+  if(!o){
+    const near = S.orgs.map(x => x.name).slice(0, 6);
+    say("I have no company matching **"+esc(nameQ)+"**." + (near.length ? " I do have these:" : ""), near.length ? near : null);
+    return;
+  }
+  const cs = orgContacts(o.id), js = orgJobs(o.id).filter(j => j.status === "Open");
+  push("as", "results", {
+    q: o.name,
+    lead: "**"+o.name+"** — "+cs.length+" contact"+(cs.length===1?"":"s")+", "+js.length+" open job"+(js.length===1?"":"s")+".",
+    ids: { cons: cs.map(c => c.id), jobs: js.map(j => j.id), orgs: [o.id] }
+  });
+}
+function doSearch(q){
+  q = String(q).replace(/^\s*(?:candidates?|contacts?|accounts?|companies|clients?|jobs?|reqs?|placements?|people|talent)\s+(?:with|who know|knows|skilled in|using|in|at)\s+/i, "").trim() || q;
+  const r = searchAll(q);
+  const total = r.cands.length + r.cons.length + r.orgs.length + r.jobs.length;
+  if(!total){
+    say("Nothing matched **"+esc(q)+"**. Try a single skill or a city — or add the person with “add candidate "+esc(q)+"”.");
+    return;
+  }
+  push("as", "results", {
+    q,
+    lead: total + " match" + (total === 1 ? "" : "es") + " for **"+q+"**",
+    ids: {
+      cands: r.cands.slice(0, 12).map(x => x.id),
+      cons:  r.cons.slice(0, 8).map(x => x.id),
+      jobs:  r.jobs.slice(0, 8).map(x => x.id),
+      orgs:  r.orgs.slice(0, 6).map(x => x.id)
+    }
+  });
+}
+
+/* ---------- committing a draft ---------- */
+function resolveOrg(name){
+  const hit = findOrgByName(name);
+  if(hit) return { org: hit, created: false };
+  const o = { id: uid("o"), name: name.trim(), kind: "Client", status: "Active", notes: "", createdAt: nowISO() };
+  S.orgs.push(o);
+  return { org: o, created: true };
+}
+function commitDraft(id){
+  const d = CHAT.drafts[id];
+  if(!d) return;
+  const f = d.fields;
+  let created = null, extra = "";
+
+  if(d.kind === "cand"){
+    const dupe = findPersonByContact(f.email, f.phone) || findPersonByName(f.name);
+    if(dupe){
+      const wasRoles = personRoles(dupe).join(" and ").toLowerCase() || "a record";
+      const added = grantRole(dupe, "candidate");
+      const ch = fillBlanks(dupe, f);
+      if(ch.length) logChange("person", dupe.id, dupe.name, ch);
+      delete CHAT.drafts[id];
+      CHAT.msgs = CHAT.msgs.filter(msg => !(msg.k === "draft" && msg.d.id === id));
+      push("as", "saved", {
+        text: "**" + dupe.name + "** was already here as " + wasRoles + "." +
+              (added ? " I added the **candidate** role to that same record rather than creating a duplicate." : " No new record was needed.") +
+              (ch.length ? " I also filled in " + ch.map(c => c.f).join(", ") + "." : "") +
+              " Nothing was overwritten.",
+        link: { type: "candidate", id: dupe.id, name: dupe.name, view: "cands" }
+      });
+      saveChat(); render(); save();
+      return;
+    }
+    const p = { id: uid("p"), name: f.name, title: f.title || "", email: f.email || "", phone: f.phone || "",
+      city: f.city || "", years: f.years == null ? null : +f.years, workAuth: f.workAuth || "",
+      desiredPay: f.desiredPay == null ? null : +f.desiredPay, availFrom: null,
+      skills: f.skills || [], notes: f.notes || "", isCandidate: true, isContact: false,
+      orgId: null, lastContact: nowISO(), createdAt: nowISO() };
+    S.people.push(p);
+    logChange("person", p.id, p.name, [{ f: "created", from: "—", to: "candidate" }]);
+    created = { type: "candidate", id: p.id, name: p.name, view: "cands" };
+  }
+  else if(d.kind === "contact"){
+    const { org: o, created: madeOrg } = resolveOrg(f.company);
+    const dupe = findPersonByContact(f.email, f.phone) || findPersonByName(f.name);
+    if(dupe){
+      const wasRoles = personRoles(dupe).join(" and ").toLowerCase() || "a record";
+      const added = grantRole(dupe, "contact", o.id);
+      const ch = fillBlanks(dupe, Object.assign({}, f, { orgId: o.id }));
+      if(ch.length) logChange("person", dupe.id, dupe.name, ch);
+      delete CHAT.drafts[id];
+      CHAT.msgs = CHAT.msgs.filter(msg => !(msg.k === "draft" && msg.d.id === id));
+      push("as", "saved", {
+        text: "**" + dupe.name + "** was already here as " + wasRoles + "." +
+              (added ? " I added the **contact** role at **" + o.name + "** to that same record — a hiring manager who is also a candidate stays one person." : "") +
+              (madeOrg ? " I created the account **" + o.name + "** too." : "") +
+              " Nothing was overwritten.",
+        link: { type: "contact", id: dupe.id, name: dupe.name, view: "orgs" }
+      });
+      saveChat(); render(); save();
+      return;
+    }
+    const p = { id: uid("p"), name: f.name, title: f.title || "", email: f.email || "", phone: f.phone || "",
+      orgId: o.id, notes: f.notes || "", isContact: true, isCandidate: false, skills: [],
+      lastContact: nowISO(), createdAt: nowISO() };
+    S.people.push(p);
+    logChange("person", p.id, p.name, [{ f: "created", from: "—", to: "contact at " + o.name }]);
+    created = { type: "contact", id: p.id, name: p.name + " at " + o.name, view: "orgs" };
+    if(madeOrg) extra = " I also created the company **"+o.name+"**.";
+  }
+  else if(d.kind === "company"){
+    const o = { id: uid("o"), name: f.name, kind: f.kind || "Client", status: "Active", notes: f.notes || "", createdAt: nowISO() };
+    S.orgs.push(o);
+    created = { type: "company", id: o.id, name: o.name, view: "orgs" };
+  }
+  else if(d.kind === "job"){
+    const { org: o, created: madeOrg } = resolveOrg(f.company);
+    const j = { id: uid("j"), orgId: o.id, endClientOrgId: null, title: f.title,
+      type: f.jobType || "Contract", status: "Open", openings: 1, city: f.city || "",
+      billMax: f.billMax == null ? null : +f.billMax, payMax: f.payMax == null ? null : +f.payMax,
+      salaryMin: f.salaryMin == null ? null : +f.salaryMin, salaryMax: f.salaryMax == null ? null : +f.salaryMax,
+      hmId: null, owner: "me", notes: f.notes || "", createdAt: nowISO() };
+    S.jobs.push(j);
+    created = { type: "job", id: j.id, name: j.title + " at " + o.name, view: "jobs" };
+    if(madeOrg) extra = " I also created the company **"+o.name+"**.";
+  }
+  delete CHAT.drafts[id];
+  CHAT.msgs = CHAT.msgs.filter(msg => !(msg.k === "draft" && msg.d.id === id));
+  push("as", "saved", { text: "Saved **"+created.name+"**." + extra, link: created });
+  saveChat();
+  render();
+  save();
+}
+function discardDraft(id){
+  delete CHAT.drafts[id];
+  CHAT.msgs = CHAT.msgs.filter(msg => !(msg.k === "draft" && msg.d.id === id));
+  say("Discarded.");
+  finishTurn();
+}
+function editDraft(id){
+  const d = CHAT.drafts[id];
+  if(!d) return;
+  const f = d.fields;
+  if(d.kind === "cand") modal("cand", { prefill: f, fromDraft: id });
+  else if(d.kind === "company") modal("org", { prefill: { name: f.name }, fromDraft: id });
+  else if(d.kind === "contact"){
+    const { org: o } = resolveOrg(f.company);
+    modal("contact", { prefill: Object.assign({}, f, { orgId: o.id }), orgId: o.id, fromDraft: id });
+  }
+  else if(d.kind === "job"){
+    const { org: o } = resolveOrg(f.company);
+    modal("job", { prefill: Object.assign({}, f, { orgId: o.id, type: f.jobType }), orgId: o.id, type: f.jobType, fromDraft: id });
+  }
+}
+
+/* ---------- resume intake ---------- */
+async function intakeFiles(files){
+  const list = Array.from(files || []).slice(0, 5);
+  if(!list.length) return;
+  UI.view = "ask"; saveUI();
+  for(const file of list){
+    heard("📄 " + file.name);
+    if(file.size > 8 * 1024 * 1024){
+      say("**"+esc(file.name)+"** is larger than 8 MB — that is too big to read here.");
+      continue;
+    }
+    say("Reading **"+esc(file.name)+"**…");
+    render();
+    let text = "";
+    try{ text = await fileToText(file); }
+    catch(err){
+      if(String(err.message) === "legacy-doc")
+        say("**"+esc(file.name)+"** is an old .doc file, which I cannot open. Save it as .docx or PDF, or paste the text instead.", ["Paste resume text"]);
+      else
+        say("I could not read **"+esc(file.name)+"**. Paste the text instead and I will parse it.", ["Paste resume text"]);
+      CHAT.msgs = CHAT.msgs.filter(m => !(m.k === "text" && m.d.text.indexOf("Reading **") === 0));
+      finishTurn();
+      continue;
+    }
+    CHAT.msgs = CHAT.msgs.filter(m => !(m.k === "text" && m.d.text.indexOf("Reading **") === 0));
+    if(textQuality(text) < 0.4 || text.replace(/\s/g, "").length < 60){
+      say("I opened **"+esc(file.name)+"** but could not get clean text out of it — it is probably a scan or uses embedded fonts. Paste the text and I will parse it.", ["Paste resume text"]);
+      finishTurn();
+      continue;
+    }
+    const kindGuess = detectDocKind(text, file.name);
+    const parsedTry = parseResume(text, file.name);
+    if(kindGuess === "Resume" || looksLikeResume(text, parsedTry)){
+      ingestResumeText(text, file.name);
+    }else{
+      if(stateBytes() > STATE_SOFT_CAP){
+        say("This workspace is getting large, so I did not store the text of **"+esc(file.name)+"**. Keep the original in SharePoint and paste its link on the document record instead.");
+        finishTurn();
+        continue;
+      }
+      askWhereToFile({ name:file.name, kind:kindGuess, size:file.size, text:text });
+      finishTurn();
+    }
+  }
+}
+function ingestResumeText(text, filename){
+  const f = parseResume(text, filename || "pasted text");
+  f.notes = "Imported from " + (filename || "pasted text") + ".";
+  const found = [];
+  if(f.name) found.push("name");
+  if(f.email) found.push("email");
+  if(f.phone) found.push("phone");
+  if(f.title) found.push("title");
+  if(f.city) found.push("location");
+  if(f.years) found.push("experience");
+  if((f.skills||[]).length) found.push((f.skills.length)+" skills");
+  say("I read that and found " + (found.length ? found.join(", ") : "very little") + ". Check it over before saving:");
+  startAdd("cand", f);
+  finishTurn();
+}
+
+/* ============================================================
+   WHO AM I — needed for "my accounts". Per device, not shared.
+   ============================================================ */
+let ME = "";
+try{ ME = localStorage.getItem("ts_me") || ""; }catch(e){}
+function setMe(n){
+  ME = String(n||"").trim();
+  try{ localStorage.setItem("ts_me", ME); }catch(e){}
+}
+const ownedByMe = o => !!(ME && orgOwners(o).some(n => String(n).toLowerCase() === ME.toLowerCase()));
+
+/* ============================================================
+   NATURAL-LANGUAGE LIST QUERIES
+   "list of accounts", "my accounts", "unassigned accounts",
+   "open jobs in dallas", "candidates with java", "my placements"
+   ============================================================ */
+const ENTITIES = [
+  [/\b(placements?|assignments?|on assignment|billing)\b/, "placements"],
+  [/\b(submissions?|submittals?|pipelines?)\b/, "subs"],
+  [/\b(accounts?|companies|company|clients?|orgs?|organi[sz]ations?|prospects?)\b/, "orgs"],
+  [/\b(contacts?|hiring managers?|managers?|decision makers?)\b/, "cons"],
+  [/\b(candidates?|talent|consultants?|applicants?|people|resumes?)\b/, "cands"],
+  [/\b(jobs?|reqs?|requisitions?|roles?|openings?|positions?|orders?)\b/, "jobs"]
+];
+const ENTITY_LABEL = { orgs:"accounts", cands:"candidates", cons:"contacts", jobs:"jobs", placements:"placements", subs:"submissions" };
+const ENTITY_ONE   = { orgs:"account", cands:"candidate", cons:"contact", jobs:"job", placements:"placement", subs:"submission" };
+const entityLabel = (e, n) => (n === 1 ? ENTITY_ONE[e] : ENTITY_LABEL[e]);
+const ENTITY_VIEW  = { orgs:"orgs", cands:"cands", cons:"orgs", jobs:"jobs", placements:"place", subs:"jobs" };
+
+function detectEntity(low){
+  for(const [rx, e] of ENTITIES) if(rx.test(low)) return e;
+  return null;
+}
+function isListish(low){
+  if(/^(list|lists|show|show me|give me|get me|pull(?: up)?|display|what are|whats|what's|who are|how many|count)\b/.test(low)) return true;
+  if(/\blist of\b/.test(low)) return true;
+  if(/^(my|all|every|unassigned|unowned|open|active|stalled|dormant)\b/.test(low)) return true;
+  /* "candidates with kubernetes", "accounts", "open jobs in dallas" — starting with the
+     thing you want is the most natural way to ask for a list. */
+  for(const [rx] of ENTITIES) if(new RegExp("^\\s*(?:my |all |every )?" + rx.source.replace(/^\\b|\\b$/g, "")).test(low)) return true;
+  return false;
+}
+function parseFilters(low){
+  const f = {};
+  if(/\b(my|mine|assigned to me|i own|my own)\b/.test(low)) f.mine = true;
+  if(/\b(unassigned|unowned|no owner|nobody owns|without an owner|orphan(?:ed)?|up for grabs)\b/.test(low)) f.unassigned = true;
+  if(/\bopen\b/.test(low)) f.status = "Open";
+  if(/\bon hold\b/.test(low)) f.status = "On hold";
+  if(/\bfilled\b/.test(low)) f.status = "Filled";
+  if(/\bclosed\b/.test(low)) f.status = "Closed";
+  if(/\blost\b/.test(low)) f.status = "Lost";
+  if(/\bactive\b/.test(low)) f.active = true;
+  if(/\bended|ending|expiring|rolling off|finishing\b/.test(low)) f.ending = true;
+  if(/\bstalled|stuck|no movement|needs? attention|aging|old\b/.test(low)) f.stale = true;
+  if(/\bdormant\b/.test(low)) f.orgStatus = "Dormant";
+  if(/\bprospects?\b/.test(low)) f.orgKind = "Prospect";
+  if(/\b(msp|vms)\b/.test(low)) f.orgKind = "MSP / VMS";
+  if(/\bcontract to hire|contract-to-hire|c2h\b/.test(low)) f.jobType = "Contract-to-hire";
+  else if(/\bdirect hire|perm\b/.test(low)) f.jobType = "Direct hire";
+  else if(/\bsow|project\b/.test(low)) f.jobType = "SOW / project";
+  else if(/\bcontract\b/.test(low)) f.jobType = "Contract";
+  const city = low.match(/\b(?:in|near|around|based in)\s+([a-z][a-z.\-' ]{2,30}?)(?:\s+(?:with|who|that|for|and)\b|[,.]|$)/);
+  if(city) f.city = city[1].trim();
+  const kw = low.match(/\b(?:with|knows?|skilled in|who know|using)\s+([a-z0-9+#.\-\s]{2,40})$/);
+  if(kw) f.keyword = kw[1].trim();
+  return f;
+}
+function applyFilters(entity, f){
+  const cityHit = (v) => !f.city || String(v||"").toLowerCase().includes(f.city);
+  if(entity === "orgs"){
+    let l = S.orgs.slice();
+    if(f.mine) l = l.filter(ownedByMe);
+    if(f.unassigned) l = l.filter(o => !orgOwners(o).length);
+    if(f.orgKind) l = l.filter(o => o.kind === f.orgKind);
+    if(f.orgStatus) l = l.filter(o => (o.status||"Active") === f.orgStatus);
+    if(f.active) l = l.filter(o => (o.status||"Active") === "Active");
+    if(f.keyword) l = l.filter(o => (o.name+" "+(o.notes||"")).toLowerCase().includes(f.keyword));
+    return l;
+  }
+  if(entity === "jobs"){
+    let l = S.jobs.slice();
+    if(f.status) l = l.filter(j => j.status === f.status);
+    else if(f.active) l = l.filter(j => j.status === "Open");
+    if(f.jobType) l = l.filter(j => j.type === f.jobType);
+    if(f.mine) l = l.filter(j => { const o = org(j.orgId); return !!(o && ownedByMe(o)); });
+    if(f.unassigned) l = l.filter(j => { const o = org(j.orgId); return !(o && orgOwners(o).length); });
+    if(f.city) l = l.filter(j => cityHit(j.city));
+    if(f.keyword) l = l.filter(j => (j.title+" "+(j.notes||"")).toLowerCase().includes(f.keyword));
+    return l;
+  }
+  if(entity === "cands"){
+    let l = candidates();
+    if(f.city) l = l.filter(p => cityHit(p.city));
+    if(f.keyword) l = l.filter(p => (p.name+" "+(p.title||"")+" "+(p.skills||[]).join(" ")+" "+(p.notes||"")).toLowerCase().includes(f.keyword));
+    if(f.active) l = l.filter(p => personSubs(p.id).some(s => isOpenStage(s.stage)));
+    return l;
+  }
+  if(entity === "cons"){
+    let l = contacts();
+    if(f.mine) l = l.filter(p => { const o = org(p.orgId); return o && ownedByMe(o); });
+    if(f.unassigned) l = l.filter(p => { const o = org(p.orgId); return !(o && orgOwners(o).length); });
+    if(f.keyword) l = l.filter(p => (p.name+" "+(p.title||"")+" "+orgName(p.orgId)).toLowerCase().includes(f.keyword));
+    return l;
+  }
+  if(entity === "placements"){
+    let l = S.placements.slice();
+    if(f.active || f.status === "Open") l = l.filter(p => p.status === "Active");
+    if(f.ending) l = l.filter(p => p.endsOn && daysUntil(p.endsOn) != null && daysUntil(p.endsOn) <= 30 && p.status === "Active");
+    if(f.mine) l = l.filter(p => { const s = sub(p.subId), j = s?job(s.jobId):null, o = j?org(j.orgId):null; return o && ownedByMe(o); });
+    return l;
+  }
+  if(entity === "subs"){
+    let l = S.subs.filter(s => isOpenStage(s.stage));
+    if(f.stale) l = l.filter(s => s.stage !== "Sourced" && daysAgo(s.stageSince) >= 5);
+    if(f.mine) l = l.filter(s => { const j = job(s.jobId), o = j?org(j.orgId):null; return o && ownedByMe(o); });
+    return l;
+  }
+  return [];
+}
+function describeFilters(entity, f){
+  const bits = [];
+  if(f.mine) bits.push("owned by " + (ME || "me"));
+  if(f.unassigned) bits.push("with no owner");
+  if(f.status) bits.push(f.status.toLowerCase());
+  else if(f.active) bits.push("active");
+  if(f.ending) bits.push("ending within 30 days");
+  if(f.stale) bits.push("with no movement in 5+ days");
+  if(f.orgKind) bits.push(f.orgKind.toLowerCase());
+  if(f.orgStatus) bits.push(f.orgStatus.toLowerCase());
+  if(f.jobType) bits.push(f.jobType.toLowerCase());
+  if(f.city) bits.push("in " + f.city);
+  if(f.keyword) bits.push("matching “" + f.keyword + "”");
+  return bits.length ? " " + bits.join(", ") : "";
+}
+function tryListQuery(text){
+  const low = text.toLowerCase().trim();
+  const entity = detectEntity(low);
+  if(!entity) return false;
+  if(!isListish(low) && !/\?$/.test(low)) return false;
+
+  const f = parseFilters(low);
+
+  if(f.mine && !ME){
+    CHAT.pending = { kind: "identity", fields: {}, slot: "name", replay: text };
+    say("Before I can show what is **yours**, what is your name? I will remember it on this device.");
+    return true;
+  }
+
+  const rows = applyFilters(entity, f);
+  const label = entityLabel(entity, rows.length);
+  const desc = describeFilters(entity, f);
+
+  if(/^(how many|count)\b/.test(low)){
+    say("**" + rows.length + "** " + label + desc + ".");
+    return true;
+  }
+  if(!rows.length){
+    say("No " + label + desc + " right now.",
+        entity === "orgs" ? ["list of accounts", "unassigned accounts"] : null);
+    return true;
+  }
+  const ids = {};
+  ids[entity] = rows.slice(0, 25).map(r => r.id);
+  push("as", "results", {
+    q: label + desc,
+    lead: "**" + rows.length + "** " + label + desc + (rows.length > 25 ? " — first 25 shown" : ""),
+    ids,
+    openView: ENTITY_VIEW[entity]
+  });
+  return true;
+}
+
+function tryIdentity(text){
+  let m = text.match(/^\s*(?:i am|i'm|im|my name is|call me|this is)\s+([A-Za-z][\w.'\- ]{1,40})\s*$/i);
+  if(m){ setMe(titleCaseName(m[1].trim())); say("Noted — you are **" + ME + "**. Now “my accounts” will work."); return true; }
+  if(/^\s*who am i\s*\??$/i.test(text)){
+    say(ME ? "You are **" + ME + "** on this device." : "I do not know yet — tell me with “I am Matt”.");
+    return true;
+  }
+  return false;
+}
+
+/* ============================================================
+   NON-DESTRUCTIVE EDITS
+   Nothing overwrites silently and nothing is deleted. Every
+   change appends to an audit trail; removal is archival.
+   ============================================================ */
+function fmtVal(v){
+  if(v == null || v === "") return "—";
+  if(Array.isArray(v)) return v.length ? v.join(", ") : "—";
+  return String(v);
+}
+function logChange(entity, id, name, changes){
+  if(!changes || !changes.length) return;
+  S.audit = S.audit || [];
+  S.audit.push({ at: nowISO(), by: ME || "someone", entity, id, name, changes });
+  if(S.audit.length > 1500) S.audit = S.audit.slice(-1500);
+}
+/* applies patch to obj, returns the list of what actually changed */
+function applyPatch(obj, patch, labels){
+  const changes = [];
+  Object.keys(patch).forEach(k => {
+    const from = obj[k], to = patch[k];
+    const same = Array.isArray(from) || Array.isArray(to)
+      ? (from||[]).join("|") === (to||[]).join("|")
+      : String(from == null ? "" : from) === String(to == null ? "" : to);
+    if(!same){
+      changes.push({ f: (labels && labels[k]) || k, from: fmtVal(from), to: fmtVal(to) });
+      obj[k] = to;
+    }
+  });
+  return changes;
+}
+function historyFor(id){
+  return (S.audit || []).filter(a => a.id === id).slice().reverse().slice(0, 12);
+}
+function archiveRecord(entity, id){
+  const rec = entity === "person" ? person(id) : entity === "org" ? org(id) : job(id);
+  if(!rec) return;
+  rec.archived = true;
+  logChange(entity, id, rec.name || rec.title, [{ f: "archived", from: "no", to: "yes" }]);
+}
+function restoreRecord(entity, id){
+  const rec = entity === "person" ? person(id) : entity === "org" ? org(id) : job(id);
+  if(!rec) return;
+  rec.archived = false;
+  logChange(entity, id, rec.name || rec.title, [{ f: "archived", from: "yes", to: "no" }]);
+}
+
+/* ============================================================
+   DOCUMENTS — resumes, MSAs, Exhibit A, SOWs.
+   The extracted TEXT is stored and searchable. Originals stay
+   in SharePoint/Drive; we keep the link.
+   ============================================================ */
+const DOC_KINDS = ["Resume","MSA","Exhibit","SOW","NDA","Rate sheet","PO","RTR","Other"];
+const DOC_TEXT_CAP = 60000;
+const STATE_SOFT_CAP = 5.5 * 1024 * 1024;
+
+function detectDocKind(text, filename){
+  const t = (String(filename||"") + " " + String(text||"").slice(0, 4000)).toLowerCase();
+  if(/master\s+service/.test(t) || /\bmsa\b/.test(t)) return "MSA";
+  if(/\bexhibit\s+[a-z]\b/.test(t)) return "Exhibit";
+  if(/statement\s+of\s+work/.test(t) || /\bsow\b/.test(t)) return "SOW";
+  if(/non-?disclosure/.test(t) || /\bnda\b/.test(t)) return "NDA";
+  if(/rate\s+(sheet|card)|pricing\s+schedule/.test(t)) return "Rate sheet";
+  if(/purchase\s+order/.test(t)) return "PO";
+  if(/right\s+to\s+represent/.test(t) || /\brtr\b/.test(t)) return "RTR";
+  if(/curriculum\s+vitae|professional\s+summary|work\s+experience|employment\s+history/.test(t) || /resume|\bcv\b/.test(t)) return "Resume";
+  return "Other";
+}
+function looksLikeResume(text, f){
+  if(detectDocKind(text, "") === "Resume") return true;
+  return !!(f.email || f.phone) && (f.skills || []).length >= 2;
+}
+function stateBytes(){
+  try{ return JSON.stringify(S).length; }catch(e){ return 0; }
+}
+function addDoc(rec){
+  S.docs = S.docs || [];
+  const d = Object.assign({ id: uid("doc"), at: nowISO(), by: ME || "someone" }, rec);
+  if(d.text && d.text.length > DOC_TEXT_CAP){
+    d.text = d.text.slice(0, DOC_TEXT_CAP);
+    d.truncated = true;
+  }
+  S.docs.push(d);
+  return d;
+}
+function docsFor(id){ return (S.docs || []).filter(d => d.orgId === id || d.personId === id || d.jobId === id); }
+function docTarget(d){
+  if(d.orgId) return orgName(d.orgId);
+  if(d.personId){ const p = person(d.personId); return p ? p.name : "—"; }
+  if(d.jobId){ const j = job(d.jobId); return j ? j.title : "—"; }
+  return "unfiled";
+}
+function searchDocs(q){
+  const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+  const out = [];
+  (S.docs || []).forEach(d => {
+    const hay = ((d.text||"") + " " + d.name + " " + d.kind + " " + docTarget(d)).toLowerCase();
+    if(!terms.every(t => hay.includes(t))) return;
+    let snip = "";
+    const body = d.text || "";
+    const i = body.toLowerCase().indexOf(terms[0]);
+    if(i >= 0) snip = (i > 40 ? "…" : "") + body.slice(Math.max(0, i - 40), i + 160).replace(/\s+/g, " ") + "…";
+    out.push({ d, snip });
+  });
+  return out;
+}
+function tryDocSearch(text){
+  const m = text.match(/^\s*(?:search|find|look\s+in|grep)\s+(?:the\s+)?(?:docs?|documents?|files?|msas?|contracts?|agreements?|resumes?|exhibits?|sows?)\s*(?:for|containing|with|mentioning)?\s+(.+)$/i);
+  if(!m) return false;
+  const q = m[1].trim().replace(/^["']|["']$/g, "");
+  const hits = searchDocs(q);
+  if(!hits.length){ say("No stored document mentions **" + esc(q) + "**."); return true; }
+  push("as", "docresults", { q, lead: "**" + hits.length + "** document" + (hits.length===1?"":"s") + " mention" + (hits.length===1?"s":"") + " “" + q + "”", ids: hits.map(h => h.d.id), snips: hits.map(h => h.snip) });
+  return true;
+}
+function tryDocList(text){
+  const low = text.toLowerCase();
+  if(!/\b(docs?|documents?|files?|msas?|agreements?|contracts?|exhibits?|paperwork)\b/.test(low)) return false;
+  if(!isListish(low)) return false;
+  let l = (S.docs || []).slice();
+  const kind = DOC_KINDS.find(k => low.includes(k.toLowerCase()));
+  if(kind) l = l.filter(d => d.kind === kind);
+  const at = low.match(/\b(?:at|for)\s+(.+)$/);
+  if(at){ const o = findOrgByName(at[1]); if(o) l = l.filter(d => d.orgId === o.id); }
+  if(!l.length){ say("No documents stored" + (kind ? " of kind " + kind : "") + " yet. Drop a file anywhere on the page to file one."); return true; }
+  push("as", "docresults", { q: "documents", lead: "**" + l.length + "** document" + (l.length===1?"":"s") + (kind ? " · " + kind : ""), ids: l.slice(0,25).map(d => d.id), snips: [] });
+  return true;
+}
+
+/* ---------- filing a non-resume document ---------- */
+function askWhereToFile(doc){
+  CHAT.pending = { kind: "fileDoc", fields: { doc }, slot: "account" };
+  say("That reads like a **" + doc.kind + "**. Which account should I file it against?",
+      S.orgs.filter(o => !o.archived).slice(0, 6).map(o => o.name));
+}
+function fileDocToOrg(doc, o, loc, createdOrg){
+  const d = addDoc({ name: doc.name, kind: doc.kind, size: doc.size, text: doc.text,
+    orgId: o.id, locationId: loc ? loc.id : null, scope: loc ? "location" : "account" });
+  CHAT.pending = null;
+  push("as", "saved", {
+    text: "Filed **" + d.name + "** (" + d.kind + ") against **" + o.name + "**" +
+          (loc ? ", scoped to the **" + loc.name + "** location" : " as an **account-wide** agreement") + "." +
+          (createdOrg ? " I created that account too." : "") +
+          " Its text is searchable now — try “search documents for termination”." +
+          (d.truncated ? " Only the first 60,000 characters were kept." : ""),
+    link: { type: "company", id: o.id, name: o.name, view: "orgs" }
+  });
+  saveChat(); render(); save();
+}
+
+/* ============================================================
+   ACCOUNTS: many owners, many locations, and agreements that
+   are either account-wide or tied to one location.
+   ============================================================ */
+function migrateState(){
+  S.locations = S.locations || [];
+  S.docs = S.docs || [];
+  S.audit = S.audit || [];
+  (S.orgs || []).forEach(o => {
+    if(!Array.isArray(o.owners)) o.owners = o.owner ? [o.owner] : [];
+    delete o.owner;
+  });
+  (S.docs || []).forEach(d => { if(!d.scope) d.scope = d.locationId ? "location" : "account"; });
+}
+const orgOwners = o => (o && Array.isArray(o.owners)) ? o.owners : [];
+const orgLocations = oid => (S.locations || []).filter(l => l.orgId === oid && !l.archived);
+const locById = id => (S.locations || []).find(l => l.id === id) || null;
+function locLabel(id){ const l = locById(id); return l ? l.name : "—"; }
+function locLine(l){
+  return [l.address, [l.city, l.state].filter(Boolean).join(", "), l.zip].filter(Boolean).join(" · ");
+}
+const docsForOrg = oid => (S.docs || []).filter(d => d.orgId === oid);
+const docsAccountWide = oid => docsForOrg(oid).filter(d => !d.locationId);
+const docsForLocation = lid => (S.docs || []).filter(d => d.locationId === lid);
+
+function addOwner(o, name){
+  const n = String(name || "").trim();
+  if(!n) return false;
+  o.owners = orgOwners(o);
+  if(o.owners.some(x => x.toLowerCase() === n.toLowerCase())) return false;
+  const before = o.owners.join(", ") || "—";
+  o.owners = o.owners.concat([n]);
+  logChange("org", o.id, o.name, [{ f: "owners", from: before, to: o.owners.join(", ") }]);
+  return true;
+}
+function removeOwner(o, name){
+  const n = String(name || "").trim().toLowerCase();
+  o.owners = orgOwners(o);
+  const before = o.owners.join(", ") || "—";
+  const next = o.owners.filter(x => x.toLowerCase() !== n);
+  if(next.length === o.owners.length) return false;
+  o.owners = next;
+  logChange("org", o.id, o.name, [{ f: "owners", from: before, to: o.owners.join(", ") || "—" }]);
+  return true;
+}
+
+/* ---------- assistant: ownership on many-owner accounts ---------- */
+function tryOwnership(text){
+  let m = text.match(/^\s*(?:assign|add|give)\s+(.+?)\s+(?:to|as owner of|as an owner of)\s+(me|myself|[A-Za-z][\w.'\- ]{1,40})\s*$/i);
+  if(m && /^(?:a\s+|an\s+)?(?:location|site|branch|office|facility|candidate|contact|manager|hiring manager|job|req|requisition|role|opening|position|company|client|account|org)\b/i.test(m[1].trim())) m = null;
+  if(m){
+    const o = findOrgByName(m[1]);
+    if(!o){ say("I have no account called **" + esc(m[1].trim()) + "**."); return true; }
+    let to = m[2].trim();
+    if(/^(me|myself)$/i.test(to)){
+      if(!ME){ CHAT.pending = { kind:"identity", fields:{}, slot:"name", replay:text };
+        say("What is your name? I will remember it on this device."); return true; }
+      to = ME;
+    }
+    const added = addOwner(o, to);
+    say(added ? "**" + to + "** now owns **" + o.name + "** — it has " + orgOwners(o).length + " owner" + (orgOwners(o).length===1?"":"s") + ": " + orgOwners(o).join(", ") + "."
+              : "**" + to + "** already owns **" + o.name + "**.");
+    render(); if(added) save();
+    return true;
+  }
+  m = text.match(/^\s*(?:unassign|remove)\s+(?:me|myself|([A-Za-z][\w.'\- ]{1,40}))\s+(?:from|as owner of)\s+(.+?)\s*$/i);
+  if(m){
+    const o = findOrgByName(m[2]);
+    if(!o){ say("I have no account called **" + esc(m[2].trim()) + "**."); return true; }
+    const target = m[1] ? m[1].trim() : ME;
+    if(!target){ say("Tell me who to remove, or set your name first with “I am Matt”."); return true; }
+    const gone = removeOwner(o, target);
+    say(gone ? "**" + target + "** no longer owns **" + o.name + "**" + (orgOwners(o).length ? " — still owned by " + orgOwners(o).join(", ") + "." : " — it has no owner now.")
+             : "**" + target + "** was not an owner of **" + o.name + "**.");
+    render(); if(gone) save();
+    return true;
+  }
+  m = text.match(/^\s*who\s+owns\s+(.+?)\s*\??$/i);
+  if(m){
+    const o = findOrgByName(m[1]);
+    if(!o){ say("I have no account called **" + esc(m[1].trim()) + "**."); return true; }
+    const ow = orgOwners(o);
+    say(ow.length ? "**" + o.name + "** is owned by " + ow.map(x => "**"+x+"**").join(" and ") + "."
+                  : "**" + o.name + "** has no owner. Say “assign " + o.name + " to me” to take it.");
+    return true;
+  }
+  return false;
+}
+
+/* ---------- assistant: locations ---------- */
+function tryLocations(text){
+  let m = text.match(/^\s*(?:add|new|create)\s+(?:a\s+)?(?:location|site|branch|office|facility)\b[\s:,-]*(.+)$/i);
+  if(m){
+    let rest = m[1].trim();
+    let orgQ = null;
+    const at = rest.match(/\s+(?:to|for|under|at)\s+([^,]+)$/i);
+    if(at){ orgQ = at[1].trim(); rest = rest.slice(0, at.index).trim(); }
+    const parts = rest.split(",").map(x => x.trim()).filter(Boolean);
+    const f = { name: parts[0] || "", address: parts[1] || "" };
+    const ct = rest.match(RX_CITY);
+    if(ct){ f.city = ct[1].trim(); f.state = ct[2]; }
+    if(!orgQ){
+      CHAT.pending = { kind: "locOrg", fields: f, slot: "account" };
+      say("Which account is the location **" + esc(f.name || "you are adding") + "** under?",
+          S.orgs.filter(o => !o.archived).slice(0, 6).map(o => o.name));
+      return true;
+    }
+    const { org: o, created } = resolveOrg(orgQ);
+    if(!f.name){
+      CHAT.pending = { kind: "locName", fields: Object.assign(f, { orgId: o.id }), slot: "name" };
+      say("What should I call that location at **" + o.name + "**? For example “Chicago HQ”.");
+      return true;
+    }
+    createLocation(o, f, created);
+    return true;
+  }
+  m = text.match(/^\s*(?:list|show|what)\s+(?:are\s+the\s+)?(?:the\s+)?locations?\s+(?:for|at|of|under)\s+(.+?)\s*\??$/i);
+  if(m){
+    const o = findOrgByName(m[1]);
+    if(!o){ say("I have no account called **" + esc(m[1].trim()) + "**."); return true; }
+    const ls = orgLocations(o.id);
+    if(!ls.length){ say("**" + o.name + "** has no locations yet. Try “add location Chicago HQ to " + o.name + "”."); return true; }
+    push("as", "locresults", { lead: "**" + o.name + "** has " + ls.length + " location" + (ls.length===1?"":"s"), ids: ls.map(l => l.id), orgId: o.id });
+    return true;
+  }
+  if(/^\s*(?:list|show)\s+(?:all\s+)?locations?\s*\??$/i.test(text)){
+    const ls = (S.locations || []).filter(l => !l.archived);
+    if(!ls.length){ say("No locations stored yet."); return true; }
+    push("as", "locresults", { lead: "**" + ls.length + "** location" + (ls.length===1?"":"s") + " across all accounts", ids: ls.map(l => l.id) });
+    return true;
+  }
+  return false;
+}
+function createLocation(o, f, madeOrg){
+  const l = { id: uid("loc"), orgId: o.id, name: f.name, address: f.address || "",
+    city: f.city || "", state: f.state || "", zip: f.zip || "", roe: f.roe || "", notes: "",
+    archived: false, createdAt: nowISO() };
+  S.locations = S.locations || [];
+  S.locations.push(l);
+  logChange("location", l.id, l.name, [{ f: "created", from: "—", to: o.name }]);
+  CHAT.pending = null;
+  push("as", "saved", {
+    text: "Added the location **" + l.name + "** under **" + o.name + "**." + (madeOrg ? " I created that account too." : "") +
+          " You can give it its own address, rules of engagement and agreements.",
+    link: { type: "company", id: o.id, name: o.name, view: "orgs" }
+  });
+  saveChat(); render(); save();
+}
+
+/* ============================================================
+   ONE PERSON, MANY ROLES
+   A hiring manager can also be a candidate. There is a single
+   person record; "candidate" and "contact" are roles on it.
+   ============================================================ */
+function personRoles(p){
+  const r = [];
+  if(p.isCandidate) r.push("Candidate");
+  if(p.isContact) r.push("Contact");
+  return r;
+}
+function findPersonByContact(email, phone){
+  const e = normEmail(email), d = digits(phone);
+  if(e){ const hit = S.people.find(p => normEmail(p.email) === e); if(hit) return hit; }
+  if(d && d.length >= 10){ const hit = S.people.find(p => digits(p.phone) === d); if(hit) return hit; }
+  return null;
+}
+function findPersonByName(name){
+  const n = String(name || "").trim().toLowerCase();
+  if(n.length < 4) return null;
+  const hits = S.people.filter(p => String(p.name || "").trim().toLowerCase() === n);
+  return hits.length === 1 ? hits[0] : null;
+}
+/* fills only the fields that are currently empty — never overwrites */
+function fillBlanks(p, f, labels){
+  const patch = {};
+  ["title","email","phone","city","years","workAuth","desiredPay","orgId"].forEach(k => {
+    const cur = p[k];
+    const empty = cur == null || cur === "";
+    if(empty && f[k] != null && f[k] !== "") patch[k] = f[k];
+  });
+  if((!p.skills || !p.skills.length) && (f.skills || []).length) patch.skills = f.skills;
+  const changes = applyPatch(p, patch, labels);
+  if(f.notes){
+    const stamp = "[" + fmtDate(todayISO()) + "] " + f.notes;
+    p.notes = p.notes ? stamp + "\n" + p.notes : stamp;
+  }
+  return changes;
+}
+function grantRole(p, role, orgId){
+  const changes = [];
+  if(role === "candidate" && !p.isCandidate){
+    p.isCandidate = true;
+    changes.push({ f: "role", from: personRoles(p).filter(r => r !== "Candidate").join(", ") || "—", to: personRoles(p).join(", ") });
+  }
+  if(role === "contact" && !p.isContact){
+    p.isContact = true;
+    if(orgId && !p.orgId) p.orgId = orgId;
+    changes.push({ f: "role", from: personRoles(p).filter(r => r !== "Contact").join(", ") || "—", to: personRoles(p).join(", ") });
+  }
+  if(changes.length) logChange("person", p.id, p.name, changes);
+  return changes.length > 0;
+}
+function tryRoles(text){
+  let m = text.match(/^\s*(?:make|mark|also track|treat)\s+(.+?)\s+(?:as\s+)?(?:a\s+)?(candidate|contact|hiring manager|manager)\b(?:\s+(?:at|for)\s+(.+))?\s*$/i);
+  if(!m) return false;
+  const p = findPersonByName(m[1]) || S.people.find(x => String(x.name||"").toLowerCase().includes(m[1].trim().toLowerCase()));
+  if(!p){ say("I have nobody called **" + esc(m[1].trim()) + "**."); return true; }
+  const role = /candidate/i.test(m[2]) ? "candidate" : "contact";
+  let oid = null;
+  if(role === "contact"){
+    if(m[3]){ oid = resolveOrg(m[3]).org.id; }
+    else if(!p.orgId){
+      say("Which company is **" + p.name + "** a contact at?", S.orgs.filter(o => !o.archived).slice(0,6).map(o => o.name));
+      CHAT.pending = { kind: "roleOrg", fields: { personId: p.id }, slot: "account" };
+      return true;
+    }
+  }
+  const did = grantRole(p, role, oid);
+  say(did ? "**" + p.name + "** is now tracked as " + personRoles(p).map(r => "**"+r.toLowerCase()+"**").join(" and ") +
+            " — one record, both roles, so the history stays together."
+          : "**" + p.name + "** is already a " + role + ".");
+  render(); if(did) save();
+  return true;
+}
+
+/* ============================================================
+   ROLE-AWARE ACTIVITY LOG
+   The same person may be a hiring manager at one account and a
+   candidate for another. Every interaction is logged against
+   the role we were actually dealing with, plus the account it
+   concerned — inferred from context, and only asked about when
+   genuinely ambiguous. One person record throughout.
+   ============================================================ */
+const ACT_KINDS = ["Call","Email","Text","Meeting","Interview","Submission","Stage change","Placement","Note"];
+
+function logActivity(personId, ctx, kind, note){
+  S.activity = S.activity || [];
+  const a = {
+    id: uid("act"), personId,
+    role: ctx && ctx.role ? ctx.role : null,
+    orgId: ctx && ctx.orgId ? ctx.orgId : null,
+    jobId: ctx && ctx.jobId ? ctx.jobId : null,
+    subId: ctx && ctx.subId ? ctx.subId : null,
+    kind: kind || "Note", note: note || "",
+    at: nowISO(), by: ME || "someone"
+  };
+  S.activity.push(a);
+  if(S.activity.length > 3000) S.activity = S.activity.slice(-3000);
+  const p = person(personId);
+  if(p) p.lastContact = a.at;
+  return a;
+}
+function activityFor(pid){ return (S.activity || []).filter(a => a.personId === pid).slice().reverse(); }
+
+/* Which hat were we wearing? Derived from where the interaction happened. */
+function inferContext(p, hint){
+  hint = hint || {};
+  if(hint.subId){
+    const s = sub(hint.subId), j = s ? job(s.jobId) : null;
+    if(s && j) return { role:"candidate", orgId:j.orgId, jobId:j.id, subId:s.id, why:"you were working their pipeline for " + j.title };
+  }
+  if(hint.jobId){
+    const j = job(hint.jobId);
+    if(j) return { role:"candidate", orgId:j.orgId, jobId:j.id, why:"you were on the " + j.title + " job" };
+  }
+  if(hint.orgId && p.isContact && p.orgId === hint.orgId)
+    return { role:"contact", orgId:hint.orgId, why:"you were on their employer's account" };
+
+  const open = personSubs(p.id).filter(s => isOpenStage(s.stage));
+  if(p.isCandidate && !p.isContact){
+    const j = open.length === 1 ? job(open[0].jobId) : null;
+    return { role:"candidate", orgId:j ? j.orgId : null, jobId:j ? j.id : null, subId:open.length===1?open[0].id:null,
+             why:"they are only a candidate here" };
+  }
+  if(p.isContact && !p.isCandidate)
+    return { role:"contact", orgId:p.orgId, why:"they are only a contact here" };
+
+  /* both roles — decide only if one side is obviously live */
+  if(p.isCandidate && p.isContact){
+    if(open.length === 1){
+      const j = job(open[0].jobId);
+      return { role:"candidate", orgId:j?j.orgId:null, jobId:j?j.id:null, subId:open[0].id, ambiguous:true,
+               why:"they are live in one pipeline (" + (j?j.title:"a job") + ")" };
+    }
+    return null;
+  }
+  return { role:null, orgId:p.orgId || null, why:"no role set yet" };
+}
+function contextChoices(p){
+  const out = [];
+  personSubs(p.id).filter(s => isOpenStage(s.stage)).forEach(s => {
+    const j = job(s.jobId);
+    if(j) out.push({ label:"As a candidate for " + j.title + " (" + orgName(j.orgId) + ")", role:"candidate", orgId:j.orgId, jobId:j.id, subId:s.id });
+  });
+  if(p.isCandidate && !out.length) out.push({ label:"As a candidate", role:"candidate", orgId:null });
+  if(p.isContact) out.push({ label:"As the hiring manager at " + orgName(p.orgId), role:"contact", orgId:p.orgId });
+  return out;
+}
+function roleChip(a){
+  if(a.role === "candidate") return '<span class="pill a">as candidate</span>';
+  if(a.role === "contact") return '<span class="pill m">as manager</span>';
+  return '<span class="pill n">no role</span>';
+}
+
+/* ---------- assistant: logging an interaction ---------- */
+function tryLogActivity(text){
+  const m = text.match(/^\s*log\s+(?:a\s+)?(call|email|text|meeting|interview|note|conversation|chat)?\s*(?:with|to|for)?\s*([A-Za-z][\w.'\- ]{1,40}?)\s*(?:\babout\b\s*(.+))?$/i);
+  if(!m) return false;
+  const kindRaw = (m[1] || "note").toLowerCase();
+  const kind = kindRaw === "conversation" || kindRaw === "chat" ? "Call" : kindRaw[0].toUpperCase() + kindRaw.slice(1);
+  const nameQ = m[2].trim();
+  const note = (m[3] || "").trim();
+  const p = findPersonByName(nameQ) || S.people.find(x => String(x.name||"").toLowerCase().includes(nameQ.toLowerCase()));
+  if(!p){ say("I have nobody called **" + esc(nameQ) + "**. Add them first, or check the spelling."); return true; }
+
+  let ctx = inferContext(p, {});
+  if(note){
+    const o = findOrgByName(note);
+    if(o){
+      if(p.isContact && p.orgId === o.id) ctx = { role:"contact", orgId:o.id, why:"the note names their employer" };
+      else {
+        const s = personSubs(p.id).find(x => { const j = job(x.jobId); return j && j.orgId === o.id; });
+        if(s){ const j = job(s.jobId); ctx = { role:"candidate", orgId:o.id, jobId:j.id, subId:s.id, why:"the note names an account they are submitted to" }; }
+      }
+    }
+  }
+  if(!ctx){
+    CHAT.pending = { kind:"actRole", fields:{ personId:p.id, actKind:kind, note }, slot:"role" };
+    say("**" + p.name + "** is both a candidate and a hiring manager here. Which were you dealing with?",
+        contextChoices(p).map(c => c.label));
+    return true;
+  }
+  const a = logActivity(p.id, ctx, kind, note);
+  say("Logged a **" + kind.toLowerCase() + "** with **" + p.name + "** " +
+      (a.role === "candidate" ? "as a **candidate**" : a.role === "contact" ? "as the **hiring manager**" : "") +
+      (a.orgId ? " on **" + orgName(a.orgId) + "**" : "") + "." +
+      (ctx.why ? " _I worked that out because " + ctx.why + "._" : ""));
+  render(); save();
+  return true;
+}
+
+/* ---------- lightweight markdown for assistant copy ---------- */
+function md(t){
+  return esc(t)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/(^|[\s(])_([^_]+)_/g, "$1<em>$2</em>")
+    .replace(/\n/g, "<br>");
+}
+
+/* ---------- the assistant view ---------- */
+function viewAsk(){
+  const msgs = CHAT.msgs.map(renderMsg).join("");
+  const empty = !CHAT.msgs.length;
+  const openers = [
+    "list of accounts",
+    "unassigned accounts",
+    "who do we know at Northwind Health",
+    "candidates with kubernetes",
+    "open jobs in dallas",
+    "search documents for termination"
+  ];
+  const intro = empty ? '<div class="askintro">'+
+      '<h2>What do you need?</h2>'+
+      '<p>Ask in plain English, or add a record by describing it. Drop a resume, MSA or Exhibit A anywhere on this page and I will read it, work out what it is and file it.</p>'+
+      '<div class="chips">'+openers.map(o => '<button class="chip act" data-a="chip" data-v="'+esc(o)+'">'+esc(o)+'</button>').join("")+'</div>'+
+      '<p class="askhint">Type <b>help</b> for everything I understand.</p>'+
+    '</div>' : "";
+  return '<div class="ph"><h1>Assistant</h1>'+
+      (ME?'<span class="sub">signed in as '+esc(ME)+'</span>':'<span class="sub">tell me your name to use “my accounts”</span>')+
+      '<span class="sp">'+
+        (CHAT.msgs.length?'<button class="btn gh" data-a="clearChat">Clear</button>':"")+
+        '<button class="btn" data-a="pasteResume">Paste a resume</button>'+
+        '<button class="btn" data-a="pickFile">Upload a document</button>'+
+      '</span></div>'+
+    '<div class="chat">'+ intro + '<div class="msgs" id="msgs">'+msgs+'</div>'+
+      '<form class="composer" data-a="askform">'+
+        '<input id="askin" name="q" autocomplete="off" placeholder="'+
+          (CHAT.pending?'Answer above, or type cancel…':'Ask, or describe what to add…')+'" value="">'+
+        '<button class="btn pri" type="submit" aria-label="Send">Send</button>'+
+      '</form>'+
+      '<p class="dropnote">Drop a file anywhere · PDF, Word or text</p>'+
+    '</div>'+
+    '<input type="file" id="filein" multiple accept=".pdf,.docx,.txt,.md,.csv,.rtf,.doc" hidden>';
+}
+function renderMsg(m, i){
+  if(m.r === "me") return '<div class="msg me"><div class="bub">'+md(m.d.text)+'</div></div>';
+  const inner = m.k === "text" ? md(m.d.text) + chipRow(m.d.chips)
+    : m.k === "draft" ? draftCard(m.d)
+    : m.k === "results" ? resultsCard(m.d)
+    : m.k === "docresults" ? docResultsCard(m.d)
+    : m.k === "locresults" ? locResultsCard(m.d)
+    : m.k === "saved" ? md(m.d.text) + savedLink(m.d.link)
+    : "";
+  return '<div class="msg as"><span class="dot" aria-hidden="true"></span><div class="bub">'+inner+'</div></div>';
+}
+function chipRow(chips){
+  if(!chips || !chips.length) return "";
+  return '<div class="chips" style="margin-top:.7rem">'+
+    chips.map(c => '<button class="chip act" data-a="chip" data-v="'+esc(c)+'">'+esc(c)+'</button>').join("")+'</div>';
+}
+function savedLink(l){
+  if(!l) return "";
+  return '<div class="chips" style="margin-top:.7rem"><button class="chip act" data-a="openSaved" data-id="'+l.id+'" data-v="'+esc(l.view)+'">Open '+esc(l.name)+'</button></div>';
+}
+const DRAFT_LABEL = { cand:"New candidate", contact:"New contact", company:"New company", job:"New job" };
+function draftCard(d){
+  const dr = CHAT.drafts[d.id];
+  if(!dr) return "<em>That draft is gone.</em>";
+  const f = dr.fields;
+  const rows = [];
+  const add = (k,v) => { if(v != null && v !== "" && !(Array.isArray(v) && !v.length)) rows.push([k, Array.isArray(v)?v.join(", "):String(v)]); };
+  add("Name", f.name); add("Title", f.title); add("Company", f.company);
+  add("Email", f.email); add("Phone", f.phone); add("Location", f.city);
+  add("Experience", f.years ? f.years + " years" : null);
+  add("Wants", f.desiredPay ? money0(f.desiredPay) + "/hr" : null);
+  add("Type", f.jobType);
+  add("Bill max", f.billMax ? money0(f.billMax) : null);
+  add("Pay max", f.payMax ? money0(f.payMax) : null);
+  add("Salary from", f.salaryMin ? money0(f.salaryMin) : null);
+  add("Skills", f.skills);
+  return '<div class="draft">'+
+    '<div class="draft-h"><b>'+esc(DRAFT_LABEL[dr.kind]||"New record")+'</b><span class="pill n">not saved yet</span></div>'+
+    '<dl class="dl">'+rows.map(r => '<dt>'+esc(r[0])+'</dt><dd>'+esc(r[1])+'</dd>').join("")+'</dl>'+
+    (d.note?'<p class="draft-note">'+md(d.note)+'</p>':"")+
+    '<div class="draft-f">'+
+      '<button class="btn pri" data-a="commitDraft" data-id="'+d.id+'">Save</button>'+
+      '<button class="btn" data-a="editDraft" data-id="'+d.id+'">Check the details</button>'+
+      '<button class="btn gh" data-a="discardDraft" data-id="'+d.id+'">Discard</button>'+
+    '</div></div>';
+}
+function resultsCard(d){
+  let out = d.lead ? '<p class="rlead">'+md(d.lead)+'</p>' : "";
+  const sec = (title, ids, fn) => {
+    if(!ids || !ids.length) return "";
+    return '<div class="rsec"><span class="rtitle">'+esc(title)+'</span>'+ids.map(fn).filter(Boolean).join("")+'</div>';
+  };
+  out += sec("Accounts", d.ids.orgs, id => { const o = org(id); if(!o) return "";
+    const ow = orgOwners(o);
+    return rrow("openOrg", id, o.name, o.kind + " · " + (ow.length ? "owned by " + ow.join(", ") : "no owner") +
+      " · " + orgLocations(o.id).length + " location" + (orgLocations(o.id).length===1?"":"s")); });
+  out += sec("Candidates", d.ids.cands, id => { const p = person(id); if(!p) return "";
+    return rrow("openPerson", id, p.name, [p.title, p.city, (p.skills||[]).slice(0,3).join(", ")].filter(Boolean).join(" · ")
+      + (p.isContact ? "  ·  also a contact at " + orgName(p.orgId) : "")); });
+  out += sec("Contacts", d.ids.cons, id => { const p = person(id); if(!p) return "";
+    return rrow("openPerson", id, p.name, [p.title, orgName(p.orgId)].filter(Boolean).join(" · ")
+      + (p.isCandidate ? "  ·  also a candidate" : "")); });
+  out += sec("Jobs", d.ids.jobs, id => { const j = job(id); if(!j) return "";
+    return rrow("openJob", id, j.title, [orgName(j.orgId), j.type, j.status, j.city].filter(Boolean).join(" · ")); });
+  out += sec("Placements", d.ids.placements, id => { const pl = byId(S.placements, id); if(!pl) return "";
+    const sb = sub(pl.subId), pe = sb?person(sb.personId):null, j = sb?job(sb.jobId):null;
+    const mg = margin(pl.payRate, pl.billRate, pl.burdenPct);
+    return rrow("openPlacement", id, pe?pe.name:"—", [j?orgName(j.orgId):"", pl.payRate?money(mg.gm)+"/hr GM":"", pl.endsOn?"ends "+fmtDate(pl.endsOn):""].filter(Boolean).join(" · ")); });
+  out += sec("Submissions", d.ids.subs, id => { const sb = sub(id); if(!sb) return "";
+    const pe = person(sb.personId), j = job(sb.jobId);
+    return rrow("openSub", id, pe?pe.name:"—", [j?j.title:"", sb.stage, daysAgo(sb.stageSince)+"d in stage"].filter(Boolean).join(" · ")); });
+  if(d.openView) out += '<div class="chips" style="margin-top:.6rem"><button class="chip act" data-a="view" data-v="'+esc(d.openView)+'">Open the full list</button></div>';
+  return out;
+}
+function rrow(action, id, title, meta){
+  return '<button class="rrow" data-a="'+action+'" data-id="'+id+'">'+avatar(title, true)+
+    '<span class="rt"><b>'+esc(title)+'</b>'+(meta?'<span>'+esc(meta)+'</span>':"")+'</span></button>';
+}
+function docResultsCard(d){
+  let out = d.lead ? '<p class="rlead">'+md(d.lead)+'</p>' : "";
+  out += '<div class="rsec">'+d.ids.map((id, i) => {
+    const doc = (S.docs||[]).find(x => x.id === id);
+    if(!doc) return "";
+    const snip = d.snips && d.snips[i] ? '<span class="snip">'+esc(d.snips[i])+'</span>' : "";
+    return '<button class="rrow" data-a="openDoc" data-id="'+id+'">'+
+      '<span class="av s '+avClass(doc.kind)+'">'+esc(doc.kind.slice(0,2).toUpperCase())+'</span>'+
+      '<span class="rt"><b>'+esc(doc.name)+'</b><span>'+esc(doc.kind+" · "+docTarget(doc)+
+        (doc.locationId?" · "+locLabel(doc.locationId):" · account-wide"))+'</span>'+snip+'</span></button>';
+  }).join("")+'</div>';
+  return out;
+}
+function locResultsCard(d){
+  let out = d.lead ? '<p class="rlead">'+md(d.lead)+'</p>' : "";
+  out += '<div class="rsec">'+d.ids.map(id => {
+    const l = locById(id); if(!l) return "";
+    return '<button class="rrow" data-a="openOrg" data-id="'+l.orgId+'">'+
+      '<span class="av s '+avClass(l.name)+'">'+esc(initials(l.name))+'</span>'+
+      '<span class="rt"><b>'+esc(l.name)+'</b><span>'+esc([orgName(l.orgId), locLine(l)].filter(Boolean).join(" · "))+'</span>'+
+      (l.roe?'<span class="snip">'+esc(l.roe.slice(0,140))+(l.roe.length>140?"…":"")+'</span>':"")+'</span></button>';
+  }).join("")+'</div>';
+  return out;
+}
+
+/* ---------- account detail: owners, locations, agreements, history ---------- */
+function ownersCard(o){
+  const ow = orgOwners(o);
+  const mine = ME && ow.some(x => x.toLowerCase() === ME.toLowerCase());
+  return '<div class="card-b">'+
+    (ow.length
+      ? '<div class="chips">'+ow.map(n => '<span class="chip">'+avatar(n,true)+' '+esc(n)+
+          (READONLY?"":'<button class="chipx" data-a="removeOwner" data-id="'+o.id+'" data-v="'+esc(n)+'" aria-label="Remove '+esc(n)+'">×</button>')+'</span>').join("")+'</div>'
+      : '<p class="muted">Nobody owns this account yet.</p>')+
+    (READONLY?"":'<div class="chips" style="margin-top:.7rem">'+
+      (mine?"":'<button class="btn sm pri" data-a="ownMe" data-id="'+o.id+'">'+(ME?"Add me as an owner":"Claim this account")+'</button>')+
+      '<button class="btn sm" data-a="addOwner" data-id="'+o.id+'">Add someone else</button>'+
+    '</div>')+
+  '</div>';
+}
+function locationsCard(o){
+  const ls = orgLocations(o.id);
+  if(!ls.length) return '<div class="card-b">'+emptyBox("No locations yet",
+    "Add a location when a site has its own address, rules of engagement or agreement.",
+    READONLY?"":btn2("addLocation", o.id, "Add a location", true))+'</div>';
+  return '<div class="card-b" style="display:grid;gap:.7rem">'+
+    ls.map(l => {
+      const dl = docsForLocation(l.id);
+      return '<div class="loc">'+
+        '<div class="loc-h">'+avatar(l.name, true)+'<b>'+esc(l.name)+'</b>'+
+          (dl.length?'<span class="pill m">'+dl.length+' agreement'+(dl.length===1?"":"s")+'</span>':"")+
+          (READONLY?"":'<span class="sp"><button class="btn sm" data-a="editLocation" data-id="'+l.id+'">Edit</button></span>')+
+        '</div>'+
+        (locLine(l)?'<p class="loc-addr">'+esc(locLine(l))+'</p>':"")+
+        (l.roe?'<div class="note"><span class="w">Rules of engagement</span>'+esc(l.roe)+'</div>':
+          '<p class="muted" style="font-size:.875rem;margin:.2rem 0 0">No rules of engagement recorded.</p>')+
+        (dl.length?'<div class="chips" style="margin-top:.5rem">'+dl.map(d =>
+          '<button class="chip act" data-a="openDoc" data-id="'+d.id+'">'+esc(d.kind)+' · '+esc(d.name)+'</button>').join("")+'</div>':"")+
+      '</div>';
+    }).join("")+
+    (READONLY?"":'<div>'+btn2("addLocation", o.id, "Add a location")+'</div>')+
+  '</div>';
+}
+function docsCard(o){
+  const wide = docsAccountWide(o.id);
+  const perLoc = docsForOrg(o.id).filter(d => d.locationId);
+  if(!wide.length && !perLoc.length) return '<div class="card-b">'+emptyBox("No agreements stored",
+    "Drop an MSA, SOW or Exhibit A anywhere on the page and I will file it here.",
+    READONLY?"":'<button class="btn pri" data-a="pickFile">Upload a document</button>')+'</div>';
+  const row = d => '<button class="rrow" data-a="openDoc" data-id="'+d.id+'">'+
+    '<span class="av s '+avClass(d.kind)+'">'+esc(d.kind.slice(0,2).toUpperCase())+'</span>'+
+    '<span class="rt"><b>'+esc(d.name)+'</b><span>'+esc(d.kind+" · added "+fmtDate(d.at)+" by "+d.by+
+      (d.locationId?" · "+locLabel(d.locationId):""))+'</span></span></button>';
+  return '<div class="card-b">'+
+    (wide.length?'<div class="rsec"><span class="rtitle">Account-wide</span>'+wide.map(row).join("")+'</div>':"")+
+    (perLoc.length?'<div class="rsec"><span class="rtitle">Location specific</span>'+perLoc.map(row).join("")+'</div>':"")+
+  '</div>';
+}
+function historyCard(id){
+  const h = historyFor(id);
+  if(!h.length) return '<div class="card-b"><p class="muted">No changes recorded yet.</p></div>';
+  return '<div class="card-b"><ul class="hist">'+h.map(a =>
+    '<li><span class="w">'+esc(fmtDate(a.at))+'</span><span>'+
+      a.changes.map(c => '<b>'+esc(c.f)+'</b> '+esc(c.from)+' → '+esc(c.to)).join("<br>")+
+      '<span class="sec"> · '+esc(a.by)+'</span></span></li>').join("")+'</ul></div>';
+}
+function btn2(a, id, label, pri){
+  return '<button class="btn'+(pri?" pri":"")+'" data-a="'+a+'" data-id="'+id+'">'+esc(label)+'</button>';
+}
+
+/* ---------- person: roles + role-aware timeline ---------- */
+function rolesCard(p){
+  const roles = personRoles(p);
+  const o = p.orgId ? org(p.orgId) : null;
+  return '<div class="card-b">'+
+    '<div class="chips">'+
+      (roles.length?roles.map(r => '<span class="pill '+(r==="Candidate"?"a":"m")+'">'+esc(r)+'</span>').join("")
+        :'<span class="pill n">no role yet</span>')+
+      (o?'<span class="chip">at '+esc(o.name)+'</span>':"")+
+    '</div>'+
+    (roles.length===2?'<p class="muted" style="margin:.6rem 0 0;font-size:.875rem">One record, both roles — we log against whichever one we were dealing with, so the history never splits.</p>':"")+
+    (READONLY?"":'<div class="chips" style="margin-top:.7rem">'+
+      (p.isCandidate?"":'<button class="btn sm" data-a="grantCand" data-id="'+p.id+'">Also a candidate</button>')+
+      (p.isContact?"":'<button class="btn sm" data-a="grantContact" data-id="'+p.id+'">Also a contact</button>')+
+    '</div>')+
+  '</div>';
+}
+function timelineCard(p){
+  const acts = activityFor(p.id);
+  if(!acts.length) return '<div class="card-b">'+emptyBox("Nothing logged yet",
+    "Log a call, email or meeting and it is recorded against the role you were dealing with.",
+    READONLY?"":'<button class="btn pri" data-a="logContact" data-id="'+p.id+'">Log contact</button>')+'</div>';
+  return '<div class="card-b"><ul class="tl">'+acts.slice(0, 25).map(a =>
+    '<li><span class="tlw">'+esc(fmtDate(a.at))+'</span>'+
+      '<span class="tlb"><span class="tlh"><b>'+esc(a.kind)+'</b>'+roleChip(a)+
+        (a.orgId?'<span class="chip">'+esc(orgName(a.orgId))+'</span>':"")+
+        (a.jobId?'<span class="chip">'+esc((job(a.jobId)||{}).title||"")+'</span>':"")+'</span>'+
+      (a.note?'<span class="tln">'+esc(a.note)+'</span>':"")+
+      '<span class="sec">'+esc(a.by)+'</span></span></li>').join("")+'</ul></div>';
+}
+
+/* ---------- render ---------- */
+function viewHtml(){
+  switch(UI.view){
+    case "ask": return viewAsk();
+    case "jobs": return viewJobs();
+    case "cands": return viewCands();
+    case "orgs": return viewOrgs();
+    case "place": return viewPlace();
+    default: return viewDesk();
+  }
+}
+function footerHtml(){
+  return '<footer class="ft">TS Workspace keeps the whole team on one set of records — every change you save is published for everyone. '+
+    'It covers the recruiting workflow: candidates, companies, jobs, pipeline, placements and margin. '+
+    'It is deliberately not a payroll, tax or invoicing system.</footer>';
+}
+function render(){
+  const r = document.getElementById("root");
+  if(!r) return;
+  r.innerHTML = '<div class="app">' + topBar() +
+    '<main><div class="wrap">' + banner() + viewHtml() + footerHtml() + '</div></main>' +
+    '</div>' + modalHtml();
+  const el = UI.focusId ? document.getElementById(UI.focusId) : null;
+  if(el){ el.focus(); if(el.setSelectionRange && el.value!=null){ const n=el.value.length; try{el.setSelectionRange(n,n)}catch(e){} } }
+  const first = document.querySelector('.modal input:not([type=hidden]), .modal select, .modal textarea');
+  if(first && !UI.focusId) first.focus();
+  if(UI.view === "ask" && !UI.modal){
+    const ai = document.getElementById("askin");
+    if(ai && !UI.focusId) ai.focus();
+    if(SCROLL_CHAT){
+      SCROLL_CHAT = false;
+      const box = document.getElementById("msgs");
+      if(box && box.lastElementChild) box.lastElementChild.scrollIntoView({ block:"nearest" });
+    }
+  }
+}
+function go(view){ UI.view=view; UI.sel=null; UI.q=""; UI.focusId=null; saveUI(); render(); }
+function openRec(view,id){ UI.view=view; UI.sel=id; UI.focusId=null; saveUI(); render(); }
+function modal(kind,data){ UI.modal=kind; UI.md=data||{}; UI.err=null; UI.focusId=null; render(); }
+function closeModal(){ UI.modal=null; UI.md=null; UI.err=null; UI.focusId=null; render(); }
+
+/* ---------- persistence ---------- */
+function renderDoc(state){
+  const css = document.getElementById("app-css").textContent;
+  const src = document.getElementById("app-src").textContent;
+  const json = JSON.stringify(state)
+    .replace(/</g, "\\u003c")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8">'+
+    '<meta name="viewport" content="width=device-width, initial-scale=1">'+
+    '<title>TS Workspace</title>'+
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">'+
+    '<style id="app-css">'+css+'</style></head><body>'+
+    '<div id="root"></div>'+
+    '<script type="application/json" id="app-state">'+json+'<\/script>'+
+    '<script id="app-src">'+src+'<\/script>'+
+    '</body></html>';
+}
+let apiPromise = null;
+function getApi(){
+  if(!apiPromise) apiPromise = (window.claude && window.claude.use) ? window.claude.use("artifact") : Promise.resolve(null);
+  return apiPromise;
+}
+async function save(){
+  if(READONLY) return;
+  SAVING = true; setStatus("Saving…");
+  saveUI();
+  let html;
+  try{ html = renderDoc(S); }
+  catch(e){ SAVING=false; setStatus("Could not prepare the save", true); return; }
+  const api = await getApi();
+  if(!api){
+    SAVING = false;
+    setStatus("Preview only — changes are not saved", true);
+    return;
+  }
+  try{
+    await api.publish(html);   /* this view reloads to the new version */
+    setStatus("Saved");
+  }catch(e){
+    SAVING = false;
+    const code = e && e.code;
+    if(code === "conflict"){
+      setStatus("Someone else saved first — reloading");
+    }else if(code === "not_writer" || code === "not_granted" || code === "not_declared" || code === "consent_required" || code === "capability_disabled" || code === "capability_removed"){
+      READONLY = true; setStatus("Read-only view", true); render();
+    }else if(code === "rate_limited"){
+      setStatus("Saving too often — wait a few seconds and try again", true);
+    }else if(code === "too_large"){
+      setStatus("Too much data to save in one page", true);
+    }else{
+      setStatus("Save failed — your change is still on screen, try again", true);
+    }
+  }
+}
+
+/* ---------- mutations ---------- */
+function advance(sid, dir){
+  const s = sub(sid); if(!s) return;
+  const i = STAGES.indexOf(s.stage);
+  if(i < 0) return;
+  const ni = i + dir;
+  if(ni < 0 || ni >= STAGES.length) return;
+  if(STAGES[ni] === "Placed"){ modal("placement",{subId:sid}); return; }
+  s.stage = STAGES[ni];
+  s.stageSince = nowISO();
+  s.hist = s.hist||[]; s.hist.push({ s:s.stage, at:s.stageSince, by:ME||"me" });
+  const jb = job(s.jobId);
+  logActivity(s.personId, { role:"candidate", orgId:jb?jb.orgId:null, jobId:s.jobId, subId:s.id },
+    "Stage change", "Moved to " + s.stage + (jb ? " on " + jb.title : ""));
+  render(); save();
+}
+function fd(form){
+  const o = {}; new FormData(form).forEach((v,k) => { o[k] = typeof v==="string" ? v.trim() : v; });
+  return o;
+}
+const numOrNull = v => (v===""||v==null||isNaN(+v)) ? null : +v;
+
+function handleSubmitForm(form){
+  const v = fd(form);
+  const d = UI.md||{};
+  switch(UI.modal){
+
+  case "cand": {
+    if(!v.name){ UI.err="A name is required."; render(); return; }
+    const skills = v.skills ? v.skills.split(",").map(s=>s.trim()).filter(Boolean) : [];
+    if(!d.id && !d.dupeAck){
+      const e = normEmail(v.email), ph = digits(v.phone);
+      const hit = S.people.find(p => (e && normEmail(p.email)===e) || (ph && ph.length>=10 && digits(p.phone)===ph));
+      if(hit){ UI.md = Object.assign({}, d, {dupe:hit.name, dupeAck:true, keep:v}); render(); return; }
+    }
+    if(d.id){
+      const p = person(d.id);
+      logChange("person", p.id, v.name, applyPatch(p,
+        { name:v.name, title:v.title, email:v.email, phone:v.phone, city:v.city,
+          years:numOrNull(v.years), workAuth:v.workAuth, desiredPay:numOrNull(v.desiredPay),
+          availFrom:v.availFrom||null, skills, notes:v.notes },
+        { name:"name", title:"title", email:"email", phone:"phone", city:"location", years:"experience",
+          workAuth:"work authorization", desiredPay:"wants", availFrom:"available from", skills:"skills", notes:"notes" }));
+    }else{
+      const p = { id:uid("p"), name:v.name, title:v.title, email:v.email, phone:v.phone, city:v.city,
+        years:numOrNull(v.years), workAuth:v.workAuth, desiredPay:numOrNull(v.desiredPay),
+        availFrom:v.availFrom||null, skills, notes:v.notes, isCandidate:true, isContact:false,
+        orgId:null, lastContact:nowISO(), createdAt:nowISO() };
+      S.people.push(p);
+      UI.view="cands"; UI.sel=p.id;
+    }
+    break;
+  }
+
+  case "org": {
+    if(!v.name){ UI.err="A company name is required."; render(); return; }
+    if(d.id){
+      const oe = org(d.id);
+      logChange("org", oe.id, v.name, applyPatch(oe, { name:v.name, kind:v.kind, status:v.status, notes:v.notes },
+        { name:"name", kind:"type", status:"status", notes:"notes" }));
+    }
+    else { const o = { id:uid("o"), name:v.name, kind:v.kind, status:v.status, owners:[], notes:v.notes, createdAt:nowISO() };
+      S.orgs.push(o);
+      logChange("org", o.id, o.name, [{ f:"created", from:"—", to:v.kind }]);
+      UI.view="orgs"; UI.sel=o.id; }
+    break;
+  }
+
+  case "contact": {
+    if(!v.name){ UI.err="A name is required."; render(); return; }
+    if(!v.orgId){ UI.err="Pick the company this person works for."; render(); return; }
+    if(d.id){
+      const pp = person(d.id);
+      logChange("person", pp.id, v.name, applyPatch(pp,
+        { name:v.name, title:v.title, orgId:v.orgId, email:v.email, phone:v.phone, notes:v.notes },
+        { name:"name", title:"title", orgId:"company", email:"email", phone:"phone", notes:"notes" }));
+    }
+    else S.people.push({ id:uid("p"), name:v.name, title:v.title, orgId:v.orgId, email:v.email, phone:v.phone,
+      notes:v.notes, isContact:true, isCandidate:false, skills:[], lastContact:nowISO(), createdAt:nowISO() });
+    break;
+  }
+
+  case "job": {
+    if(!v.title){ UI.err="A job title is required."; render(); return; }
+    if(!v.orgId){ UI.err="Pick the company you are filling this for."; render(); return; }
+    const patch = { title:v.title, type:v.type, orgId:v.orgId,
+      endClientOrgId:(v.endClientOrgId && v.endClientOrgId!==v.orgId) ? v.endClientOrgId : null,
+      city:v.city, openings:Math.max(1, +v.openings||1), status:v.status,
+      billMax:numOrNull(v.billMax), payMax:numOrNull(v.payMax),
+      salaryMin:numOrNull(v.salaryMin), salaryMax:numOrNull(v.salaryMax),
+      hmId:v.hmId||null, notes:v.notes };
+    if(d.id){
+      const jj = job(d.id);
+      logChange("job", jj.id, v.title, applyPatch(jj, patch,
+        { title:"title", type:"type", orgId:"company", endClientOrgId:"end client", city:"location",
+          openings:"openings", status:"status", billMax:"max bill", payMax:"max pay",
+          salaryMin:"salary from", salaryMax:"salary to", hmId:"hiring manager", notes:"notes" }));
+    }
+    else { const j = Object.assign({ id:uid("j"), owner:"me", createdAt:nowISO() }, patch);
+      S.jobs.push(j); UI.view="jobs"; UI.sel=j.id; }
+    break;
+  }
+
+  case "submit": {
+    const jid = d.jobId || v.jobId, pid = d.personId || v.personId;
+    if(!jid || !pid){ UI.err="Pick both a job and a candidate."; render(); return; }
+    if(S.subs.some(s => s.jobId===jid && s.personId===pid)){
+      UI.err="That candidate is already in this job's pipeline."; render(); return;
+    }
+    if(!d.rtrAck){
+      const j = job(jid);
+      const clash = S.subs.find(s => {
+        if(s.personId!==pid) return false;
+        const oj = job(s.jobId); if(!oj || oj.id===jid) return false;
+        const sameCo = oj.orgId===j.orgId || (j.endClientOrgId && oj.endClientOrgId===j.endClientOrgId) ||
+                       (j.endClientOrgId && oj.orgId===j.endClientOrgId) || (oj.endClientOrgId && oj.endClientOrgId===j.orgId);
+        return sameCo && CLOSED.indexOf(s.stage)<0;
+      });
+      if(clash){
+        const oj = job(clash.jobId);
+        UI.md = Object.assign({}, d, { jobId:jid, personId:pid, rtrAck:true,
+          rtr:"Already in the pipeline for “"+(oj?oj.title:"another role")+"” at this client, at stage "+clash.stage+".",
+          stage:v.stage, payRate:v.payRate, billRate:v.billRate, notes:v.notes });
+        render(); return;
+      }
+    }
+    const stage = v.stage || "Submitted";
+    const s = { id:uid("s"), jobId:jid, personId:pid, stage, stageSince:nowISO(),
+      hist:[{ s:stage, at:nowISO(), by:"me" }],
+      payRate:numOrNull(v.payRate), billRate:numOrNull(v.billRate), notes:v.notes, closedReason:null };
+    S.subs.push(s);
+    const jj2 = job(jid);
+    logActivity(pid, { role:"candidate", orgId:jj2?jj2.orgId:null, jobId:jid, subId:s.id },
+      "Submission", "Added to the pipeline for " + (jj2?jj2.title:"a job") + " at stage " + stage);
+    UI.view="jobs"; UI.sel=jid;
+    break;
+  }
+
+  case "placement": {
+    const s = sub(d.subId); if(!s){ closeModal(); return; }
+    const j = job(s.jobId);
+    const isPerm = j && j.type==="Direct hire";
+    if(!v.startsOn){ UI.err="A start date is required."; render(); return; }
+    if(!isPerm && (numOrNull(v.payRate)==null || numOrNull(v.billRate)==null)){
+      UI.err="Pay and bill rates are both required to place someone."; render(); return;
+    }
+    const patch = isPerm
+      ? { startsOn:v.startsOn, endsOn:null, payRate:null, billRate:null, burdenPct:null,
+          fee:numOrNull(v.fee), guarantee:numOrNull(v.guarantee), status:"Active" }
+      : { startsOn:v.startsOn, endsOn:v.endsOn||null, payRate:+v.payRate, billRate:+v.billRate,
+          burdenPct:numOrNull(v.burdenPct)==null?DEFAULT_BURDEN:+v.burdenPct, fee:null, status:"Active" };
+    if(d.id) Object.assign(byId(S.placements,d.id), patch);
+    else{
+      S.placements.push(Object.assign({ id:uid("pl"), subId:s.id, createdAt:nowISO() }, patch));
+      logActivity(s.personId, { role:"candidate", orgId:j?j.orgId:null, jobId:s.jobId, subId:s.id },
+        "Placement", "Placed at " + (j?orgName(j.orgId):"the client") + " starting " + fmtDate(v.startsOn));
+      if(s.stage !== "Placed"){
+        s.stage = "Placed"; s.stageSince = nowISO();
+        s.hist = s.hist||[]; s.hist.push({ s:"Placed", at:s.stageSince, by:"me" });
+      }
+      if(!isPerm){ s.payRate = +v.payRate; s.billRate = +v.billRate; }
+      const openLeft = (j?(+j.openings||1):1) - jobSubs(s.jobId).filter(x=>x.stage==="Placed").length;
+      if(j && openLeft <= 0) j.status = "Filled";
+      UI.view="place"; UI.sel=null;
+    }
+    break;
+  }
+
+  case "closeSub": {
+    const s = sub(d.id); if(!s){ closeModal(); return; }
+    if(!v.closedReason){ UI.err="Pick a reason — this is what makes your funnel useful later."; render(); return; }
+    s.stage = v.stage||"Rejected"; s.stageSince = nowISO(); s.closedReason = v.closedReason;
+    if(v.notes) s.notes = ((s.notes?s.notes+"\n":"")+v.notes);
+    s.hist = s.hist||[]; s.hist.push({ s:s.stage, at:s.stageSince, by:"me", why:v.closedReason });
+    break;
+  }
+
+  case "logContact": {
+    const p = person(d.id); if(!p){ closeModal(); return; }
+    if(!v.note){ UI.err="Say what happened."; render(); return; }
+    p.lastContact = (v.when||todayISO()) + "T12:00:00.000Z";
+    p.notes = "[" + fmtDate(v.when||todayISO()) + "] " + v.note + (p.notes ? "\n" + p.notes : "");
+    break;
+  }
+
+  case "location": {
+    if(!v.name){ UI.err="A location name is required."; render(); return; }
+    const labels = { name:"name", address:"address", city:"city", state:"state", zip:"ZIP", roe:"rules of engagement", notes:"notes" };
+    if(d.id){
+      const l = locById(d.id);
+      logChange("location", l.id, v.name, applyPatch(l,
+        { name:v.name, address:v.address, city:v.city, state:v.state, zip:v.zip, roe:v.roe, notes:v.notes }, labels));
+      UI.view="orgs"; UI.sel=l.orgId;
+    }else{
+      const oid = d.orgId;
+      const l = { id:uid("loc"), orgId:oid, name:v.name, address:v.address, city:v.city, state:v.state,
+        zip:v.zip, roe:v.roe, notes:v.notes, archived:false, createdAt:nowISO() };
+      S.locations = S.locations||[]; S.locations.push(l);
+      logChange("location", l.id, l.name, [{ f:"created", from:"—", to:orgName(oid) }]);
+      UI.view="orgs"; UI.sel=oid;
+    }
+    break;
+  }
+
+  case "owner": {
+    if(!v.name){ UI.err="A name is required."; render(); return; }
+    const oo = org(d.id);
+    if(oo) addOwner(oo, v.name);
+    break;
+  }
+
+  case "whoami": {
+    if(!v.name){ UI.err="A name is required."; render(); return; }
+    setMe(titleCaseName(v.name));
+    UI.modal=null; UI.md=null; UI.err=null;
+    render();
+    return;
+  }
+
+  case "pasteResume": {
+    if(!v.text || v.text.trim().length < 40){ UI.err="Paste a bit more text than that."; render(); return; }
+    UI.modal=null; UI.md=null; UI.err=null;
+    UI.view="ask"; saveUI();
+    const fname = v.name || "pasted text";
+    heard("Pasted: " + fname);
+    const kindGuess = detectDocKind(v.text, fname);
+    const parsed = parseResume(v.text, fname);
+    if(kindGuess === "Resume" || looksLikeResume(v.text, parsed)) ingestResumeText(v.text, fname);
+    else { askWhereToFile({ name:fname, kind:kindGuess, size:v.text.length, text:v.text }); finishTurn(); }
+    return;
+  }
+
+  case "doc": {
+    const doc = (S.docs||[]).find(x => x.id === d.id);
+    if(doc){
+      logChange("doc", doc.id, doc.name, applyPatch(doc,
+        { kind:v.kind, locationId:v.locationId||null, scope:v.locationId?"location":"account", link:v.link },
+        { kind:"type", locationId:"applies to", link:"link" }));
+    }
+    break;
+  }
+
+  case "confirm": {
+    const fn = CONFIRM_FN; CONFIRM_FN = null;
+    closeModal();
+    if(fn) fn();
+    return;
+  }
+  }
+  if(d.fromDraft){
+    delete CHAT.drafts[d.fromDraft];
+    CHAT.msgs = CHAT.msgs.filter(msg => !(msg.k === "draft" && msg.d.id === d.fromDraft));
+    saveChat();
+  }
+  UI.modal=null; UI.md=null; UI.err=null;
+  render(); save();
+}
+let CONFIRM_FN = null;
+function confirmThen(title, body, ok, danger, fn){
+  CONFIRM_FN = fn; modal("confirm",{title,body,ok,danger});
+}
+
+/* ---------- CSV export ---------- */
+function csv(rows){
+  return rows.map(r => r.map(c => {
+    const s = c==null?"":String(c);
+    return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s;
+  }).join(",")).join("\r\n");
+}
+async function download(filename, text){
+  setStatus("Preparing file…");
+  let dl = null;
+  try{ dl = (window.claude && window.claude.use) ? await window.claude.use("downloads") : null; }catch(e){}
+  if(!dl){ setStatus("Download is not available in this view", true); return; }
+  try{ await dl.save({ filename, data:text }); setStatus("File ready"); }
+  catch(e){ setStatus("Download cancelled", true); }
+}
+function exportCandidates(){
+  const rows = [["Name","Title","Email","Phone","Location","Years","Work auth","Wants $/hr","Available","Skills","Last contact","Active submissions","Notes"]];
+  candidates().forEach(p => rows.push([p.name,p.title,p.email,p.phone,p.city,p.years,p.workAuth,p.desiredPay,p.availFrom,
+    (p.skills||[]).join("; "), p.lastContact?p.lastContact.slice(0,10):"",
+    personSubs(p.id).filter(s=>isOpenStage(s.stage)).length, p.notes]));
+  download("candidates.csv", csv(rows));
+}
+function exportPlacements(){
+  const rows = [["Contractor","Job","Client","End client","Type","Start","End","Pay","Bill","Burden %","GM $/hr","GM %","Markup %","Fee","Status"]];
+  S.placements.forEach(pl => {
+    const s = sub(pl.subId), pe = s?person(s.personId):null, j = s?job(s.jobId):null;
+    const m = margin(pl.payRate,pl.billRate,pl.burdenPct);
+    rows.push([pe?pe.name:"", j?j.title:"", j?orgName(j.orgId):"", j&&j.endClientOrgId?orgName(j.endClientOrgId):"",
+      j?j.type:"", pl.startsOn, pl.endsOn, pl.payRate, pl.billRate, pl.burdenPct,
+      pl.payRate?m.gm.toFixed(2):"", pl.payRate?m.gmPct.toFixed(1):"", pl.payRate?m.markupPct.toFixed(1):"",
+      pl.fee, pl.status]);
+  });
+  download("placements.csv", csv(rows));
+}
+
+/* ---------- live margin recalculation ---------- */
+function updateCalc(){
+  const box = document.getElementById("calc");
+  if(!box) return;
+  const form = box.closest("form");
+  if(!form) return;
+  const v = fd(form);
+  const s = sub((UI.md||{}).subId);
+  const j = s ? job(s.jobId) : null;
+  box.innerHTML = calcBox(v.payRate, v.billRate, v.burdenPct, j);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", function(e){
+  const t = e.target.closest("[data-a]");
+  if(!t) return;
+  const a = t.dataset.a, id = t.dataset.id;
+  if(a === "scrim" && e.target !== t) return;      /* only the backdrop itself closes */
+  if(t.tagName === "A") e.preventDefault();
+
+  switch(a){
+    case "view":        go(t.dataset.v); return;
+    case "jobFilter":   return;                     /* handled on change */
+    case "q":           return;
+    case "scrim":
+    case "closeModal":  closeModal(); return;
+
+    case "openJob":     openRec("jobs", id); return;
+    case "openPerson":  { const p = person(id); openRec(p && p.isContact ? "orgs" : "cands", id); return; }
+    case "openOrg":     openRec("orgs", id); return;
+    case "openSub":     { const s = sub(id); if(s) openRec("jobs", s.jobId); return; }
+    case "openPlacement": {
+      const pl = byId(S.placements, id);
+      if(pl) modal("placement", { id:pl.id, subId:pl.subId });
+      return;
+    }
+
+    case "addCand":     modal("cand", {}); return;
+    case "editPerson":  { const p = person(UI.sel); if(p) modal(p.isContact ? "contact" : "cand", { id:p.id }); return; }
+    case "addOrg":      modal("org", {}); return;
+    case "editOrg":     modal("org", { id:UI.sel }); return;
+    case "addContact":  modal("contact", { orgId:UI.sel }); return;
+    case "addJob":      modal("job", { orgId:(UI.view==="orgs" && UI.sel) ? UI.sel : null }); return;
+    case "editJob":     modal("job", { id:UI.sel }); return;
+    case "addToPipeline": modal("submit", { jobId:UI.sel }); return;
+    case "submitToJob": modal("submit", { personId:UI.sel }); return;
+    case "logContact":  modal("logContact", { id:UI.sel }); return;
+    case "closeSub":    modal("closeSub", { id:id }); return;
+    case "makePlacement": modal("placement", { subId:id }); return;
+
+    case "advance":     advance(id, 1); return;
+    case "back":        advance(id, -1); return;
+
+    case "endPlacement": {
+      const pl = byId(S.placements, id);
+      if(!pl) return;
+      confirmThen("End this assignment?",
+        "The placement stays on the record with its margin history — it just stops counting as active.",
+        "End assignment", true, function(){
+          pl.status = "Ended"; pl.actualEnd = todayISO();
+          const s = sub(pl.subId); const j = s ? job(s.jobId) : null;
+          if(j && j.status === "Filled") j.status = "Open";
+          UI.view = "place"; render(); save();
+        });
+      return;
+    }
+
+    case "clearSample": {
+      confirmThen("Clear the sample data?",
+        "Every sample candidate, company, job and placement is removed so you can start entering your own. This cannot be undone.",
+        "Clear it", true, function(){
+          S = emptyState();
+          UI.view = "desk"; UI.sel = null; UI.q = "";
+          render(); save();
+        });
+      return;
+    }
+
+    case "chip":            runAssistant(t.dataset.v); return;
+    case "clearChat":       CHAT.msgs=[]; CHAT.pending=null; CHAT.drafts={}; saveChat(); render(); return;
+    case "commitDraft":     commitDraft(id); return;
+    case "discardDraft":    discardDraft(id); return;
+    case "editDraft":       editDraft(id); return;
+    case "openSaved":       openRec(t.dataset.v, id); return;
+    case "openDoc":         modal("doc", { id:id }); return;
+    case "pickFile":        { const fi = document.getElementById("filein"); if(fi) fi.click(); return; }
+    case "pasteResume":     modal("pasteResume", {}); return;
+    case "whoami":          modal("whoami", {}); return;
+    case "addLocation":     modal("location", { orgId:id }); return;
+    case "editLocation":    modal("location", { id:id }); return;
+    case "addOwner":        modal("owner", { id:id }); return;
+    case "ownMe": {
+      const o = org(id);
+      if(!ME){ modal("whoami", {}); return; }
+      if(o && addOwner(o, ME)){ render(); save(); }
+      return;
+    }
+    case "removeOwner": {
+      const o = org(id);
+      if(o && removeOwner(o, t.dataset.v)){ render(); save(); }
+      return;
+    }
+    case "grantCand": {
+      const pp = person(id);
+      if(pp && grantRole(pp, "candidate")){ render(); save(); }
+      return;
+    }
+    case "grantContact": {
+      const pp = person(id);
+      if(!pp) return;
+      if(!pp.orgId && !S.orgs.length){ modal("org", {}); return; }
+      if(grantRole(pp, "contact", pp.orgId || (S.orgs[0]||{}).id)){ render(); save(); }
+      return;
+    }
+    case "exportCsv":        exportCandidates(); return;
+    case "exportPlacements": exportPlacements(); return;
+  }
+});
+
+document.addEventListener("input", function(e){
+  const el = e.target;
+  if(!el.dataset) return;
+  if(el.dataset.a === "q"){ UI.q = el.value; UI.focusId = "q"; saveUI(); render(); return; }
+  if(el.dataset.calc){ updateCalc(); return; }
+});
+
+document.addEventListener("change", function(e){
+  const el = e.target;
+  if(el.dataset && el.dataset.a === "jobFilter"){ UI.jobFilter = el.value; saveUI(); render(); return; }
+  if(el.dataset && el.dataset.a === "orgOwner"){ UI.orgOwner = el.value; saveUI(); render(); return; }
+  if(el.id === "filein"){ intakeFiles(el.files); el.value = ""; return; }
+  if(el.dataset && el.dataset.calc) updateCalc();
+});
+
+document.addEventListener("submit", function(e){
+  const af = e.target.closest("form[data-a=askform]");
+  if(af){
+    e.preventDefault();
+    const inp = af.querySelector("#askin");
+    const q = inp ? inp.value : "";
+    if(inp) inp.value = "";
+    runAssistant(q);
+    return;
+  }
+  const f = e.target.closest("form[data-a=form]");
+  if(!f) return;
+  e.preventDefault();
+  if(READONLY){ setStatus("Read-only view", true); return; }
+  handleSubmitForm(f);
+});
+
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape" && UI.modal){ e.preventDefault(); closeModal(); }
+});
+
+/* ---------- drag and drop, anywhere on the page ---------- */
+let DRAG_DEPTH = 0;
+function dropOverlay(on){
+  let el = document.getElementById("dropz");
+  if(on){
+    if(!el){
+      el = document.createElement("div");
+      el.id = "dropz";
+      el.className = "dropz";
+      el.innerHTML = '<div class="dropz-in"><b>Drop it here</b><span>Resume, MSA, SOW or Exhibit A — PDF, Word or text</span></div>';
+      document.body.appendChild(el);
+    }
+  } else if(el){ el.remove(); }
+}
+function hasFiles(e){
+  const dt = e.dataTransfer;
+  if(!dt) return false;
+  if(dt.types) for(const t of dt.types) if(t === "Files") return true;
+  return false;
+}
+document.addEventListener("dragenter", function(e){
+  if(!hasFiles(e)) return;
+  e.preventDefault(); DRAG_DEPTH++; dropOverlay(true);
+});
+document.addEventListener("dragover", function(e){ if(hasFiles(e)){ e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
+document.addEventListener("dragleave", function(e){
+  if(!hasFiles(e)) return;
+  DRAG_DEPTH = Math.max(0, DRAG_DEPTH - 1);
+  if(!DRAG_DEPTH) dropOverlay(false);
+});
+document.addEventListener("drop", function(e){
+  if(!hasFiles(e)) return;
+  e.preventDefault();
+  DRAG_DEPTH = 0; dropOverlay(false);
+  if(READONLY){ setStatus("Read-only view", true); return; }
+  intakeFiles(e.dataTransfer.files);
+});
+
+/* ---------- boot ---------- */
+migrateState();
+if(!UI.view || ["desk","jobs","cands","orgs","place","ask"].indexOf(UI.view) < 0) UI.view = "ask";
+render();
+getApi().then(function(api){
+  if(!api){ NOSAVE = true; render(); }
+}).catch(function(){ NOSAVE = true; render(); });
+</script>
