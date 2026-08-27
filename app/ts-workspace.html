@@ -454,6 +454,25 @@ label.f .hint{font-size:.8125rem; color:var(--faint); font-weight:500}
 .dropz-in b{display:block; font-size:1.125rem; font-weight:700; letter-spacing:-.02em}
 .dropz-in span{display:block; margin-top:.3rem; color:var(--muted); font-size:.875rem}
 
+/* ---------- SharePoint results ---------- */
+.sprow{
+  border:1px solid var(--line); border-radius:12px; padding:.7rem .8rem;
+  background:var(--bg); margin-bottom:.5rem;
+}
+.sprow-h{display:flex; gap:.65rem; align-items:flex-start}
+.sprow-h .rt{min-width:0; display:flex; flex-direction:column; gap:.1rem}
+.sprow-h .rt b{font-weight:700; font-size:.9375rem; letter-spacing:-.015em; word-break:break-word}
+.sprow-h .rt span{color:var(--muted); font-size:.8125rem; word-break:break-word}
+.sprow .snip{
+  margin:.5rem 0 0; color:var(--ink-2); font-size:.8125rem; font-style:italic;
+  border-left:2px solid var(--line-strong); padding-left:.6rem;
+}
+a.chip.act{text-decoration:none}
+a.chip.act:hover{text-decoration:none}
+.docrow{display:flex; gap:.5rem; align-items:center}
+.docrow .rrow{flex:1; margin-bottom:.35rem}
+.docrow > a.btn{flex-shrink:0; margin-bottom:.35rem; text-decoration:none}
+
 footer.ft{
   margin-top:2.25rem; padding-top:1.25rem; border-top:1px solid var(--line);
   color:var(--faint); font-size:.8125rem; max-width:78ch; line-height:1.6;
@@ -1104,6 +1123,7 @@ function viewOrgDetail(o){
     '<div class="cols2"><div class="grid">'+
       card("Locations", '<span class="sub">'+orgLocations(o.id).length+'</span>', locationsCard(o), false)+
       card("Agreements & documents","",docsCard(o),false)+
+      card("SharePoint", spStatusPill(), spAccountCard(o), false)+
       card("Jobs","",jobsHtml,true)+
       card("Contacts","",contactsHtml,true)+
     '</div><div class="grid">'+
@@ -1908,6 +1928,14 @@ function runAssistant(raw, quiet){
     }
     return finishTurn();
   }
+  if(CHAT.pending && CHAT.pending.kind === "spOrg"){
+    const fl = CHAT.pending.fields;
+    const row = (CHAT.sp || {})[fl.rid];
+    const r = resolveOrg(text);
+    CHAT.pending = null;
+    if(row){ spAttachTo(row, r.org.id, fl.alsoIndex, r.created); return; }
+    return finishTurn();
+  }
   if(CHAT.pending && CHAT.pending.kind === "roleOrg"){
     const p = person(CHAT.pending.fields.personId);
     const r = resolveOrg(text);
@@ -2005,6 +2033,7 @@ function runAssistant(raw, quiet){
   if(tryIdentity(text)) return finishTurn();
   if(tryRoles(text)) return finishTurn();
   if(tryLogActivity(text)) return finishTurn();
+  if(trySharePoint(text)) return finishTurn();
   if(tryLocations(text)) return finishTurn();
   if(tryOwnership(text)) return finishTurn();
   if(tryDocSearch(text)) return finishTurn();
@@ -2249,7 +2278,9 @@ async function intakeFiles(files){
         finishTurn();
         continue;
       }
-      askWhereToFile({ name:file.name, kind:kindGuess, size:file.size, text:text });
+      const ftok = uid("f");
+      PENDING_FILES[ftok] = file;
+      askWhereToFile({ name:file.name, kind:kindGuess, size:file.size, text:text, ftok:ftok });
       finishTurn();
     }
   }
@@ -2587,16 +2618,42 @@ function askWhereToFile(doc){
   say("That reads like a **" + doc.kind + "**. Which account should I file it against?",
       S.orgs.filter(o => !o.archived).slice(0, 6).map(o => o.name));
 }
-function fileDocToOrg(doc, o, loc, createdOrg){
+async function fileDocToOrg(doc, o, loc, createdOrg){
   const d = addDoc({ name: doc.name, kind: doc.kind, size: doc.size, text: doc.text,
     orgId: o.id, locationId: loc ? loc.id : null, scope: loc ? "location" : "account" });
   CHAT.pending = null;
+
+  /* put the original in SharePoint if a destination is set and writes are possible */
+  let upNote = "";
+  const file = doc.ftok ? PENDING_FILES[doc.ftok] : null;
+  if(doc.ftok) delete PENDING_FILES[doc.ftok];
+  if(file && spCan(SP_TOOLS.upload) && spWriteState() !== "blocked"){
+    if(!S.sharepoint || !S.sharepoint.driveId){
+      upNote = " I did not save the original anywhere — tell me where with “set the sharepoint folder to <name>”.";
+    }else if(file.size > SP_UPLOAD_CAP){
+      upNote = " The original is over 1 MB, which is this connector's limit, so only the text is here. Put the file in **" +
+               S.sharepoint.name + "** yourself and I can link it.";
+    }else{
+      const up = await spUploadOriginal(file);
+      if(up.ok){
+        d.link = up.webUrl || d.link;
+        d.spItemId = up.itemId || null;
+        d.spUri = up.uri || null;
+        d.spDriveId = S.sharepoint.driveId;
+        upNote = " The original is saved in **" + S.sharepoint.name + "** and linked here.";
+      }else if(up.err){
+        upNote = " I could not save the original: " + spErr(up.err).d;
+      }
+    }
+  }else if(file){
+    upNote = " Only the text is stored here — the original stays on your machine. " + spWriteNote();
+  }
   push("as", "saved", {
     text: "Filed **" + d.name + "** (" + d.kind + ") against **" + o.name + "**" +
           (loc ? ", scoped to the **" + loc.name + "** location" : " as an **account-wide** agreement") + "." +
           (createdOrg ? " I created that account too." : "") +
           " Its text is searchable now — try “search documents for termination”." +
-          (d.truncated ? " Only the first 60,000 characters were kept." : ""),
+          (d.truncated ? " Only the first 60,000 characters were kept." : "") + upNote,
     link: { type: "company", id: o.id, name: o.name, view: "orgs" }
   });
   saveChat(); render(); save();
@@ -2993,6 +3050,8 @@ function renderMsg(m, i){
     : m.k === "results" ? resultsCard(m.d)
     : m.k === "docresults" ? docResultsCard(m.d)
     : m.k === "locresults" ? locResultsCard(m.d)
+    : m.k === "spresults" ? spResultsCard(m.d)
+    : m.k === "spfolders" ? spFoldersCard(m.d)
     : m.k === "saved" ? md(m.d.text) + savedLink(m.d.link)
     : "";
   return '<div class="msg as"><span class="dot" aria-hidden="true"></span><div class="bub">'+inner+'</div></div>';
@@ -3077,6 +3136,40 @@ function docResultsCard(d){
   }).join("")+'</div>';
   return out;
 }
+function spResultsCard(d){
+  let out = d.lead ? '<p class="rlead">'+md(d.lead)+'</p>' : "";
+  out += '<div class="rsec">'+d.rids.map(rid => {
+    const r = (CHAT.sp||{})[rid];
+    if(!r) return "";
+    const already = (S.docs||[]).some(x => x.spItemId && x.spItemId === r.itemId);
+    return '<div class="sprow">'+
+      '<div class="sprow-h">'+
+        '<span class="av s '+avClass(r.name)+'">'+esc((r.name.split(".").pop()||"?").slice(0,3).toUpperCase())+'</span>'+
+        '<span class="rt"><b>'+esc(r.name)+'</b>'+
+          '<span>'+esc(spPath(r.webUrl))+(r.modified?' · '+esc(fmtDate(r.modified)):"")+'</span></span>'+
+      '</div>'+
+      (r.snippet?'<p class="snip">'+esc(r.snippet.slice(0,220))+(r.snippet.length>220?"…":"")+'</p>':"")+
+      '<div class="chips" style="margin-top:.5rem">'+
+        (already?'<span class="pill g">already filed</span>'
+               :(READONLY?"":'<button class="chip act" data-a="spAttach" data-id="'+rid+'">'+
+                   (d.orgId?'File against '+esc(orgName(d.orgId)):'File against an account')+'</button>'))+
+        (r.webUrl?'<a class="chip act" href="'+esc(r.webUrl)+'" target="_blank" rel="noopener">Open in SharePoint</a>':"")+
+      '</div>'+
+    '</div>';
+  }).join("")+'</div>';
+  return out;
+}
+function spFoldersCard(d){
+  let out = d.lead ? '<p class="rlead">'+md(d.lead)+'</p>' : "";
+  out += '<div class="rsec">'+d.rids.map(rid => {
+    const f = (CHAT.spf||{})[rid];
+    if(!f) return "";
+    return '<button class="rrow" data-a="spSetFolder" data-id="'+rid+'">'+
+      '<span class="av s '+avClass(f.name)+'">'+esc(initials(f.name))+'</span>'+
+      '<span class="rt"><b>'+esc(f.name)+'</b><span>'+esc(spPath(f.webUrl))+'</span></span></button>';
+  }).join("")+'</div>';
+  return out;
+}
 function locResultsCard(d){
   let out = d.lead ? '<p class="rlead">'+md(d.lead)+'</p>' : "";
   out += '<div class="rsec">'+d.ids.map(id => {
@@ -3127,16 +3220,47 @@ function locationsCard(o){
     (READONLY?"":'<div>'+btn2("addLocation", o.id, "Add a location")+'</div>')+
   '</div>';
 }
+function spStatusPill(){
+  if(!SP.probed) return '<span class="pill n">checking…</span>';
+  if(SP.status === "connected") return '<span class="pill g">connected</span>';
+  if(SP.status === "needs_reauth") return '<span class="pill w">reconnect needed</span>';
+  if(SP.status === "not_connected") return '<span class="pill w">not connected</span>';
+  if(SP.status === "choose") return '<span class="pill w">choose an account</span>';
+  if(SP.status === "unavailable") return '<span class="pill n">not in this view</span>';
+  return '<span class="pill r">unavailable</span>';
+}
+function spAccountCard(o){
+  if(!SP.probed) return '<div class="card-b"><p class="muted">Checking the Microsoft 365 connector…</p></div>';
+  if(SP.status !== "connected"){
+    const c = spErr({ code: SP.status === "not_connected" ? "server_not_connected"
+                          : SP.status === "needs_reauth" ? "needs_reauth"
+                          : SP.status === "choose" ? "selection_required"
+                          : SP.status === "unavailable" ? "not_granted" : "upstream_error" });
+    return '<div class="card-b"><p style="margin:0 0 .3rem;font-weight:600">'+esc(c.t)+'</p>'+
+      '<p class="muted" style="margin:0">'+esc(c.d)+'</p></div>';
+  }
+  const linked = docsForOrg(o.id).filter(d => d.spItemId).length;
+  return '<div class="card-b">'+
+    '<p class="muted" style="margin:0 0 .7rem">Search your SharePoint for this account and file what you find against it — the link points at the original, and the text is indexed so it turns up in search.</p>'+
+    (linked?'<p style="margin:0 0 .7rem"><span class="pill g">'+linked+' linked from SharePoint</span></p>':"")+
+    (READONLY?"":'<div class="chips">'+
+      '<button class="btn sm pri" data-a="spFind" data-id="'+o.id+'">Find documents for '+esc(o.name)+'</button>'+
+    '</div>')+
+    (spWriteState()==="ok"?"":'<p class="muted" style="margin:.7rem 0 0;font-size:.8125rem">'+esc(spWriteNote())+'</p>')+
+  '</div>';
+}
 function docsCard(o){
   const wide = docsAccountWide(o.id);
   const perLoc = docsForOrg(o.id).filter(d => d.locationId);
   if(!wide.length && !perLoc.length) return '<div class="card-b">'+emptyBox("No agreements stored",
     "Drop an MSA, SOW or Exhibit A anywhere on the page and I will file it here.",
     READONLY?"":'<button class="btn pri" data-a="pickFile">Upload a document</button>')+'</div>';
-  const row = d => '<button class="rrow" data-a="openDoc" data-id="'+d.id+'">'+
+  const row = d => '<div class="docrow"><button class="rrow" data-a="openDoc" data-id="'+d.id+'">'+
     '<span class="av s '+avClass(d.kind)+'">'+esc(d.kind.slice(0,2).toUpperCase())+'</span>'+
     '<span class="rt"><b>'+esc(d.name)+'</b><span>'+esc(d.kind+" · added "+fmtDate(d.at)+" by "+d.by+
-      (d.locationId?" · "+locLabel(d.locationId):""))+'</span></span></button>';
+      (d.locationId?" · "+locLabel(d.locationId):"")+(d.spItemId?" · from SharePoint":""))+'</span></span></button>'+
+    (d.link?'<a class="btn sm" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open original</a>':"")+
+    '</div>';
   return '<div class="card-b">'+
     (wide.length?'<div class="rsec"><span class="rtitle">Account-wide</span>'+wide.map(row).join("")+'</div>':"")+
     (perLoc.length?'<div class="rsec"><span class="rtitle">Location specific</span>'+perLoc.map(row).join("")+'</div>':"")+
@@ -3183,6 +3307,388 @@ function timelineCard(p){
         (a.jobId?'<span class="chip">'+esc((job(a.jobId)||{}).title||"")+'</span>':"")+'</span>'+
       (a.note?'<span class="tln">'+esc(a.note)+'</span>':"")+
       '<span class="sec">'+esc(a.by)+'</span></span></li>').join("")+'</ul></div>';
+}
+
+/* ============================================================
+   SHAREPOINT (Microsoft 365 connector)
+   Calls run with the VIEWER's own credentials — this page never
+   sees a token. Reading and searching are verified against the
+   live tenant. Writing needs Files.ReadWrite.All, which an
+   administrator must consent to; until then the write path
+   reports exactly that instead of failing silently.
+   ============================================================ */
+const SP_SERVER = "Microsoft 365";
+const SP_TOOLS = { search:"sharepoint_search", folders:"sharepoint_folder_search",
+                   read:"read_resource", upload:"sharepoint_upload_file" };
+const SP_TEXT_CAP = 60000;
+const SP_UPLOAD_CAP = 1048576;   /* the connector's hard limit */
+
+let MCP = null;
+let SP = { probed:false, status:"unknown", tools:[] };
+let SPUI = { busy:false, err:null, note:null };
+/* dropped File objects, held in memory only until the record is filed */
+let PENDING_FILES = {};
+
+let mcpPromise = null;
+function getMcp(){
+  if(!mcpPromise) mcpPromise = (window.claude && window.claude.use) ? window.claude.use("mcp") : Promise.resolve(null);
+  return mcpPromise;
+}
+async function initSharePoint(){
+  try{ MCP = await getMcp(); }catch(e){ MCP = null; }
+  if(!MCP){ SP.status = "unavailable"; SP.probed = true; render(); return; }
+  try{
+    const r = await MCP.listTools();
+    const srv = (r.servers || []).find(s => s.server === SP_SERVER);
+    if(!srv){ SP.status = "not_connected"; }
+    else{
+      SP.tools = (srv.tools || []).map(t => t.name);
+      SP.status = srv.authStatus === "needs_reauth" ? "needs_reauth"
+                : SP.tools.length ? "connected" : "not_connected";
+    }
+  }catch(e){
+    const c = e && e.code;
+    SP.status = (c === "not_granted" || c === "capability_disabled" || c === "capability_removed") ? "unavailable"
+              : c === "needs_reauth" ? "needs_reauth"
+              : c === "server_not_connected" ? "not_connected"
+              : c === "selection_required" ? "choose"
+              : "error";
+    SP.err = e;
+  }
+  SP.probed = true;
+  render();
+}
+const spCan = t => SP.status === "connected" && SP.tools.indexOf(t) >= 0;
+
+/* Each error code has a different fix. Never collapse them into one banner. */
+function spErr(e){
+  const code = e && e.code;
+  switch(code){
+    case "needs_reauth":
+      return { t:"Microsoft 365 needs reconnecting", d:"Reconnect it under claude.ai Settings → Connectors, then try again." };
+    case "server_not_connected":
+      return { t:"Microsoft 365 is not connected", d:"Add the Microsoft 365 connector under claude.ai Settings → Connectors." };
+    case "selection_required":
+      return { t:"Choose a Microsoft 365 account", d:"You have more than one connected. Pick one when prompted, then try again." };
+    case "server_not_found":
+      return { t:"That connector no longer exists", d:"Re-add Microsoft 365 under claude.ai Settings → Connectors." };
+    case "blocked_by_policy":
+      return { t:"Your organisation blocks this tool", d:"An administrator has disallowed it for your account." };
+    case "approval_required":
+      return { t:"This call needs approval", d:"Your organisation requires per-call approval, which a page cannot request yet." };
+    case "not_in_manifest":
+      return { t:"This page may not call that tool", d:"It is outside the access you approved for this page." };
+    case "tool_error":
+      return { t:"SharePoint refused the request", d:spToolErrorDetail(e) };
+    case "server_unavailable":
+      return { t:"SharePoint did not answer", d:"That is usually temporary. Try once more." };
+    case "rate_limited":
+      return { t:"Too many requests", d:"Wait a few seconds, then try again." };
+    case "cancelled":
+      return { t:"Cancelled", d:"The request was stopped. It may or may not have completed." };
+    case "not_granted": case "capability_disabled": case "capability_removed":
+      return { t:"Connectors are unavailable in this view", d:"Open the published page in claude.ai to reach SharePoint." };
+    default:
+      return { t:"SharePoint request failed", d:(e && e.message) || "Unknown error." };
+  }
+}
+function spToolErrorDetail(e){
+  let blob = (e && e.message) || "";
+  try{ blob += " " + JSON.stringify(e && e.result); }catch(x){}
+  if(/Files\.ReadWrite\.All|accessDenied|FORBIDDEN/i.test(blob)){
+    return "Saving files into SharePoint needs the Files.ReadWrite.All permission, which a Microsoft 365 administrator has to consent to for the Claude connector. " +
+           "Searching and reading work without it — so the text is indexed and searchable either way.";
+  }
+  if(/nameAlreadyExists|already exists/i.test(blob)) return "A file with that name is already there.";
+  if(/quota/i.test(blob)) return "The document library is out of storage.";
+  return (e && e.message) || "SharePoint reported a failure.";
+}
+const spRetryable = e => !!(e && e.retryable);
+
+/* "untested" | "ok" | "blocked" — learned from real attempts, never assumed.
+   A tool appearing in listTools() only means the connector exposes it; Graph
+   can still refuse it for lack of an admin-consented permission. */
+function spWriteState(){ return (S.sharepoint && S.sharepoint.writeState) || "untested"; }
+function setSpWriteState(v){
+  S.sharepoint = S.sharepoint || {};
+  if(S.sharepoint.writeState !== v){
+    S.sharepoint.writeState = v;
+    logChange("settings", "sharepoint", "SharePoint saving", [{ f:"write access", from:"unknown", to:v }]);
+  }
+}
+function spWriteNote(){
+  const st = spWriteState();
+  if(!spCan(SP_TOOLS.upload)) return "Saving files into SharePoint is not offered by this connector.";
+  if(st === "ok") return "Saving originals into SharePoint works.";
+  if(st === "blocked") return "Saving originals is blocked: it needs the Files.ReadWrite.All permission, which a Microsoft 365 administrator has to consent to. Reading and searching work without it.";
+  return "Saving originals has not been tried yet. Many tenants block it until an administrator consents to Files.ReadWrite.All — the first attempt will tell us. Reading and searching work either way.";
+}
+
+/* The connector answers with several JSON objects one after another, not one
+   array, so result.payload arrives as a string. Pull the objects out of it. */
+function parseJsonStream(payload){
+  if(payload == null) return [];
+  if(Array.isArray(payload)) return payload;
+  if(typeof payload === "object") return [payload];
+  const s = String(payload);
+  const out = [];
+  let depth = 0, start = -1, inStr = false, esc = false;
+  for(let i = 0; i < s.length; i++){
+    const c = s[i];
+    if(inStr){
+      if(esc) esc = false;
+      else if(c === "\\") esc = true;
+      else if(c === '"') inStr = false;
+      continue;
+    }
+    if(c === '"'){ inStr = true; continue; }
+    if(c === "{"){ if(!depth) start = i; depth++; }
+    else if(c === "}"){
+      depth--;
+      if(depth === 0 && start >= 0){
+        try{ out.push(JSON.parse(s.slice(start, i + 1))); }catch(x){}
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
+/* search snippets come back with <c0> highlight tags and <ddd/> ellipses */
+function spClean(t){
+  return String(t || "")
+    .replace(/<ddd\/>/g, " … ")
+    .replace(/<\/?c\d+>/g, "")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function spPath(webUrl){
+  try{
+    const u = decodeURIComponent(String(webUrl || ""));
+    const m = u.match(/sharepoint\.com\/(?:sites\/[^/]+\/)?(.*)$/);
+    let p = m ? m[1] : u;
+    p = p.replace(/^Shared%20Documents\//, "").replace(/^Shared Documents\//, "");
+    const parts = p.split("/");
+    parts.pop();
+    return parts.join(" / ");
+  }catch(e){ return ""; }
+}
+
+/* ---------- searching ---------- */
+async function spSearchFor(query, orgId, opts){
+  opts = opts || {};
+  if(!spCan(SP_TOOLS.search)){
+    const c = spErr({ code: SP.status === "not_connected" ? "server_not_connected"
+                          : SP.status === "needs_reauth" ? "needs_reauth"
+                          : SP.status === "unavailable" ? "not_granted" : "upstream_error" });
+    say("**" + c.t + ".** " + c.d);
+    return finishTurn();
+  }
+  SPUI.busy = true; SPUI.err = null;
+  say("Searching SharePoint for **" + esc(query) + "**…");
+  render();
+  const input = { query: query, limit: opts.limit || 8 };
+  if(opts.fileType) input.fileType = opts.fileType;
+  let res = null, err = null;
+  try{
+    res = await MCP.callTool(SP_SERVER, SP_TOOLS.search, input, { cache:{ staleTime:60000 } });
+  }catch(e1){
+    if(spRetryable(e1)){
+      await new Promise(r => setTimeout(r, 600 + Math.floor(Math.random() * 400)));
+      try{ res = await MCP.callTool(SP_SERVER, SP_TOOLS.search, input); }catch(e2){ err = e2; }
+    } else err = e1;
+  }
+  SPUI.busy = false;
+  CHAT.msgs = CHAT.msgs.filter(m => !(m.k === "text" && m.d.text.indexOf("Searching SharePoint for") === 0));
+  if(err){
+    const c = spErr(err);
+    say("**" + c.t + ".** " + c.d);
+    return finishTurn();
+  }
+  const rows = parseJsonStream(res && res.payload)
+    .filter(r => r && r.name && r.uri)
+    .map(r => ({
+      rid: uid("sp"), name: r.name, uri: r.uri, driveId: r.driveId, itemId: r.id,
+      webUrl: r.webUrl, snippet: spClean(r.content || r.summary), modified: r.lastModifiedDateTime,
+      orgId: orgId || null
+    }));
+  if(!rows.length){
+    say("Nothing in SharePoint matched **" + esc(query) + "**.");
+    return finishTurn();
+  }
+  CHAT.sp = CHAT.sp || {};
+  rows.forEach(r => { CHAT.sp[r.rid] = r; });
+  const stamp = res && res.cache && res.cache.storedAt;
+  push("as", "spresults", {
+    q: query, orgId: orgId || null,
+    lead: "**" + rows.length + "** file" + (rows.length === 1 ? "" : "s") + " in SharePoint matching “" + query + "”" +
+          (stamp ? " · from a cached read" : ""),
+    rids: rows.map(r => r.rid)
+  });
+  finishTurn();
+}
+
+/* ---------- attaching a SharePoint file to an account ---------- */
+async function spAttach(rid, alsoIndex){
+  const row = (CHAT.sp || {})[rid];
+  if(!row) return;
+  let orgId = row.orgId;
+  if(!orgId){
+    CHAT.pending = { kind:"spOrg", fields:{ rid, alsoIndex:alsoIndex !== false }, slot:"account" };
+    say("Which account should **" + esc(row.name) + "** be filed against?",
+        S.orgs.filter(o => !o.archived).slice(0, 6).map(o => o.name));
+    return finishTurn();
+  }
+  await spAttachTo(row, orgId, alsoIndex !== false, false);
+}
+async function spAttachTo(row, orgId, alsoIndex, createdOrg){
+  const o = org(orgId);
+  const existing = (S.docs || []).find(d => d.spItemId && d.spItemId === row.itemId && d.orgId === orgId);
+  if(existing){
+    say("**" + esc(row.name) + "** is already filed against **" + o.name + "**.");
+    return finishTurn();
+  }
+  const kind = detectDocKind(row.snippet || "", row.name);
+  const d = addDoc({
+    name: row.name, kind, size: null, orgId: orgId, locationId: null, scope: "account",
+    link: row.webUrl, spUri: row.uri, spDriveId: row.driveId, spItemId: row.itemId,
+    text: row.snippet || "", source: "SharePoint"
+  });
+  logChange("doc", d.id, d.name, [{ f:"linked from SharePoint", from:"—", to:o.name }]);
+  let indexed = false, indexErr = null;
+  if(alsoIndex && spCan(SP_TOOLS.read)){
+    try{
+      const r = await MCP.callTool(SP_SERVER, SP_TOOLS.read, { uri: row.uri, startPage: 1, endPage: 6 },
+        { cache:{ staleTime:60000 } });
+      let txt = r && r.payload;
+      if(txt && typeof txt === "object") txt = JSON.stringify(txt);
+      txt = String(txt || "").replace(/\[pages[^\]]*\]\s*$/, "").trim();
+      if(txt.length > 40){
+        d.text = txt.slice(0, SP_TEXT_CAP);
+        d.truncated = txt.length > SP_TEXT_CAP;
+        indexed = true;
+      }
+    }catch(e){ indexErr = e; }
+  }
+  push("as", "saved", {
+    text: "Filed **" + d.name + "** (" + d.kind + ") against **" + o.name + "**, linked to the original in SharePoint." +
+          (createdOrg ? " I created that account too." : "") +
+          (indexed ? " Its full text is indexed — try “search documents for termination”."
+                   : indexErr ? " I could not read its text (" + spErr(indexErr).t.toLowerCase() + "), so only the search snippet is stored."
+                   : " Only the search snippet is stored as text."),
+    link: { type:"company", id:o.id, name:o.name, view:"orgs" }
+  });
+  saveChat(); render(); save();
+}
+
+/* ---------- sending an original up to SharePoint ---------- */
+function fileToBase64(file){
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onerror = () => reject(new Error("read failed"));
+    fr.onload = () => {
+      const s = String(fr.result || "");
+      const i = s.indexOf(",");
+      resolve(i >= 0 ? s.slice(i + 1) : s);
+    };
+    fr.readAsDataURL(file);
+  });
+}
+/* Returns {ok,webUrl} | {skipped:reason} | {err}. The success path has not been
+   exercised against a live tenant: this connector's writes require
+   Files.ReadWrite.All, which was denied when built. */
+async function spUploadOriginal(file){
+  if(!spCan(SP_TOOLS.upload)) return { skipped:"unavailable" };
+  if(!S.sharepoint || !S.sharepoint.driveId) return { skipped:"no-target" };
+  if(file.size > SP_UPLOAD_CAP) return { skipped:"too-big" };
+  let b64;
+  try{ b64 = await fileToBase64(file); }catch(e){ return { skipped:"unreadable" }; }
+  try{
+    const r = await MCP.callTool(SP_SERVER, SP_TOOLS.upload, {
+      driveId: S.sharepoint.driveId,
+      parentItemId: S.sharepoint.itemId || null,
+      filename: file.name,
+      contentBase64: b64,
+      conflictBehavior: "rename"
+    });
+    const p = parseJsonStream(r && r.payload)[0] || {};
+    setSpWriteState("ok");
+    return { ok:true, webUrl:p.webUrl || null, itemId:p.id || null, uri:p.uri || null };
+  }catch(e){
+    let blob = (e && e.message) || "";
+    try{ blob += " " + JSON.stringify(e && e.result); }catch(x){}
+    if(e && e.code === "tool_error" && /Files\.ReadWrite\.All|accessDenied|FORBIDDEN/i.test(blob)) setSpWriteState("blocked");
+    return { err:e };
+  }
+}
+
+/* ---------- choosing where uploads should land ---------- */
+async function spPickFolder(name){
+  if(!spCan(SP_TOOLS.folders)){
+    const c = spErr({ code:"server_not_connected" });
+    say("**" + c.t + ".** " + c.d);
+    return finishTurn();
+  }
+  say("Looking for folders called **" + esc(name) + "**…");
+  render();
+  let res = null, err = null;
+  try{ res = await MCP.callTool(SP_SERVER, SP_TOOLS.folders, { name:name, limit:8 }, { cache:{ staleTime:60000 } }); }
+  catch(e){ err = e; }
+  CHAT.msgs = CHAT.msgs.filter(m => !(m.k === "text" && m.d.text.indexOf("Looking for folders") === 0));
+  if(err){ const c = spErr(err); say("**" + c.t + ".** " + c.d); return finishTurn(); }
+  const rows = parseJsonStream(res && res.payload)
+    .filter(r => r && r.name && r.driveId)
+    .map(r => ({ rid:uid("spf"), name:r.name, driveId:r.driveId, itemId:r.id, webUrl:r.webUrl }));
+  if(!rows.length){ say("No SharePoint folder matched **" + esc(name) + "**."); return finishTurn(); }
+  CHAT.spf = CHAT.spf || {};
+  rows.forEach(r => { CHAT.spf[r.rid] = r; });
+  push("as", "spfolders", { lead:"Pick where originals should be saved:", rids:rows.map(r => r.rid) });
+  finishTurn();
+}
+function spSetFolder(rid){
+  const f = (CHAT.spf || {})[rid];
+  if(!f) return;
+  S.sharepoint = { driveId:f.driveId, itemId:f.itemId, name:f.name, webUrl:f.webUrl };
+  logChange("settings", "sharepoint", "SharePoint destination", [{ f:"folder", from:"—", to:f.name }]);
+  push("as", "saved", {
+    text: "Originals will be saved to **" + f.name + "**. " + spWriteNote(),
+    link: null
+  });
+  saveChat(); render(); save();
+}
+
+/* ---------- assistant intents ---------- */
+function trySharePoint(text){
+  let m = text.match(/^\s*(?:search|find|look\s+in|check)\s+(?:in\s+)?(?:sharepoint|share\s?point|onedrive)\s*(?:for|:)?\s*(.+)$/i);
+  if(m){ spSearchFor(m[1].trim(), null, {}); return true; }
+
+  m = text.match(/^\s*(?:find|pull|get|fetch|import)\s+(?:the\s+)?(?:agreements?|msas?|contracts?|documents?|paperwork|files?|sows?|exhibits?)\s+(?:for|at|from)\s+(.+?)\s*$/i);
+  if(m){
+    const nameQ = m[1].trim().replace(/\s+(?:in|from)\s+share\s?point$/i, "");
+    const o = findOrgByName(nameQ);
+    if(!o){
+      say("I have no account called **" + esc(nameQ) + "**. Add it first, then I can file SharePoint documents against it.");
+      return true;
+    }
+    spSearchFor(o.name, o.id, { limit:10 });
+    return true;
+  }
+  m = text.match(/^\s*(?:set|choose|pick)\s+(?:the\s+)?(?:sharepoint\s+)?(?:folder|destination|upload folder)\s*(?:to|:)?\s*(.+)$/i);
+  if(m){ spPickFolder(m[1].trim()); return true; }
+
+  if(/^\s*(?:sharepoint|share\s?point)\s+status\s*\??$/i.test(text)){
+    const s = SP.status;
+    const line = s === "connected" ? "Connected. I can search SharePoint and read document text. " + spWriteNote()
+      : s === "not_connected" ? "Not connected. Add the Microsoft 365 connector under claude.ai Settings → Connectors."
+      : s === "needs_reauth" ? "Connected but the sign-in lapsed. Reconnect it under claude.ai Settings → Connectors."
+      : s === "choose" ? "You have more than one Microsoft 365 connector. Pick one when prompted."
+      : s === "unavailable" ? "Connectors are not available in this view. Open the published page in claude.ai."
+      : "I could not work out the connector state.";
+    say("**Microsoft 365 / SharePoint:** " + line +
+        (S.sharepoint ? "\n\nOriginals are set to save to **" + S.sharepoint.name + "**." : ""));
+    return true;
+  }
+  return false;
 }
 
 /* ---------- render ---------- */
@@ -3664,6 +4170,9 @@ document.addEventListener("click", function(e){
     case "editDraft":       editDraft(id); return;
     case "openSaved":       openRec(t.dataset.v, id); return;
     case "openDoc":         modal("doc", { id:id }); return;
+    case "spFind":          { const o = org(id); if(o){ UI.view="ask"; saveUI(); heard("find agreements for "+o.name); spSearchFor(o.name, o.id, { limit:10 }); } return; }
+    case "spAttach":        spAttach(id, true); return;
+    case "spSetFolder":     spSetFolder(id); return;
     case "pickFile":        { const fi = document.getElementById("filein"); if(fi) fi.click(); return; }
     case "pasteResume":     modal("pasteResume", {}); return;
     case "whoami":          modal("whoami", {}); return;
@@ -3774,9 +4283,11 @@ document.addEventListener("drop", function(e){
 
 /* ---------- boot ---------- */
 migrateState();
+if(!S.docs) S.docs = [];
 if(!UI.view || ["desk","jobs","cands","orgs","place","ask"].indexOf(UI.view) < 0) UI.view = "ask";
 render();
 getApi().then(function(api){
   if(!api){ NOSAVE = true; render(); }
 }).catch(function(){ NOSAVE = true; render(); });
+initSharePoint();
 </script>
