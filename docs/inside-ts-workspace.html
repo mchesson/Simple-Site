@@ -207,7 +207,7 @@ footer p{margin-bottom:.7rem}
       you what both of them actually did.</p>
     <div class="byline">
       <span>Postgres 16 · Node 22 · claude-opus-5</span>
-      <span>23 tools · 26 tables · 52 tests</span>
+      <span>31 tools · 32 tables · 71 tests</span>
     </div>
   </div>
 </header>
@@ -401,8 +401,8 @@ on the pay side.</pre>
     <h2>Why it can answer in plain English</h2>
   </div>
 
-  <p>Twenty-three tools cover accounts, sites, contacts, projects, activity,
-    documents, pipelines and PO burn-down. Most are ordinary: fetch this, list
+  <p>Thirty-one tools cover accounts, sites, contacts, projects, activity,
+    documents, pipelines, timecards, invoices and PO burn-down. Most are ordinary: fetch this, list
     those, write that. Three design choices do the heavy lifting.</p>
 
   <h3>A tool that cannot proceed says what it needs</h3>
@@ -541,35 +541,129 @@ on the pay side.</pre>
 
 <section>
   <div class="sechead"><span class="layer">Money</span>
-    <h2>Purchase order burn-down</h2>
+    <h2>Time, purchase orders and invoices</h2>
+    <p class="kicker">What burns a PO, and what only looks like it</p>
   </div>
 
-  <p>You asked for this specifically, and it is in. One view, so every screen in
-    the org reads the same number: what was committed, what approved time has
-    burned, what is submitted and waiting on the client, what is left, and how
-    many days until the PO expires.</p>
+  <p>A purchase order is burned by what we have <strong>invoiced</strong>, not by
+    what our people worked. Those are different numbers, and the gap between them
+    is where the money hides. Time moves one way, and each step means something
+    different to the business:</p>
+
+</section>
+</div>
+
+<div class="wide">
+<figure>
+<svg class="fig" viewBox="0 0 880 190" role="img"
+     aria-label="Time moves from submitted, to approved, onto a draft invoice, to an issued invoice, to paid. Only the issued invoice burns the purchase order.">
+  <defs>
+    <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+            orient="auto-start-reverse">
+      <polygon points="0,1 9,5 0,9" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-width="1.25">
+    <rect x="8"   y="46" width="150" height="52" rx="6" opacity=".55"/>
+    <rect x="186" y="46" width="150" height="52" rx="6" opacity=".55"/>
+    <rect x="364" y="46" width="150" height="52" rx="6" opacity=".55"/>
+    <rect x="542" y="46" width="150" height="52" rx="6" stroke-width="2"/>
+    <rect x="720" y="46" width="150" height="52" rx="6" opacity=".55"/>
+    <line x1="158" y1="72" x2="180" y2="72" marker-end="url(#ar2)"/>
+    <line x1="336" y1="72" x2="358" y2="72" marker-end="url(#ar2)"/>
+    <line x1="514" y1="72" x2="536" y2="72" marker-end="url(#ar2)"/>
+    <line x1="692" y1="72" x2="714" y2="72" marker-end="url(#ar2)"/>
+    <line x1="617" y1="104" x2="617" y2="128"/>
+  </g>
+  <g font-family="Public Sans, sans-serif" fill="currentColor" text-anchor="middle">
+    <text x="83"  y="70" font-size="13" font-weight="600">Submitted</text>
+    <text x="83"  y="88" font-size="11" opacity=".6">claimed</text>
+    <text x="261" y="70" font-size="13" font-weight="600">Approved</text>
+    <text x="261" y="88" font-size="11" opacity=".6">earned</text>
+    <text x="439" y="70" font-size="13" font-weight="600">Draft invoice</text>
+    <text x="439" y="88" font-size="11" opacity=".6">prepared</text>
+    <text x="617" y="70" font-size="13" font-weight="600">Issued</text>
+    <text x="617" y="88" font-size="11" opacity=".6">billed</text>
+    <text x="795" y="70" font-size="13" font-weight="600">Paid</text>
+    <text x="795" y="88" font-size="11" opacity=".6">collected</text>
+    <text x="617" y="146" font-size="12" font-weight="600">this is what burns the PO</text>
+    <text x="617" y="164" font-size="11" opacity=".6">nothing to its left does</text>
+  </g>
+  <g font-family="Public Sans, sans-serif" font-size="11" fill="currentColor"
+     opacity=".55" text-anchor="middle">
+    <text x="83"  y="28">not earned</text>
+    <text x="261" y="28">earned, not billed</text>
+    <text x="439" y="28">still ours</text>
+    <text x="617" y="28">the client owes it</text>
+  </g>
+</svg>
+<figcaption>The first version of this shipped with the burn measured against
+  approved timecards. That is the internal view — what we earned — not the
+  money. Only an issued invoice burns a purchase order.</figcaption>
+  </figure>
+</div>
+
+<div class="wrap">
+<section>
+
+  <p>So the burn-down carries every stage rather than collapsing them:</p>
 
   <div class="scroll">
   <table>
-    <thead><tr><th>PO</th><th>Committed</th><th>Burned</th><th>Awaiting approval</th>
-      <th>Remaining</th><th>Expires</th></tr></thead>
+    <thead><tr><th>PO-GLX-88412</th><th>Amount</th><th>What it means</th></tr></thead>
     <tbody>
-      <tr><td>PO-GLX-88412</td><td class="n">$180,000</td>
-          <td class="n">$46,560 · 25.9%</td><td class="n">$8,640</td>
-          <td class="n">$133,440</td><td class="n">31 Oct · 64 days</td></tr>
-      <tr><td>PO-GLX-88500</td><td class="n">$95,000</td><td class="n">$0</td>
-          <td class="n">$0</td><td class="n">$95,000</td>
-          <td class="n">31 Jan · 156 days</td></tr>
+      <tr><td>Submitted, pending</td><td class="n">$12,960</td>
+          <td>Three weeks claimed, waiting on Globex. Not earned.</td></tr>
+      <tr><td>Approved, unbilled</td><td class="n">$0</td>
+          <td>Accepted work we have not billed. Earned revenue in our own queue.</td></tr>
+      <tr><td>Drafted, not sent</td><td class="n">$8,640</td>
+          <td>An invoice prepared but not issued. Still ours, not theirs.</td></tr>
+      <tr><td><strong>Invoiced</strong></td><td class="n"><strong>$33,600</strong></td>
+          <td><strong>Billed. This is the burn — 18.7% of the PO.</strong></td></tr>
+      <tr><td>Paid / outstanding</td><td class="n">$16,800 / $16,800</td>
+          <td>Half of it collected, half still owed.</td></tr>
+      <tr><td>Remaining</td><td class="n">$146,400</td>
+          <td>What the PO can still be billed for.</td></tr>
+      <tr><td>Projected remaining</td><td class="n">$137,760</td>
+          <td>What is left once everything in the pipeline is billed.</td></tr>
     </tbody>
   </table>
   </div>
 
-  <p>The two middle columns are the ones that earn their place. <strong>Burned</strong>
-    is approved time only — money you can invoice. <strong>Awaiting approval</strong>
-    is work already done that the client has not signed off, which is money at
-    risk and invisible in most systems until it becomes an argument. Ask for POs
-    running out in the next 90 days and you get them ranked by how soon, not by
-    how full.</p>
+  <div class="note">
+    <b>The failure this exists to catch.</b> A purchase order can read healthy on
+    <em>remaining</em> and already be spent, because a month of approved time is
+    sitting unbilled. When <em>projected remaining</em> goes negative the PO is
+    over-committed before a single invoice has been raised. Asking for POs at
+    risk returns exactly those, not the ones that merely look full.
+  </div>
+
+  <h3>Five guards, all in the database</h3>
+
+  <ul class="plain">
+    <li><strong>Approval freezes the value.</strong> A week is priced at the bill
+      rate in force on its week ending date, read from the effective-dated rate
+      history. A July week still prices at July's rate in December.</li>
+    <li><strong>Only approved time can be invoiced.</strong> A line pointing at a
+      timecard in any other state is refused.</li>
+    <li><strong>A week cannot be billed twice.</strong> A second line for the same
+      week on any live invoice is refused.</li>
+    <li><strong>A sent invoice is frozen.</strong> Lines change only while it is a
+      draft.</li>
+    <li><strong>An invoice cannot overrun its PO.</strong> Sending one that would
+      take it past the committed amount is refused, and the error names the
+      remedy.</li>
+  </ul>
+
+<pre><b>update</b> invoice <b>set</b> status = 'sent' <b>where</b> id = ...;
+<span class="bad">ERROR:  this invoice would put PO-1 over its limit: 12000.00 committed,
+        8400.00 already invoiced, 9200.00 on this invoice.
+        Raise a change order or a new PO.</span></pre>
+
+  <p>Voiding never deletes. The invoice stays on the record and its weeks become
+    billable again — which is the right behaviour when something was booked to
+    the wrong PO, and the wrong behaviour to discover you do not have at
+    month end.</p>
 </section>
 
 <section>
@@ -592,7 +686,7 @@ on the pay side.</pre>
           <td>The schema with row counts, and a query console.</td>
           <td class="n">information_schema</td></tr>
       <tr><td><strong>Tools</strong></td>
-          <td>The 23 tool definitions, exactly as sent to the model.</td>
+          <td>The tool definitions, exactly as sent to the model.</td>
           <td class="n">the request builder</td></tr>
       <tr><td><strong>Prompt</strong></td>
           <td>The system prompt verbatim, the request settings, the pricing used
@@ -636,14 +730,17 @@ npm start</pre>
     <h2>What is proven and what is not</h2>
   </div>
 
-  <p><strong>Proven.</strong> Fifty-two tests run against a real Postgres database
+  <p><strong>Proven.</strong> Seventy-one tests run against a real Postgres database
     built from the same schema the application uses — a mock would not catch the
     constraints, and the constraints are where most of the design lives. Every
     rule in the table above is asserted. So is the read-only role, including a
     direct write attempt that Postgres refuses. So is the revision history, the
     role-aware activity logging, the deduplication when you create someone who
-    already exists, PO burn-down arithmetic, the tool loop's iteration cap, and
-    the stability of the cached system prompt.</p>
+    already exists, the tool loop's iteration cap, and the stability of the
+    cached system prompt. The money path gets the most attention: double-billing,
+    invoicing unapproved time, changing a sent invoice, overrunning a purchase
+    order, the rate in force on a given week, and every column of the burn-down
+    at each stage.</p>
 
   <p><strong>Not proven.</strong> No live call to the Claude API was made. There
     was no credential in the environment this was built in, so the agent loop was
@@ -656,8 +753,10 @@ npm start</pre>
   <p><strong>Still to build.</strong> Managed-service deliverables and milestones.
     Engagements with a team lead over several resources. The bench knowledge base
     and redeployment. Change orders exist as a table but have no workflow around
-    them yet. Timecard entry and approval is seeded, not built — burn-down reads
-    real timecards, but nobody submits one through the product yet.</p>
+    them yet — which matters, because the PO overrun guard tells you to raise one
+    and then leaves you to do it by hand. Timecards are approved in the product
+    but not yet entered in it: consultants still submit their week somewhere
+    else.</p>
 </section>
 
 </div>
