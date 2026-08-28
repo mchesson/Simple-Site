@@ -318,6 +318,13 @@ create table purchase_order (
 );
 create index po_end_date_idx on purchase_order (end_date) where status = 'open';
 
+-- A week of work on a placement. Time moves through three states that mean
+-- different things to the business: submitted is a claim, approved is work the
+-- client has accepted and we have earned, invoiced is money we have actually
+-- billed. Only the third one burns a purchase order.
+--
+-- Whether a card has been billed is not a column here - it is whether a live
+-- invoice line points at it. A status column would drift from the invoices.
 create table timecard (
   id            uuid primary key default gen_random_uuid(),
   placement_id  uuid not null references placement(id),
@@ -326,44 +333,318 @@ create table timecard (
   hours         numeric(8,2) not null default 0 check (hours >= 0),
   ot_hours      numeric(8,2) not null default 0 check (ot_hours >= 0),
   status        text not null default 'submitted'
-                check (status in ('draft','submitted','approved','rejected','invoiced')),
+                check (status in ('draft','submitted','approved','rejected')),
+  submitted_at  timestamptz,
   approved_by   text,
   approved_at   timestamptz,
-  -- What we actually bill for this card. Stored, not derived, because the rate
-  -- in force on the week ending date is what counts and rates move.
-  billed_amount numeric(14,2),
+  rejected_reason text,
+  -- What this week is worth to bill, frozen when the client approves it. Stored
+  -- rather than derived at read time because the rate in force on the week
+  -- ending date is what we agreed, and rates move afterwards.
+  billable_amount numeric(14,2),
+  notes         text,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now(),
-  unique (placement_id, week_ending)
+  unique (placement_id, week_ending),
+  constraint approved_time_has_a_value
+    check (status <> 'approved' or billable_amount is not null)
 );
-create index timecard_po_idx on timecard (purchase_order_id);
+create index timecard_po_idx     on timecard (purchase_order_id);
+create index timecard_status_idx on timecard (status, week_ending);
 
--- Burn-down: committed money against approved and billed time, and how many
--- days of runway are left. One view so every screen in the org agrees.
+-- The bill rate in force for a placement on a given date. Rates are
+-- effective-dated and never edited, so "what was the rate that week" always has
+-- an answer - which is the whole reason a timecard from March still prices
+-- correctly in June.
+create or replace function rate_in_force(p_placement uuid, p_on date,
+                                         p_type text default 'standard')
+returns placement_rate language sql stable as $$
+  select r.* from placement_rate r
+   where r.placement_id = p_placement and r.rate_type = p_type
+     and r.validity @> p_on
+   limit 1
+$$;
+
+-- What a week of work is worth. Overtime uses the overtime rate if one is on
+-- file and time and a half otherwise, which is the convention when nobody
+-- negotiated something different.
+create or replace function timecard_billable(p_placement uuid, p_week date,
+                                             p_hours numeric, p_ot numeric)
+returns numeric language plpgsql stable as $$
+declare std placement_rate; ot placement_rate; ot_rate numeric;
+begin
+  std := rate_in_force(p_placement, p_week, 'standard');
+  if std.id is null then
+    raise exception 'no standard rate in force for placement % on %', p_placement, p_week;
+  end if;
+  ot := rate_in_force(p_placement, p_week, 'overtime');
+  ot_rate := coalesce(ot.bill_rate, std.bill_rate * 1.5);
+  return round(coalesce(p_hours,0) * std.bill_rate + coalesce(p_ot,0) * ot_rate, 2);
+end $$;
+
+-- ------------------------------------------------------------------ invoicing
+
+-- What we actually billed the client. An invoice sits against one purchase
+-- order where the client issues them, so the burn-down has a single line of
+-- descent from PO to invoice to payment.
+create table invoice (
+  id             uuid primary key default gen_random_uuid(),
+  invoice_number text not null unique,
+  account_id     uuid not null references account(id),
+  project_id     uuid references project(id),
+  purchase_order_id uuid references purchase_order(id),
+  status         text not null default 'draft'
+                 check (status in ('draft','sent','part_paid','paid','void')),
+  issue_date     date,
+  due_date       date,
+  terms_days     int not null default 30 check (terms_days >= 0),
+  period_start   date,
+  period_end     date,
+  sent_at        timestamptz,
+  voided_at      timestamptz,
+  void_reason    text,
+  notes          text,
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+create index invoice_po_idx     on invoice (purchase_order_id);
+create index invoice_status_idx on invoice (status, due_date);
+
+create table invoice_line (
+  id          uuid primary key default gen_random_uuid(),
+  invoice_id  uuid not null references invoice(id) on delete cascade,
+  kind        text not null default 'time'
+              check (kind in ('time','expense','milestone','adjustment')),
+  timecard_id uuid references timecard(id),
+  description text not null,
+  quantity    numeric(12,2),
+  unit_rate   numeric(12,4),
+  amount      numeric(14,2) not null,
+  sort_order  int not null default 0,
+  created_at  timestamptz not null default now(),
+  -- A line billing time has to say which week it is billing.
+  constraint time_lines_cite_a_timecard
+    check (kind <> 'time' or timecard_id is not null)
+);
+create index invoice_line_invoice_idx  on invoice_line (invoice_id, sort_order);
+create index invoice_line_timecard_idx on invoice_line (timecard_id);
+
+create table payment (
+  id          uuid primary key default gen_random_uuid(),
+  invoice_id  uuid not null references invoice(id),
+  amount      numeric(14,2) not null check (amount > 0),
+  received_at date not null default current_date,
+  method      text,
+  reference   text,
+  created_at  timestamptz not null default now()
+);
+create index payment_invoice_idx on payment (invoice_id);
+
+-- An invoice total is the sum of its lines. Kept as a view rather than a column
+-- so the two can never disagree.
+create view invoice_totals as
+select i.id as invoice_id,
+       coalesce(sum(l.amount), 0)                      as total,
+       coalesce((select sum(p.amount) from payment p
+                  where p.invoice_id = i.id), 0)       as paid,
+       coalesce(sum(l.amount), 0)
+         - coalesce((select sum(p.amount) from payment p
+                      where p.invoice_id = i.id), 0)   as outstanding,
+       count(l.id)::int                                as line_count
+  from invoice i left join invoice_line l on l.invoice_id = i.id
+ group by i.id;
+
+-- Three guards on billing. Each of them is a mistake that costs real money and
+-- that no amount of care in the application layer reliably prevents.
+
+-- 1. You cannot bill time the client has not approved, and you cannot bill the
+--    same week twice. A voided invoice releases its time to be billed again.
+create or replace function invoice_line_guard() returns trigger as $$
+declare tc timecard; inv invoice; dup int;
+begin
+  select * into inv from invoice where id = new.invoice_id;
+  if inv.status <> 'draft' then
+    raise exception 'invoice % is % - lines can only change while it is a draft',
+      inv.invoice_number, inv.status;
+  end if;
+
+  if new.timecard_id is not null then
+    select * into tc from timecard where id = new.timecard_id;
+    if tc.status <> 'approved' then
+      raise exception 'timecard for week ending % is %, not approved - it cannot be billed',
+        tc.week_ending, tc.status;
+    end if;
+
+    select count(*) into dup
+      from invoice_line l join invoice i2 on i2.id = l.invoice_id
+     where l.timecard_id = new.timecard_id and i2.status <> 'void'
+       and l.id is distinct from new.id;
+    if dup > 0 then
+      raise exception 'week ending % is already on a live invoice', tc.week_ending;
+    end if;
+
+    if inv.purchase_order_id is not null
+       and tc.purchase_order_id is distinct from inv.purchase_order_id then
+      raise exception 'that week is booked to a different purchase order';
+    end if;
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger invoice_line_guard_t before insert or update on invoice_line
+  for each row execute function invoice_line_guard();
+
+-- 2. An invoice cannot be sent for more than the purchase order has left. The
+--    remedy is a change order or a new PO, not a bigger invoice, so the error
+--    says so.
+create or replace function invoice_po_guard() returns trigger as $$
+declare po purchase_order; already numeric; mine numeric;
+begin
+  if new.status = 'sent' and coalesce(old.status,'') <> 'sent'
+     and new.purchase_order_id is not null then
+    select * into po from purchase_order where id = new.purchase_order_id;
+    select coalesce(sum(t.total),0) into already
+      from invoice i join invoice_totals t on t.invoice_id = i.id
+     where i.purchase_order_id = new.purchase_order_id
+       and i.status in ('sent','part_paid','paid') and i.id <> new.id;
+    select total into mine from invoice_totals where invoice_id = new.id;
+    if already + coalesce(mine,0) > po.amount then
+      raise exception
+        'this invoice would put % over its limit: % committed, % already invoiced, % on this invoice. Raise a change order or a new PO.',
+        po.po_number, po.amount, already, mine;
+    end if;
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger invoice_po_guard_t before update on invoice
+  for each row execute function invoice_po_guard();
+
+-- 3. Approved time has to carry the value it was approved at.
+create or replace function timecard_value_guard() returns trigger as $$
+begin
+  if new.status = 'approved' and new.billable_amount is null then
+    new.billable_amount :=
+      timecard_billable(new.placement_id, new.week_ending, new.hours, new.ot_hours);
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger timecard_value_guard_t before insert or update on timecard
+  for each row execute function timecard_value_guard();
+
+-- Burn-down.
+--
+-- A purchase order is burned by what we have INVOICED, not by what our
+-- consultants have worked. Those two numbers are different and the gap between
+-- them is the thing worth watching, so this view carries both:
+--
+--   invoiced           billed to the client on a live invoice. This is the burn.
+--   approved_unbilled  work the client has accepted but we have not billed yet.
+--                      Earned revenue sitting in our own queue.
+--   submitted_pending  time claimed but not yet approved. Not earned, not billable.
+--   remaining          amount - invoiced. What the PO can still be billed for.
+--   projected_remaining what is left once the approved backlog is billed. This is
+--                      the number that tells you whether the PO reaches its end date.
+--
+-- A PO can look healthy on "remaining" and already be spent, if a month of
+-- approved time is sitting unbilled. That is exactly the failure this view is
+-- built to make visible.
 create view po_burndown as
+with invoiced as (
+  -- Issued to the client. A draft is not billed, so it does not burn.
+  select i.purchase_order_id as po_id, sum(t.total) as amount
+    from invoice i join invoice_totals t on t.invoice_id = i.id
+   where i.status in ('sent','part_paid','paid') and i.purchase_order_id is not null
+   group by 1
+), paid as (
+  select i.purchase_order_id as po_id, sum(t.paid) as amount
+    from invoice i join invoice_totals t on t.invoice_id = i.id
+   where i.status <> 'void' and i.purchase_order_id is not null
+   group by 1
+), drafted as (
+  -- Prepared but not sent. Sitting in our own queue, not the client's.
+  select i.purchase_order_id as po_id, sum(t.total) as amount
+    from invoice i join invoice_totals t on t.invoice_id = i.id
+   where i.status = 'draft' and i.purchase_order_id is not null
+   group by 1
+), unbilled as (
+  -- Approved and not on any invoice at all, draft or otherwise.
+  select tc.purchase_order_id as po_id, sum(tc.billable_amount) as amount
+    from timecard tc
+   where tc.status = 'approved'
+     and not exists (
+       select 1 from invoice_line l join invoice i2 on i2.id = l.invoice_id
+        where l.timecard_id = tc.id and i2.status <> 'void')
+   group by 1
+), pending as (
+  select tc.purchase_order_id as po_id,
+         sum(timecard_billable(tc.placement_id, tc.week_ending, tc.hours, tc.ot_hours))
+           as amount
+    from timecard tc where tc.status = 'submitted' group by 1
+)
 select
-  po.id                as purchase_order_id,
+  po.id            as purchase_order_id,
   po.po_number,
   po.project_id,
-  p.name               as project_name,
-  a.name               as account_name,
+  p.name           as project_name,
+  a.name           as account_name,
   po.amount,
   po.start_date,
   po.end_date,
   po.status,
-  coalesce(sum(tc.billed_amount) filter (where tc.status in ('approved','invoiced')), 0) as burned,
-  coalesce(sum(tc.billed_amount) filter (where tc.status = 'submitted'), 0)              as pending_approval,
-  po.amount - coalesce(sum(tc.billed_amount) filter (where tc.status in ('approved','invoiced')), 0) as remaining,
-  case when po.amount = 0 then null else round(
-    coalesce(sum(tc.billed_amount) filter (where tc.status in ('approved','invoiced')), 0)
-    / po.amount * 100, 2) end as pct_burned,
+  coalesce(iv.amount, 0)                          as invoiced,
+  coalesce(pd.amount, 0)                          as paid,
+  coalesce(iv.amount, 0) - coalesce(pd.amount, 0) as outstanding,
+  coalesce(dr.amount, 0)                          as drafted_not_sent,
+  coalesce(ub.amount, 0)                          as approved_unbilled,
+  coalesce(pn.amount, 0)                          as submitted_pending,
+  po.amount - coalesce(iv.amount, 0)              as remaining,
+  po.amount - coalesce(iv.amount, 0) - coalesce(dr.amount, 0)
+            - coalesce(ub.amount, 0)              as projected_remaining,
+  case when po.amount = 0 then null else
+    round(coalesce(iv.amount, 0) / po.amount * 100, 2) end as pct_invoiced,
+  case when po.amount = 0 then null else
+    round((coalesce(iv.amount, 0) + coalesce(dr.amount, 0) + coalesce(ub.amount, 0))
+          / po.amount * 100, 2) end as pct_committed,
   case when po.end_date is null then null
        else (po.end_date - current_date) end as days_remaining
 from purchase_order po
 join project p on p.id = po.project_id
 join account a on a.id = p.account_id
-left join timecard tc on tc.purchase_order_id = po.id
-group by po.id, p.name, a.name;
+left join invoiced iv on iv.po_id = po.id
+left join paid     pd on pd.po_id = po.id
+left join drafted  dr on dr.po_id = po.id
+left join unbilled ub on ub.po_id = po.id
+left join pending  pn on pn.po_id = po.id;
+
+-- What is owed us and how late it is. Aging buckets are the standard ones a
+-- controller expects to see.
+create view invoice_aging as
+select i.id            as invoice_id,
+       i.invoice_number,
+       i.status,
+       a.name          as account_name,
+       p.name          as project_name,
+       po.po_number,
+       i.issue_date,
+       i.due_date,
+       t.total,
+       t.paid,
+       t.outstanding,
+       case when i.due_date is null or t.outstanding <= 0 then 0
+            else greatest(0, current_date - i.due_date) end as days_overdue,
+       case when t.outstanding <= 0 then 'settled'
+            when i.due_date is null then 'no due date'
+            when current_date <= i.due_date then 'current'
+            when current_date - i.due_date <= 30 then '1-30'
+            when current_date - i.due_date <= 60 then '31-60'
+            when current_date - i.due_date <= 90 then '61-90'
+            else '90+' end as bucket
+  from invoice i
+  join invoice_totals t on t.invoice_id = i.id
+  join account a on a.id = i.account_id
+  left join project p on p.id = i.project_id
+  left join purchase_order po on po.id = i.purchase_order_id
+ -- A draft is not a receivable. Nobody owes us anything until it is issued.
+ where i.status not in ('void','draft');
 
 -- ------------------------------------------------------------------ documents
 

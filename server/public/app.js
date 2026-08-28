@@ -489,21 +489,79 @@ async function projectView(id) {
         el("td", { class: "num" }, s.bill_rate ? "$" + s.bill_rate : "")))))]));
 }
 
-function poCard(po) {
-  const pct = Number(po.pct_burned || 0);
+function poCard(po, opts = {}) {
+  const amt = Number(po.amount) || 1;
+  const pct = (n) => Math.max(0, Math.min(100, (Number(n) || 0) / amt * 100));
+  const paid = pct(po.paid);
+  const billedUnpaid = Math.max(0, pct(po.invoiced) - paid);
+  const drafted = pct(po.drafted_not_sent);
+  const earned = pct(po.approved_unbilled);
+  const over = Number(po.projected_remaining) < 0;
   const soon = po.days_remaining !== null && po.days_remaining <= 90;
+
   return el("div", { class: "card" },
     el("h3", {}, po.po_number),
     el("div", { class: "meta" },
-      `${money(po.amount)} committed · ${money(po.remaining)} left` +
+      `${money(po.amount)} committed` +
       (po.days_remaining !== null
         ? ` · expires ${day(po.end_date)} (${po.days_remaining} days)` : "")),
-    el("div", { class: "bar", style: "margin:9px 0 6px" },
-      el("i", { style: `width:${Math.min(100, pct)}%` })),
-    el("div", { class: "meta" },
-      `${pct}% burned · ${money(po.pending_approval)} submitted but not yet approved`),
-    soon ? el("p", { class: "pill warn", style: "margin-top:9px" },
-      po.days_remaining <= 30 ? "Expires within a month" : "Expires within 90 days") : null);
+
+    el("div", { class: "stack", style: "margin:11px 0 0" },
+      el("i", { class: "paid", style: `width:${paid}%` }),
+      el("i", { class: "billed", style: `width:${billedUnpaid}%` }),
+      el("i", { class: "draft", style: `width:${drafted}%` }),
+      el("i", { class: "earned", style: `width:${earned}%` })),
+
+    Number(po.invoiced) || drafted || earned
+      ? el("div", { class: "legend" },
+          Number(po.paid) ? leg("good", "Paid", po.paid) : null,
+          Number(po.invoiced) - Number(po.paid)
+            ? leg("accent", "Billed, unpaid", Number(po.invoiced) - Number(po.paid)) : null,
+          drafted ? leg("accent", "Drafted, not sent", po.drafted_not_sent, .42) : null,
+          earned ? leg("warn", "Approved, not billed", po.approved_unbilled) : null)
+      : el("div", { class: "legend" },
+          el("span", { class: "muted" }, "Nothing billed against this one yet")),
+
+    el("div", { class: "money" },
+      cell("Invoiced", money(po.invoiced),
+           `${po.pct_invoiced}% of the PO — this is the burn`),
+      cell("Approved, unbilled", money(po.approved_unbilled),
+           "earned, sitting in our queue"),
+      cell("Submitted, pending", money(po.submitted_pending),
+           "not approved, not earned"),
+      cell("Remaining", money(po.remaining), "against invoiced"),
+      cell("Projected remaining", money(po.projected_remaining),
+           "once the backlog is billed", over)),
+
+    over ? el("p", { class: "pill bad", style: "margin-top:11px" },
+      `Already over-committed by ${money(Math.abs(po.projected_remaining))}`) : null,
+    !over && soon ? el("p", { class: "pill warn", style: "margin-top:11px" },
+      po.days_remaining <= 30 ? "Expires within a month" : "Expires within 90 days") : null,
+
+    opts.actions !== false ? el("div", { style: "margin-top:13px;display:flex;gap:8px" },
+      Number(po.approved_unbilled) > 0
+        ? el("button", { class: "send", onclick: () => draftFor(po) },
+            `Draft an invoice for ${money(po.approved_unbilled)}`)
+        : null,
+      el("button", { class: "send", style: "background:var(--panel-2);color:var(--ink)",
+        onclick: () => go("invoices") }, "Invoices")) : null);
+}
+
+const leg = (tone, label, amount, opacity) => el("span", {},
+  el("i", { style: `background:var(--${tone});opacity:${opacity ?? 1}` }),
+  `${label} ${money(amount)}`);
+
+const cell = (k, v, sub, neg) => el("div", {},
+  el("div", { class: "k" }, k),
+  el("div", { class: "v" + (neg ? " neg" : "") }, v),
+  el("div", { class: "meta", style: "font-size:11.5px" }, sub));
+
+async function draftFor(po) {
+  const r = await api("/api/invoices/draft", {
+    method: "POST", body: JSON.stringify({ purchase_order_id: po.purchase_order_id }) });
+  if (r.nothing_to_bill) return alert(r.message);
+  if (r.error) return alert(r.error);
+  go("invoice", r.id);
 }
 
 async function poView() {
@@ -531,9 +589,191 @@ async function documentsView() {
           : el("span", { class: "muted" }, "not filed")))))));
 }
 
+
+// The approval queue. Approving is what turns a claim into earned revenue, so
+// the value of each week is shown before you agree to it, not after.
+async function timecardsView() {
+  const pending = await api("/api/timecards?status=submitted");
+  const approvedAll = await api("/api/timecards?status=approved");
+  const approved = approvedAll.filter((t) => !t.invoice_id);
+  const drafted = approvedAll.filter((t) => t.invoice_status === "draft");
+  const chosen = new Set();
+
+  const who = el("input", {
+    placeholder: "Who at the client approved these?",
+    style: "flex:1;max-width:20rem;padding:7px 11px;border:1px solid var(--line);" +
+           "border-radius:8px;background:var(--panel);color:var(--ink);font:inherit",
+  });
+  const total = el("span", { class: "muted" }, "");
+  const btn = el("button", { class: "send", disabled: "", onclick: approve }, "Approve");
+
+  function refreshBulk() {
+    const sum = pending.filter((t) => chosen.has(t.id))
+      .reduce((a, t) => a + Number(t.value), 0);
+    total.textContent = chosen.size
+      ? `${chosen.size} week${chosen.size === 1 ? "" : "s"} · ${money(sum)}` : "";
+    if (chosen.size) btn.removeAttribute("disabled"); else btn.setAttribute("disabled", "");
+  }
+
+  async function approve() {
+    if (!who.value.trim()) return alert("Name the person at the client who approved.");
+    const r = await api("/api/timecards/approve", {
+      method: "POST",
+      body: JSON.stringify({ ids: [...chosen], approved_by: who.value.trim() }) });
+    if (r.error) return alert(r.error);
+    go("timecards");
+  }
+
+  const row = (t, pick) => {
+    const tr = el("tr", {},
+      pick ? el("td", { style: "width:2rem" },
+        el("input", { type: "checkbox", onchange: (e) => {
+          e.target.checked ? chosen.add(t.id) : chosen.delete(t.id);
+          tr.classList.toggle("sel", e.target.checked);
+          refreshBulk();
+        } })) : null,
+      el("td", {}, el("strong", {}, t.full_name),
+        el("div", { class: "meta" }, t.account_name + " · " + t.project_name)),
+      el("td", {}, "Week ending " + day(t.week_ending)),
+      el("td", { class: "num" }, t.hours + (Number(t.ot_hours) ? ` + ${t.ot_hours} OT` : "")),
+      el("td", { class: "num" }, money(t.value)),
+      el("td", { class: "muted" }, t.po_number || "no PO"),
+      el("td", {}, t.invoice_number
+        ? el("span", { class: "pill good" }, "Billed on " + t.invoice_number)
+        : t.status === "approved"
+          ? el("span", { class: "pill warn" }, "Approved, not billed")
+          : el("span", { class: "pill" }, "Awaiting the client")));
+    return tr;
+  };
+
+  return el("div", { class: "pane" },
+    el("div", { class: "bulkbar" }, who, total, btn),
+    el("div", { class: "navsec", style: "padding-left:0" },
+      `Waiting on the client — ${money(pending.reduce((a, t) => a + Number(t.value), 0))}`),
+    pending.length
+      ? el("table", { class: "grid" }, el("tbody", {}, ...pending.map((t) => row(t, true))))
+      : el("p", { class: "muted" }, "Nothing waiting for approval."),
+    el("div", { class: "navsec", style: "padding-left:0;margin-top:24px" },
+      `Approved but not yet billed — ${money(approved.reduce((a, t) => a + Number(t.value), 0))}`),
+    approved.length
+      ? el("table", { class: "grid" }, el("tbody", {}, ...approved.map((t) => row(t, false))))
+      : el("p", { class: "muted" }, "Nothing approved is waiting to be billed."),
+    drafted.length ? el("div", {},
+      el("div", { class: "navsec", style: "padding-left:0;margin-top:24px" },
+        `On a draft invoice, not yet sent — ` +
+        money(drafted.reduce((a, t) => a + Number(t.value), 0))),
+      el("p", { class: "muted", style: "margin:0 0 10px" },
+        "Prepared but not issued, so it has not burned the purchase order yet."),
+      el("table", { class: "grid" },
+        el("tbody", {}, ...drafted.map((t) => row(t, false))))) : null);
+}
+
+async function invoicesView() {
+  const list = await api("/api/invoices");
+  const aging = await api("/api/invoice-aging");
+  const owed = aging.reduce((a, i) => a + Number(i.outstanding), 0);
+  const late = aging.filter((i) => i.days_overdue > 0);
+  return el("div", { class: "pane" },
+    el("div", { class: "card" },
+      el("h3", {}, money(owed) + " outstanding"),
+      el("div", { class: "meta" },
+        late.length
+          ? `${late.length} invoice${late.length === 1 ? "" : "s"} past due, ` +
+            money(late.reduce((a, i) => a + Number(i.outstanding), 0))
+          : "Nothing past due.")),
+    el("table", { class: "grid" },
+      el("thead", {}, el("tr", {}, ...["Invoice", "Account", "PO", "Period", "Total",
+        "Outstanding", "Status"].map((h) => el("th", {}, h)))),
+      el("tbody", {}, ...list.map((i) => el("tr", { style: "cursor:pointer",
+          onclick: () => go("invoice", i.id) },
+        el("td", {}, el("strong", {}, i.invoice_number)),
+        el("td", { class: "muted" }, i.account_name),
+        el("td", { class: "muted" }, i.po_number || "—"),
+        el("td", { class: "muted" },
+          i.period_start ? `${day(i.period_start)} – ${day(i.period_end)}` : "—"),
+        el("td", { class: "num" }, money(i.total)),
+        el("td", { class: "num" }, money(i.outstanding)),
+        el("td", {}, el("span", {
+          class: "pill " + (i.status === "paid" ? "good"
+            : i.days_overdue > 0 ? "bad" : i.status === "draft" ? "" : "warn") },
+          i.status === "part_paid" ? "part paid" : i.status,
+          i.days_overdue > 0 ? ` · ${i.days_overdue}d late` : "")))))));
+}
+
+async function invoiceView(id) {
+  const inv = await api(`/api/invoices/${id}`);
+  const act = async (path, body) => {
+    const r = await api(`/api/invoices/${id}${path}`, {
+      method: "POST", body: JSON.stringify(body || {}) });
+    if (r.error) return alert(r.error);
+    go("invoice", id);
+  };
+  return el("div", { class: "pane" },
+    el("div", { class: "card" },
+      el("h3", {}, inv.invoice_number),
+      el("div", { class: "meta" },
+        `${inv.account_name}${inv.project_name ? " · " + inv.project_name : ""}` +
+        (inv.po_number ? " · " + inv.po_number : "")),
+      el("div", { class: "money" },
+        cell("Total", money(inv.total),
+             inv.period_start ? `${day(inv.period_start)} – ${day(inv.period_end)}` : ""),
+        cell("Paid", money(inv.paid), inv.payments.length + " payment(s)"),
+        inv.status === "draft"
+          ? cell("Outstanding", "—", "nothing is owed until it is issued")
+          : cell("Outstanding", money(inv.outstanding),
+                 inv.due_date ? "due " + day(inv.due_date) : "no due date")),
+      el("div", { style: "margin-top:14px;display:flex;gap:8px;flex-wrap:wrap" },
+        inv.status === "draft"
+          ? el("button", { class: "send", onclick: () => act("/send") },
+              "Send it — this burns the PO")
+          : null,
+        ["sent", "part_paid"].includes(inv.status)
+          ? el("button", { class: "send", onclick: () => {
+              const a = prompt(`Payment amount (outstanding ${money(inv.outstanding)})`,
+                               inv.outstanding);
+              if (a) act("/payments", { amount: Number(a), method: "ACH" });
+            } }, "Record a payment")
+          : null,
+        inv.status !== "void" && inv.status !== "paid"
+          ? el("button", { class: "send",
+              style: "background:var(--panel-2);color:var(--ink)",
+              onclick: () => {
+                const r = prompt("Why is this being voided?");
+                if (r) act("/void", { reason: r });
+              } }, "Void")
+          : null),
+      inv.status === "draft"
+        ? el("p", { class: "muted", style: "margin:12px 0 0" },
+            "A draft has not gone to the client, so it does not count against the " +
+            "purchase order yet.")
+        : null,
+      inv.status === "void"
+        ? el("p", { class: "pill bad", style: "margin-top:12px" },
+            "Voided" + (inv.void_reason ? " — " + inv.void_reason : "") +
+            ". Its weeks are billable again.")
+        : null),
+
+    section("Lines", [el("table", { class: "grid" },
+      el("thead", {}, el("tr", {}, ...["Description", "Hours", "Rate", "Amount"]
+        .map((h) => el("th", {}, h)))),
+      el("tbody", {}, ...inv.lines.map((l) => el("tr", {},
+        el("td", {}, l.description),
+        el("td", { class: "num" }, l.quantity ?? "—"),
+        el("td", { class: "num" }, l.unit_rate ? "$" + Number(l.unit_rate).toFixed(2) : "—"),
+        el("td", { class: "num" }, money(l.amount))))))]),
+
+    section("Payments", [el("table", { class: "grid" }, el("tbody", {},
+      ...inv.payments.map((p) => el("tr", {},
+        el("td", {}, day(p.received_at)),
+        el("td", { class: "muted" }, p.method || ""),
+        el("td", { class: "muted" }, p.reference || ""),
+        el("td", { class: "num" }, money(p.amount))))))]));
+}
+
 // ------------------------------------------------------------------ routing
 const TITLES = { chat: "Project Assistant", accounts: "Accounts", projects: "Projects",
-  contacts: "Contacts", documents: "Documents", pos: "Purchase orders" };
+  contacts: "Contacts", documents: "Documents", pos: "Purchase orders",
+  timecards: "Timecards", invoices: "Invoices" };
 
 async function go(view, id = null) {
   state.view = view;
@@ -555,6 +795,9 @@ async function go(view, id = null) {
   else if (view === "project") { node = await projectView(id); $("#title").textContent = "Project"; }
   else if (view === "documents") node = await documentsView();
   else if (view === "pos") node = await poView();
+  else if (view === "timecards") node = await timecardsView();
+  else if (view === "invoices") node = await invoicesView();
+  else if (view === "invoice") { node = await invoiceView(id); $("#title").textContent = "Invoice"; }
   body.replaceChildren(node);
   body.className = view === "chat" ? "chatwrap" : "";
 }

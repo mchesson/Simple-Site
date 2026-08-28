@@ -209,22 +209,65 @@ const po2 = await q(
    values ($1,'PO-GLX-88500',95000,'2026-08-01','2027-01-31') returning *`,
   [dataPlatform.id]);
 
-// Eleven approved weeks and two still waiting on the client. Burn is real money,
-// pending approval is money we have spent but cannot invoice yet.
+// Thirteen weeks of time in three states, then the invoices drawn from them.
+// This is the shape that makes the burn-down interesting: some weeks billed,
+// some approved and sitting unbilled in our own queue, some still waiting on
+// the client to approve.
+const cards = [];
 let wk = new Date("2026-06-07");
 for (let i = 0; i < 13; i++) {
   const d = new Date(wk); d.setDate(wk.getDate() + i * 7);
   const iso = d.toISOString().slice(0, 10);
-  const approved = i < 11;
-  const hours = 40;
-  const bill = i < 8 ? 105 : 108;
-  await client.query(
-    `insert into timecard (placement_id, purchase_order_id, week_ending, hours, status,
-                           billed_amount, approved_by, approved_at)
-     values ($1,$2,$3,$4,$5,$6,$7,$8)`,
-    [pl.id, po.id, iso, hours, approved ? "approved" : "submitted", hours * bill,
+  // 0-9 approved, 10-12 still submitted and waiting on Globex.
+  const approved = i < 10;
+  const tc = await q(
+    `insert into timecard (placement_id, purchase_order_id, week_ending, hours,
+                           status, submitted_at, approved_by, approved_at)
+     values ($1,$2,$3,40,$4, now(), $5, $6) returning *`,
+    [pl.id, po.id, iso, approved ? "approved" : "submitted",
      approved ? "Dana Reyes" : null, approved ? new Date() : null]);
+  cards.push(tc);
 }
+
+// Two invoices already issued and one still in draft, so the difference between
+// billed, prepared and earned is visible on day one.
+async function invoiceFor(number, weeks, status, issued, paidAmount) {
+  const inv = await q(
+    `insert into invoice (invoice_number, account_id, project_id, purchase_order_id,
+                          status, terms_days, period_start, period_end, issue_date,
+                          due_date, sent_at)
+     values ($1,$2,$3,$4,'draft',45,$5,$6,$7,$8,$9) returning *`,
+    [number, globex.id, dataPlatform.id, po.id,
+     weeks[0].week_ending, weeks[weeks.length - 1].week_ending,
+     issued, issued ? new Date(new Date(issued).getTime() + 45 * 864e5)
+       .toISOString().slice(0, 10) : null, issued]);
+  let n = 0;
+  for (const w of weeks) {
+    const rate = Number(w.billable_amount) / 40;
+    await client.query(
+      `insert into invoice_line (invoice_id, kind, timecard_id, description,
+                                 quantity, unit_rate, amount, sort_order)
+       values ($1,'time',$2,$3,40,$4,$5,$6)`,
+      [inv.id, w.id, `Marcus Bell - week ending ${w.week_ending
+        .toISOString().slice(0, 10)}`, rate, w.billable_amount, n++]);
+  }
+  if (status !== "draft") {
+    await client.query(`update invoice set status = $2 where id = $1`, [inv.id, status]);
+  }
+  if (paidAmount) {
+    await client.query(
+      `insert into payment (invoice_id, amount, received_at, method, reference)
+       values ($1,$2,$3,'ACH',$4)`,
+      [inv.id, paidAmount, issued, "GLX-" + number]);
+  }
+  return inv;
+}
+
+await invoiceFor("TS-2026-0411", cards.slice(0, 4), "paid", "2026-07-06",
+                 cards.slice(0, 4).reduce((a, c) => a + Number(c.billable_amount), 0));
+await invoiceFor("TS-2026-0452", cards.slice(4, 8), "sent", "2026-08-03", null);
+// Weeks 9 and 10 are drafted but not issued. Weeks 11-13 are not even approved.
+await invoiceFor("TS-2026-0488", cards.slice(8, 10), "draft", null, null);
 
 // -- agreements and documents ------------------------------------------------
 await client.query(

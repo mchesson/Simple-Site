@@ -31,14 +31,21 @@ const WRITABLE = {
   purchase_order: ["project_id","sow_id","po_number","amount","currency","start_date",
                    "end_date","status","notes"],
   timecard: ["placement_id","purchase_order_id","week_ending","hours","ot_hours","status",
-             "approved_by","approved_at","billed_amount"],
+             "submitted_at","approved_by","approved_at","rejected_reason",
+             "billable_amount","notes"],
+  invoice: ["invoice_number","account_id","project_id","purchase_order_id","status",
+            "issue_date","due_date","terms_days","period_start","period_end","notes"],
+  invoice_line: ["invoice_id","kind","timecard_id","description","quantity","unit_rate",
+                 "amount","sort_order"],
+  payment: ["invoice_id","amount","received_at","method","reference"],
   document: ["kind","title","account_id","location_id","project_id","contact_id",
              "sharepoint_url","sharepoint_path","content_text","mime_type","byte_size","uploaded_by"],
   pipeline: ["owner_id","name","project_id","notes"],
 };
 
 const HAS_UPDATED_AT = new Set(["account","location","contact","project","submission",
-  "placement","agreement","rate_verification","sow","purchase_order","timecard","conversation"]);
+  "placement","agreement","rate_verification","sow","purchase_order","timecard","invoice",
+  "conversation"]);
 
 function pick(table, data) {
   const allowed = WRITABLE[table];
@@ -413,14 +420,293 @@ export async function advanceSubmission(submissionId, toStage, reason, actorId =
 }
 
 export async function poBurndown({ projectId = null, accountName = null,
-                                   expiringDays = null } = {}) {
+                                   expiringDays = null, atRisk = false } = {}) {
   return rows(
     `select * from po_burndown
       where ($1::uuid is null or project_id = $1)
         and ($2::text is null or account_name ilike '%'||$2||'%')
         and ($3::int is null or (days_remaining is not null and days_remaining <= $3))
-      order by days_remaining nulls last, pct_burned desc`,
-    [projectId, accountName, expiringDays]);
+        and (not $4::boolean or projected_remaining < 0 or
+             (days_remaining is not null and days_remaining <= 45 and
+              approved_unbilled + drafted_not_sent > 0))
+      order by days_remaining nulls last, pct_committed desc`,
+    [projectId, accountName, expiringDays, atRisk]);
+}
+
+// ------------------------------------------------------------------ timecards
+
+export async function listTimecards({ status = null, poId = null, projectId = null,
+                                      placementId = null, weekFrom = null,
+                                      weekTo = null, unbilledOnly = false,
+                                      limit = 200 } = {}) {
+  return rows(
+    `select tc.id, tc.week_ending, tc.hours, tc.ot_hours, tc.status,
+            tc.billable_amount, tc.approved_by, tc.approved_at, tc.rejected_reason,
+            c.full_name, c.id as contact_id,
+            p.id as project_id, p.name as project_name, a.name as account_name,
+            po.po_number, po.id as purchase_order_id,
+            -- What a submitted week would be worth if approved, so an approver
+            -- sees the money before they click.
+            case when tc.billable_amount is not null then tc.billable_amount
+                 else timecard_billable(tc.placement_id, tc.week_ending,
+                                        tc.hours, tc.ot_hours) end as value,
+            inv.invoice_number, inv.id as invoice_id, inv.status as invoice_status
+       from timecard tc
+       join placement pl on pl.id = tc.placement_id
+       join contact   c  on c.id  = pl.contact_id
+       join project   p  on p.id  = pl.project_id
+       join account   a  on a.id  = p.account_id
+       left join purchase_order po on po.id = tc.purchase_order_id
+       left join lateral (
+         select i.id, i.invoice_number, i.status
+           from invoice_line l join invoice i on i.id = l.invoice_id
+          where l.timecard_id = tc.id and i.status <> 'void' limit 1
+       ) inv on true
+      where ($1::text is null or tc.status = $1)
+        and ($2::uuid is null or tc.purchase_order_id = $2)
+        and ($3::uuid is null or p.id = $3)
+        and ($4::uuid is null or tc.placement_id = $4)
+        and ($5::date is null or tc.week_ending >= $5)
+        and ($6::date is null or tc.week_ending <= $6)
+        and (not $7::boolean or inv.id is null)
+      order by tc.week_ending desc, c.full_name
+      limit $8`,
+    [status, poId, projectId, placementId, weekFrom, weekTo, unbilledOnly, limit]);
+}
+
+// The client accepting a week is the moment it becomes earned revenue, so this
+// is where the value gets frozen at the rate that was in force that week.
+export async function approveTimecards(ids, approvedBy, actorId = null) {
+  if (!ids?.length) throw new Error("no timecards named");
+  return tx(async (t) => {
+    const before = await t.rows(
+      `select id, status, week_ending from timecard where id = any($1::uuid[]) for update`,
+      [ids]);
+    const notPending = before.filter((b) => !["submitted", "rejected"].includes(b.status));
+    if (notPending.length) {
+      throw new Error(
+        `already ${notPending[0].status}: week ending ` +
+        notPending.map((b) => b.week_ending.toISOString().slice(0, 10)).join(", "));
+    }
+    const after = await t.rows(
+      `update timecard set status = 'approved', approved_by = $2, approved_at = now(),
+              rejected_reason = null, billable_amount =
+                timecard_billable(placement_id, week_ending, hours, ot_hours),
+              updated_at = now()
+        where id = any($1::uuid[]) returning *`, [ids, approvedBy]);
+    for (const row of after) {
+      await t.query(
+        `insert into record_revision (table_name, record_id, before, after, changed_by)
+         values ('timecard',$1,$2,$3,$4)`,
+        [row.id, before.find((b) => b.id === row.id), row, actorId]);
+    }
+    await recordEvent(t, "timecard.approved", "purchase_order",
+                      after[0]?.purchase_order_id ?? null,
+                      { weeks: after.length, approved_by: approvedBy,
+                        value: after.reduce((a, r) => a + Number(r.billable_amount), 0) },
+                      actorId);
+    return after;
+  });
+}
+
+export async function rejectTimecard(id, reason, actorId = null) {
+  return updateRecord("timecard", id,
+    { status: "rejected", rejected_reason: reason, billable_amount: null }, actorId);
+}
+
+// ------------------------------------------------------------------- invoices
+
+// Invoice numbers are sequential within the year and gapless enough to satisfy
+// an auditor. Taken inside the transaction that creates the invoice.
+async function nextInvoiceNumber(t) {
+  const year = new Date().getFullYear();
+  const row = await t.one(
+    `select coalesce(max(substring(invoice_number from '\\d+$')::int), 0) + 1 as n
+       from invoice where invoice_number like $1`, [`TS-${year}-%`]);
+  return `TS-${year}-${String(row.n).padStart(4, "0")}`;
+}
+
+/**
+ * Draft an invoice from approved, unbilled time.
+ *
+ * This is the only route from a timecard to an invoice line. It cannot pick up
+ * time the client has not approved, and it cannot pick up a week that is
+ * already on a live invoice - the database refuses both.
+ */
+export async function draftInvoiceFromApproved({ purchaseOrderId = null, projectId = null,
+                                                 throughWeek = null, terms = 45,
+                                                 notes = null }, actorId = null) {
+  return tx(async (t) => {
+    const cards = await t.rows(
+      `select tc.*, c.full_name, pl.project_id
+         from timecard tc
+         join placement pl on pl.id = tc.placement_id
+         join contact c on c.id = pl.contact_id
+        where tc.status = 'approved'
+          and ($1::uuid is null or tc.purchase_order_id = $1)
+          and ($2::uuid is null or pl.project_id = $2)
+          and ($3::date is null or tc.week_ending <= $3)
+          and not exists (
+            select 1 from invoice_line l join invoice i on i.id = l.invoice_id
+             where l.timecard_id = tc.id and i.status <> 'void')
+        order by tc.week_ending, c.full_name`,
+      [purchaseOrderId, projectId, throughWeek]);
+
+    if (!cards.length) {
+      return { nothing_to_bill: true,
+               message: "No approved time is waiting to be billed for that." };
+    }
+
+    const project = await t.one(
+      `select p.id, p.name, p.account_id from project p where p.id = $1`,
+      [projectId || cards[0].project_id]);
+    const number = await nextInvoiceNumber(t);
+
+    const inv = await t.one(
+      `insert into invoice (invoice_number, account_id, project_id, purchase_order_id,
+                            status, terms_days, period_start, period_end, notes)
+       values ($1,$2,$3,$4,'draft',$5,$6,$7,$8) returning *`,
+      [number, project.account_id, project.id,
+       purchaseOrderId || cards[0].purchase_order_id, terms,
+       cards[0].week_ending, cards[cards.length - 1].week_ending, notes]);
+
+    let n = 0;
+    for (const c of cards) {
+      const hours = Number(c.hours) + Number(c.ot_hours);
+      await t.query(
+        `insert into invoice_line (invoice_id, kind, timecard_id, description,
+                                   quantity, unit_rate, amount, sort_order)
+         values ($1,'time',$2,$3,$4,$5,$6,$7)`,
+        [inv.id, c.id,
+         `${c.full_name} - week ending ${c.week_ending.toISOString().slice(0, 10)}`,
+         hours, hours ? Number(c.billable_amount) / hours : null,
+         c.billable_amount, n++]);
+    }
+    await t.query(
+      `insert into record_revision (table_name, record_id, before, after, changed_by)
+       values ('invoice',$1,null,$2,$3)`, [inv.id, inv, actorId]);
+    await recordEvent(t, "invoice.drafted", "invoice", inv.id,
+                      { number, weeks: cards.length,
+                        total: cards.reduce((a, c) => a + Number(c.billable_amount), 0) },
+                      actorId);
+    return { ...inv, line_count: cards.length,
+             total: cards.reduce((a, c) => a + Number(c.billable_amount), 0) };
+  });
+}
+
+// Issuing is the moment it burns the PO, which is why the overrun check lives
+// on this transition and not on drafting.
+export async function sendInvoice(id, issueDate = null, actorId = null) {
+  return tx(async (t) => {
+    const before = await t.one(`select * from invoice where id = $1 for update`, [id]);
+    if (!before) throw new Error("invoice not found");
+    if (before.status !== "draft")
+      throw new Error(`invoice ${before.invoice_number} is already ${before.status}`);
+    const issue = issueDate || new Date().toISOString().slice(0, 10);
+    const after = await t.one(
+      `update invoice set status = 'sent', issue_date = $2::date,
+              due_date = $2::date + terms_days, sent_at = now(), updated_at = now()
+        where id = $1 returning *`, [id, issue]);
+    const totals = await t.one(`select * from invoice_totals where invoice_id = $1`, [id]);
+    await t.query(
+      `insert into record_revision (table_name, record_id, before, after, changed_by)
+       values ('invoice',$1,$2,$3,$4)`, [id, before, after, actorId]);
+    await recordEvent(t, "invoice.sent", "invoice", id,
+                      { number: after.invoice_number, total: totals.total }, actorId);
+    return { ...after, ...totals };
+  });
+}
+
+export async function recordPayment({ invoiceId, amount, receivedAt = null,
+                                      method = null, reference = null }, actorId = null) {
+  return tx(async (t) => {
+    const inv = await t.one(`select * from invoice where id = $1 for update`, [invoiceId]);
+    if (!inv) throw new Error("invoice not found");
+    if (inv.status === "void") throw new Error("that invoice was voided");
+    if (inv.status === "draft") throw new Error("that invoice has not been sent yet");
+    await t.query(
+      `insert into payment (invoice_id, amount, received_at, method, reference)
+       values ($1,$2,coalesce($3::date, current_date),$4,$5)`,
+      [invoiceId, amount, receivedAt, method, reference]);
+    const totals = await t.one(`select * from invoice_totals where invoice_id = $1`,
+                               [invoiceId]);
+    const status = Number(totals.outstanding) <= 0 ? "paid" : "part_paid";
+    const after = await t.one(
+      `update invoice set status = $2, updated_at = now() where id = $1 returning *`,
+      [invoiceId, status]);
+    await recordEvent(t, "payment.received", "invoice", invoiceId,
+                      { amount, outstanding: totals.outstanding, status }, actorId);
+    return { ...after, ...totals };
+  });
+}
+
+// Voiding never deletes. The invoice stays, and its weeks become billable again.
+export async function voidInvoice(id, reason, actorId = null) {
+  return tx(async (t) => {
+    const before = await t.one(`select * from invoice where id = $1 for update`, [id]);
+    if (!before) throw new Error("invoice not found");
+    const after = await t.one(
+      `update invoice set status = 'void', voided_at = now(), void_reason = $2,
+              updated_at = now() where id = $1 returning *`, [id, reason]);
+    await t.query(
+      `insert into record_revision (table_name, record_id, before, after, changed_by)
+       values ('invoice',$1,$2,$3,$4)`, [id, before, after, actorId]);
+    await recordEvent(t, "invoice.voided", "invoice", id,
+                      { number: before.invoice_number, reason }, actorId);
+    return after;
+  });
+}
+
+export async function listInvoices({ accountId = null, projectId = null, poId = null,
+                                     status = null, overdueOnly = false,
+                                     limit = 100 } = {}) {
+  return rows(
+    `select i.id, i.invoice_number, i.status, i.issue_date, i.due_date,
+            i.period_start, i.period_end,
+            t.total, t.paid, t.outstanding, t.line_count,
+            a.name as account_name, p.name as project_name, po.po_number,
+            ag.days_overdue, ag.bucket
+       from invoice i
+       join invoice_totals t on t.invoice_id = i.id
+       join account a on a.id = i.account_id
+       left join project p on p.id = i.project_id
+       left join purchase_order po on po.id = i.purchase_order_id
+       left join invoice_aging ag on ag.invoice_id = i.id
+      where ($1::uuid is null or i.account_id = $1)
+        and ($2::uuid is null or i.project_id = $2)
+        and ($3::uuid is null or i.purchase_order_id = $3)
+        and ($4::text is null or i.status = $4)
+        and (not $5::boolean or coalesce(ag.days_overdue,0) > 0)
+      order by i.issue_date desc nulls first, i.invoice_number desc
+      limit $6`,
+    [accountId, projectId, poId, status, overdueOnly, limit]);
+}
+
+export async function getInvoice(id) {
+  const inv = await one(
+    `select i.*, a.name as account_name, p.name as project_name, po.po_number,
+            t.total, t.paid, t.outstanding
+       from invoice i
+       join invoice_totals t on t.invoice_id = i.id
+       join account a on a.id = i.account_id
+       left join project p on p.id = i.project_id
+       left join purchase_order po on po.id = i.purchase_order_id
+      where i.id = $1`, [id]);
+  if (!inv) return null;
+  const [lines, payments] = await Promise.all([
+    rows(`select l.*, tc.week_ending, tc.hours, tc.ot_hours
+            from invoice_line l left join timecard tc on tc.id = l.timecard_id
+           where l.invoice_id = $1 order by l.sort_order, l.created_at`, [id]),
+    rows(`select * from payment where invoice_id = $1 order by received_at`, [id]),
+  ]);
+  return { ...inv, lines, payments };
+}
+
+export async function invoiceAging({ accountName = null } = {}) {
+  return rows(
+    `select * from invoice_aging
+      where ($1::text is null or account_name ilike '%'||$1||'%')
+      order by days_overdue desc, due_date`, [accountName]);
 }
 
 export async function searchDocuments({ q = null, kind = null, accountId = null,

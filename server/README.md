@@ -7,6 +7,7 @@ what the system did rather than asking you to trust it.
 ```
 server/
   src/schema.sql       the database, with the business rules as constraints
+                       (the canonical DDL - db:reset rebuilds from it)
   src/bootstrap.sql    one-time role setup (run as a superuser)
   src/seed.js          demo data shaped like the real business
   src/db.js            two connection pools: one read/write, one SELECT-only
@@ -16,7 +17,7 @@ server/
   src/trace.js         the observability spine
   src/server.js        REST API, streaming chat, inspector endpoints
   public/              the workspace UI and the inspector
-  test/                52 tests against a real Postgres database
+  test/                71 tests against a real Postgres database
 ```
 
 ## Running it
@@ -70,9 +71,55 @@ gross_margin(pay, bill, burden_pct) = bill - pay - (pay * burden_pct / 100)
 ```
 
 Burden is a percentage of **pay**, not of bill. At 65 pay / 105 bill / 22%
-burden the spread looks like $40 but the gross margin is $25.70 — 24.48%.
+burden the spread looks like $40 but the gross margin is $25.70 - 24.48%.
 Computing it the other way overstates margin on every placement, and it
 overstates it most where the pay rate is lowest.
+
+## Time, purchase orders and invoices
+
+A purchase order is burned by what we have **invoiced**, not by what our people
+worked. Those are different numbers and the gap between them is the thing worth
+watching, so `po_burndown` carries every stage:
+
+| Column | What it is |
+|---|---|
+| `submitted_pending` | Time claimed, not yet accepted by the client. Not earned. |
+| `approved_unbilled` | Accepted by the client, not billed. Earned revenue sitting in our own queue. |
+| `drafted_not_sent` | An invoice prepared but not issued. Still ours, not theirs. |
+| `invoiced` | Issued to the client. **This is the burn.** |
+| `paid` / `outstanding` | What came back, and what has not. |
+| `remaining` | `amount - invoiced`. What the PO can still be billed for. |
+| `projected_remaining` | What is left once the whole backlog is billed. |
+
+A PO can read healthy on `remaining` and already be spent, because a month of
+approved time is sitting unbilled. `projected_remaining` going negative is that
+condition, and `po_burndown(at_risk => true)` returns exactly those.
+
+Time moves one way and the database enforces every step:
+
+```
+draft -> submitted -> approved -> on a draft invoice -> issued -> paid
+                         |
+                     rejected
+```
+
+- **Approval freezes the value.** `timecard_billable()` prices the week at the
+  bill rate that was in force on the week ending date, using the effective-dated
+  rate history. A week worked in July still prices at July's rate in December.
+- **Only approved time can be invoiced.** A trigger refuses an invoice line
+  pointing at a timecard in any other state.
+- **A week cannot be billed twice.** A trigger refuses a second line for the same
+  timecard on any invoice that is not voided.
+- **A sent invoice is frozen.** Lines can only change while it is a draft.
+- **An invoice cannot overrun its PO.** Sending one that would take the PO past
+  its committed amount is refused, and the error names the remedy: a change
+  order or a new PO.
+- **Voiding never deletes.** The invoice stays and its weeks become billable
+  again.
+
+`invoice_aging` buckets receivables the way a controller expects - current,
+1-30, 31-60, 61-90, 90+ - and excludes drafts, because nobody owes us anything
+until an invoice is issued.
 
 ## The assistant
 
@@ -80,8 +127,8 @@ overstates it most where the pay rate is lowest.
 `agent.js` rather than the SDK tool runner — because the point of this build is
 that every step is observable, and the loop is where the instrumentation hangs.
 
-Twenty-three tools cover accounts, sites, contacts, projects, activity,
-documents, pipelines and PO burn-down. Two of them matter more than the rest:
+Thirty-one tools cover accounts, sites, contacts, projects, activity,
+documents, pipelines, timecards, invoices and PO burn-down. Two of them matter more than the rest:
 
 - `sql_query` runs a SELECT when no purpose-built tool fits. The connection
   holds a `ts_readonly` role with `SELECT` and nothing else, so a write is
@@ -123,11 +170,15 @@ it, because that would invalidate the cache every day.
 npm test
 ```
 
-52 tests against a real Postgres database built from the same `schema.sql` the
+71 tests against a real Postgres database built from the same `schema.sql` the
 application uses — the constraints are where most of the design lives, and a
 mock would not catch them. The agent loop is exercised with a scripted stand-in
 for the Anthropic client, so tool dispatch, trace capture, the iteration cap,
 parallel tool results and cache stability are all covered without a key.
+
+The money path gets the most attention: double-billing, invoicing unapproved
+time, changing a sent invoice, overrunning a purchase order, the rate in force
+on a given week, and every column of the burn-down at each stage.
 
 **What is not covered:** no test in this suite makes a live Claude API call.
 The request shape is asserted against the documented parameters, but the round

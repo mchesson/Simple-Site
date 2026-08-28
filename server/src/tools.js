@@ -572,14 +572,23 @@ export function buildTools(ctx) {
     {
       name: "po_burndown",
       description:
-        "Purchase order burn-down: committed amount, what approved time has burned, what " +
-        "is submitted but not yet approved, what is left, and days until the PO expires. " +
-        "Use expiring_within_days to find POs about to run out.",
+        "Purchase order burn-down. A PO is burned by what we have INVOICED, not by what " +
+        "our people worked, so the numbers are separate and all of them come back: " +
+        "invoiced (the burn), paid and outstanding, drafted_not_sent (an invoice we " +
+        "prepared but have not issued), approved_unbilled (work the client accepted that " +
+        "we have not billed yet - earned revenue sitting in our own queue), " +
+        "submitted_pending (time claimed but not yet approved - not earned), remaining " +
+        "(amount minus invoiced) and projected_remaining (what is left once the approved " +
+        "backlog is billed). A negative projected_remaining means the PO is already spent " +
+        "even though it does not look it. Use at_risk to find exactly those.",
       input_schema: {
         type: "object",
         properties: {
           project_name: { type: "string" }, account_name: { type: "string" },
           expiring_within_days: { type: "integer" },
+          at_risk: { type: "boolean",
+            description: "Only POs already over-committed, or expiring within 45 days " +
+                         "with unbilled work against them." },
         },
       },
       run: async (i) => {
@@ -591,8 +600,214 @@ export function buildTools(ctx) {
         }
         return repo.poBurndown({
           projectId, accountName: i.account_name || null,
-          expiringDays: i.expiring_within_days ?? null });
+          expiringDays: i.expiring_within_days ?? null, atRisk: !!i.at_risk });
       },
+    },
+    {
+      name: "list_timecards",
+      description:
+        "Timecards. Status is submitted (claimed, not yet accepted by the client), " +
+        "approved (accepted - this is earned revenue) or rejected. Whether a week has " +
+        "been billed is not a status: the invoice_number field is filled in when it is " +
+        "on a live invoice. Use unbilled=true with status=approved to see the billing " +
+        "backlog.",
+      input_schema: {
+        type: "object",
+        properties: {
+          status: { type: "string", enum: ["draft", "submitted", "approved", "rejected"] },
+          project_name: { type: "string" }, po_number: { type: "string" },
+          from: { type: "string", description: "Earliest week ending, YYYY-MM-DD" },
+          to: { type: "string", description: "Latest week ending, YYYY-MM-DD" },
+          unbilled: { type: "boolean", description: "Only weeks not on a live invoice." },
+          limit: { type: "integer", default: 200 },
+        },
+      },
+      run: async (i) => {
+        let projectId = null, poId = null;
+        if (i.project_name) {
+          const r = await resolve("project", i.project_name);
+          if (!r.match) return ambiguous("project", i.project_name, r.candidates);
+          projectId = r.match.id;
+        }
+        if (i.po_number) {
+          const po = await one(
+            `select id from purchase_order where po_number ilike '%'||$1||'%'`,
+            [i.po_number]);
+          if (!po) return { error: "not_found", message: `No PO matching ${i.po_number}.` };
+          poId = po.id;
+        }
+        return repo.listTimecards({
+          status: i.status || null, projectId, poId,
+          weekFrom: i.from || null, weekTo: i.to || null,
+          unbilledOnly: !!i.unbilled, limit: i.limit || 200 });
+      },
+    },
+    {
+      name: "approve_timecards",
+      description:
+        "Record that the client approved weeks of time. This freezes what each week is " +
+        "worth at the bill rate in force that week, and turns it into earned revenue " +
+        "that can be invoiced. Needs the name of the person at the client who approved.",
+      input_schema: {
+        type: "object",
+        properties: {
+          timecard_ids: { type: "array", items: { type: "string" } },
+          approved_by: { type: "string",
+                         description: "The client-side name who signed off." },
+        },
+        required: ["timecard_ids", "approved_by"],
+      },
+      run: async (i) => {
+        if (!i.timecard_ids?.length) return need("which weeks were approved");
+        if (!i.approved_by) return need("who at the client approved them");
+        return repo.approveTimecards(i.timecard_ids, i.approved_by, actor());
+      },
+    },
+    {
+      name: "draft_invoice",
+      description:
+        "Draft an invoice from approved time that has not been billed yet. This is the " +
+        "only route from a timecard to an invoice: it cannot pick up time the client has " +
+        "not approved, and it cannot pick up a week that is already on a live invoice. " +
+        "The draft does not burn the PO - sending it does.",
+      input_schema: {
+        type: "object",
+        properties: {
+          po_number: { type: "string" }, project_name: { type: "string" },
+          through_week: { type: "string",
+                          description: "Bill everything up to this week ending, YYYY-MM-DD." },
+          terms: { type: "integer", description: "Payment terms in days. Default 45." },
+          notes: { type: "string" },
+        },
+      },
+      run: async (i) => {
+        let poId = null, projectId = null;
+        if (i.po_number) {
+          const po = await one(
+            `select id from purchase_order where po_number ilike '%'||$1||'%'`,
+            [i.po_number]);
+          if (!po) return { error: "not_found", message: `No PO matching ${i.po_number}.` };
+          poId = po.id;
+        }
+        if (i.project_name) {
+          const r = await resolve("project", i.project_name);
+          if (!r.match) return ambiguous("project", i.project_name, r.candidates);
+          projectId = r.match.id;
+        }
+        if (!poId && !projectId) return need("which PO or project to bill");
+        return repo.draftInvoiceFromApproved({
+          purchaseOrderId: poId, projectId, throughWeek: i.through_week || null,
+          terms: i.terms ?? 45, notes: i.notes || null }, actor());
+      },
+    },
+    {
+      name: "send_invoice",
+      description:
+        "Issue a drafted invoice to the client. This is the moment it burns the purchase " +
+        "order. If it would take the PO past its committed amount the database refuses it " +
+        "and the error says so - the remedy is a change order or a new PO, not a smaller " +
+        "invoice.",
+      input_schema: {
+        type: "object",
+        properties: {
+          invoice_number: { type: "string" }, invoice_id: { type: "string" },
+          issue_date: { type: "string", description: "YYYY-MM-DD. Defaults to today." },
+        },
+      },
+      run: async (i) => {
+        const id = i.invoice_id || (await invoiceIdFromNumber(i.invoice_number));
+        if (!id) return need("which invoice to send");
+        if (id.error) return id;
+        return repo.sendInvoice(id, i.issue_date || null, actor());
+      },
+    },
+    {
+      name: "record_payment",
+      description: "Record money received against an invoice. Settles it when the balance " +
+        "reaches zero, otherwise marks it part paid.",
+      input_schema: {
+        type: "object",
+        properties: {
+          invoice_number: { type: "string" }, invoice_id: { type: "string" },
+          amount: { type: "number" },
+          received_at: { type: "string", description: "YYYY-MM-DD" },
+          method: { type: "string" }, reference: { type: "string" },
+        },
+        required: ["amount"],
+      },
+      run: async (i) => {
+        const id = i.invoice_id || (await invoiceIdFromNumber(i.invoice_number));
+        if (!id) return need("which invoice this payment is against");
+        if (id.error) return id;
+        return repo.recordPayment({
+          invoiceId: id, amount: i.amount, receivedAt: i.received_at || null,
+          method: i.method || null, reference: i.reference || null }, actor());
+      },
+    },
+    {
+      name: "list_invoices",
+      description:
+        "Invoices with their totals, what has been paid and what is outstanding. " +
+        "A draft has not been issued and owes nothing yet.",
+      input_schema: {
+        type: "object",
+        properties: {
+          account_name: { type: "string" }, project_name: { type: "string" },
+          po_number: { type: "string" },
+          status: { type: "string",
+                    enum: ["draft", "sent", "part_paid", "paid", "void"] },
+          overdue: { type: "boolean" },
+        },
+      },
+      run: async (i) => {
+        let accountId = null, projectId = null, poId = null;
+        if (i.account_name) {
+          const r = await resolve("account", i.account_name);
+          if (!r.match) return ambiguous("account", i.account_name, r.candidates);
+          accountId = r.match.id;
+        }
+        if (i.project_name) {
+          const r = await resolve("project", i.project_name);
+          if (!r.match) return ambiguous("project", i.project_name, r.candidates);
+          projectId = r.match.id;
+        }
+        if (i.po_number) {
+          const po = await one(
+            `select id from purchase_order where po_number ilike '%'||$1||'%'`,
+            [i.po_number]);
+          poId = po?.id ?? null;
+        }
+        return repo.listInvoices({
+          accountId, projectId, poId, status: i.status || null,
+          overdueOnly: !!i.overdue });
+      },
+    },
+    {
+      name: "get_invoice",
+      description: "One invoice in full: every line, which week of time each line bills, " +
+        "and every payment received against it.",
+      input_schema: {
+        type: "object",
+        properties: { invoice_number: { type: "string" }, invoice_id: { type: "string" } },
+      },
+      run: async (i) => {
+        const id = i.invoice_id || (await invoiceIdFromNumber(i.invoice_number));
+        if (!id) return need("which invoice");
+        if (id.error) return id;
+        return (await repo.getInvoice(id)) || { error: "not_found" };
+      },
+    },
+    {
+      name: "invoice_aging",
+      description:
+        "What clients owe us and how late it is, in the standard buckets: current, " +
+        "1-30, 31-60, 61-90, 90+. Drafts are excluded because nobody owes us anything " +
+        "until an invoice is issued.",
+      input_schema: {
+        type: "object",
+        properties: { account_name: { type: "string" } },
+      },
+      run: async (i) => repo.invoiceAging({ accountName: i.account_name || null }),
     },
 
     // ------------------------------------------------------------- pipelines
@@ -695,6 +910,14 @@ export function buildTools(ctx) {
   ];
 
   return T;
+}
+
+async function invoiceIdFromNumber(number) {
+  if (!number) return null;
+  const inv = await one(
+    `select id from invoice where invoice_number ilike '%'||$1||'%'`, [number]);
+  return inv ? inv.id
+             : { error: "not_found", message: `No invoice matching ${number}.` };
 }
 
 export async function describeSchema(table = null) {

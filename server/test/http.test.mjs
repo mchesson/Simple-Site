@@ -85,6 +85,33 @@ describe("the HTTP surface", () => {
     }
   });
 
+  test("the billing endpoints answer", async () => {
+    for (const p of ["/api/timecards", "/api/invoices", "/api/invoice-aging",
+                     "/api/po-burndown", "/api/po-burndown?at_risk=1"]) {
+      const { status, body } = await get(p);
+      assert.equal(status, 200, p);
+      assert.ok(Array.isArray(body), p);
+    }
+  });
+
+  test("burn-down separates what was billed from what was only earned", async () => {
+    const { body } = await get("/api/po-burndown");
+    if (!body.length) return;
+    for (const k of ["invoiced", "paid", "outstanding", "drafted_not_sent",
+                     "approved_unbilled", "submitted_pending", "remaining",
+                     "projected_remaining"]) {
+      assert.ok(k in body[0], `burn-down is missing ${k}`);
+    }
+  });
+
+  test("approving without naming the approver is refused", async () => {
+    const r = await fetch(base + "/api/timecards/approve", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ ids: [], approved_by: "" }),
+    });
+    assert.equal(r.status, 400);
+  });
+
   test("a missing record answers 404 rather than an empty 200", async () => {
     const { status } = await get("/api/accounts/00000000-0000-0000-0000-000000000000");
     assert.equal(status, 404);

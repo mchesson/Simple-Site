@@ -160,7 +160,49 @@ route("GET", "/api/po-burndown", async (_p, q) =>
     projectId: q.get("project_id"), accountName: q.get("account"),
     expiringDays: q.get("expiring_within_days")
       ? Number(q.get("expiring_within_days")) : null,
+    atRisk: q.get("at_risk") === "1",
   }));
+
+// ------------------------------------------------------- timecards & invoices
+
+route("GET", "/api/timecards", async (_p, q) =>
+  repo.listTimecards({
+    status: q.get("status"), poId: q.get("po_id"), projectId: q.get("project_id"),
+    placementId: q.get("placement_id"), weekFrom: q.get("from"), weekTo: q.get("to"),
+    unbilledOnly: q.get("unbilled") === "1",
+    limit: Number(q.get("limit") || 200),
+  }));
+route("POST", "/api/timecards", async (_p, _q, body) =>
+  repo.insertRecord("timecard", body, await actorId()));
+route("POST", "/api/timecards/approve", async (_p, _q, body) =>
+  repo.approveTimecards(body.ids, body.approved_by, await actorId()));
+route("POST", "/api/timecards/:id/reject", async (p, _q, body) =>
+  repo.rejectTimecard(p.id, body.reason, await actorId()));
+
+route("GET", "/api/invoices", async (_p, q) =>
+  repo.listInvoices({
+    accountId: q.get("account_id"), projectId: q.get("project_id"),
+    poId: q.get("po_id"), status: q.get("status"),
+    overdueOnly: q.get("overdue") === "1", limit: Number(q.get("limit") || 100),
+  }));
+route("GET", "/api/invoices/:id", async (p) =>
+  (await repo.getInvoice(p.id)) || { error: "not_found" });
+route("POST", "/api/invoices/draft", async (_p, _q, body) =>
+  repo.draftInvoiceFromApproved({
+    purchaseOrderId: body.purchase_order_id, projectId: body.project_id,
+    throughWeek: body.through_week, terms: body.terms ?? 45, notes: body.notes,
+  }, await actorId()));
+route("POST", "/api/invoices/:id/send", async (p, _q, body) =>
+  repo.sendInvoice(p.id, body?.issue_date || null, await actorId()));
+route("POST", "/api/invoices/:id/payments", async (p, _q, body) =>
+  repo.recordPayment({
+    invoiceId: p.id, amount: body.amount, receivedAt: body.received_at,
+    method: body.method, reference: body.reference }, await actorId()));
+route("POST", "/api/invoices/:id/void", async (p, _q, body) =>
+  repo.voidInvoice(p.id, body?.reason || null, await actorId()));
+
+route("GET", "/api/invoice-aging", async (_p, q) =>
+  repo.invoiceAging({ accountName: q.get("account") }));
 
 route("GET", "/api/history/:table/:id", async (p) => repo.revisionsFor(p.table, p.id));
 route("GET", "/api/events", async (_p, q) =>
@@ -278,7 +320,7 @@ const server = http.createServer(async (req, res) => {
 
 const MIME = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
                ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml",
-               ".json": "application/json" };
+               ".ico": "image/svg+xml", ".json": "application/json" };
 
 function serveStatic(pathname, res) {
   const rel = pathname === "/" ? "/index.html" : pathname;

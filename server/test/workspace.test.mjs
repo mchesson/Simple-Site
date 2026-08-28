@@ -239,37 +239,221 @@ describe("accounts, sites and ownership", () => {
   });
 });
 
-// ------------------------------------------------------------ PO burn-down
+// --------------------------------------------------------- timecards & money
 
-describe("purchase order burn-down", () => {
-  test("approved time burns the PO, submitted time waits outside it", async () => {
-    const pl = await repo.insertRecord("placement",
-      { project_id: project.id, contact_id: dana.id, start_date: "2026-06-01" }, mark.id);
-    const po = await repo.insertRecord("purchase_order", {
-      project_id: project.id, po_number: "PO-1", amount: 100000,
-      start_date: "2026-06-01", end_date: "2026-10-31" }, mark.id);
-    for (let i = 0; i < 5; i++) {
-      await repo.insertRecord("timecard", {
-        placement_id: pl.id, purchase_order_id: po.id,
-        week_ending: `2026-07-0${i + 1}`, hours: 40, status: "approved",
-        billed_amount: 4000 }, mark.id);
+describe("time turns into money in three distinct stages", () => {
+  let pl, po, weeks;
+
+  test("a placement, a PO and three weeks of submitted time", async () => {
+    pl = await repo.insertRecord("placement",
+      { project_id: project.id, contact_id: marcus.id, start_date: "2026-06-01" }, mark.id);
+    // Two effective-dated rates, so the "rate in force that week" logic is real.
+    await pool.query(
+      `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct,
+         effective_from, effective_to) values ($1,65,105,22,'2026-06-01','2026-08-01')`,
+      [pl.id]);
+    await pool.query(
+      `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct,
+         effective_from) values ($1,68,108,22,'2026-08-01')`, [pl.id]);
+    po = await repo.insertRecord("purchase_order",
+      { project_id: project.id, po_number: "PO-TEST-1", amount: 30000,
+        start_date: "2026-06-01", end_date: "2026-12-31" }, mark.id);
+    weeks = [];
+    for (const wk of ["2026-07-03", "2026-07-10", "2026-08-07"]) {
+      weeks.push(await repo.insertRecord("timecard",
+        { placement_id: pl.id, purchase_order_id: po.id, week_ending: wk,
+          hours: 40, status: "submitted" }, mark.id));
     }
-    await repo.insertRecord("timecard", {
-      placement_id: pl.id, purchase_order_id: po.id, week_ending: "2026-07-08",
-      hours: 40, status: "submitted", billed_amount: 4000 }, mark.id);
-
-    const [b] = await repo.poBurndown({ projectId: project.id });
-    assert.equal(Number(b.burned), 20000);
-    assert.equal(Number(b.pending_approval), 4000);
-    assert.equal(Number(b.remaining), 80000);
-    assert.equal(Number(b.pct_burned), 20);
+    assert.equal(weeks.length, 3);
   });
 
-  test("a PO can be found by how soon it expires", async () => {
-    const soon = await repo.poBurndown({ expiringDays: 100000 });
-    assert.ok(soon.length >= 1);
-    const never = await repo.poBurndown({ expiringDays: -100000 });
-    assert.equal(never.length, 0);
+  test("a week is priced at the rate in force that week, not today's rate", async () => {
+    const list = await repo.listTimecards({ poId: po.id });
+    const july = list.find((t) => t.week_ending.toISOString().startsWith("2026-07-03"));
+    const august = list.find((t) => t.week_ending.toISOString().startsWith("2026-08-07"));
+    assert.equal(Number(july.value), 4200);    // 40 x 105
+    assert.equal(Number(august.value), 4320);  // 40 x 108, after the rate moved
+  });
+
+  test("overtime uses the overtime rate, or time and a half when none is on file", async () => {
+    const [r] = await rows(
+      `select timecard_billable($1,'2026-07-03',40,5) as v`, [pl.id]);
+    assert.equal(Number(r.v), 40 * 105 + 5 * 157.5);
+  });
+
+  test("submitted time is not earned and does not appear as unbilled", async () => {
+    const [b] = await repo.poBurndown({ projectId: project.id });
+    assert.equal(Number(b.invoiced), 0);
+    assert.equal(Number(b.approved_unbilled), 0);
+    assert.equal(Number(b.submitted_pending), 12720);
+    assert.equal(Number(b.remaining), 30000);
+  });
+
+  test("approving freezes the value and makes it earned but still unbilled", async () => {
+    const done = await repo.approveTimecards(weeks.map((w) => w.id), "Dana Reyes", mark.id);
+    assert.equal(done.length, 3);
+    assert.equal(Number(done[0].billable_amount) > 0, true);
+    const [b] = await repo.poBurndown({ projectId: project.id });
+    assert.equal(Number(b.invoiced), 0, "approval is not billing");
+    assert.equal(Number(b.approved_unbilled), 12720);
+    assert.equal(Number(b.submitted_pending), 0);
+    assert.equal(Number(b.projected_remaining), 30000 - 12720);
+  });
+
+  test("approving the same week twice is refused", async () => {
+    await assert.rejects(
+      () => repo.approveTimecards([weeks[0].id], "Dana Reyes", mark.id),
+      /already approved/);
+  });
+
+  let invoice;
+  test("drafting collects the approved unbilled time and nothing else", async () => {
+    invoice = await repo.draftInvoiceFromApproved(
+      { purchaseOrderId: po.id }, mark.id);
+    assert.equal(invoice.line_count, 3);
+    assert.equal(Number(invoice.total), 12720);
+    assert.equal(invoice.status, "draft");
+    assert.match(invoice.invoice_number, /^TS-\d{4}-\d{4}$/);
+  });
+
+  test("a draft does not burn the PO - it moves into its own column", async () => {
+    const [b] = await repo.poBurndown({ projectId: project.id });
+    assert.equal(Number(b.invoiced), 0, "a draft has not gone to the client");
+    assert.equal(Number(b.drafted_not_sent), 12720);
+    assert.equal(Number(b.approved_unbilled), 0);
+    assert.equal(Number(b.remaining), 30000);
+    assert.equal(Number(b.projected_remaining), 30000 - 12720,
+      "the money is still committed, whichever column it sits in");
+  });
+
+  test("drafting again finds nothing, because the time is already on an invoice", async () => {
+    const again = await repo.draftInvoiceFromApproved({ purchaseOrderId: po.id }, mark.id);
+    assert.equal(again.nothing_to_bill, true);
+  });
+
+  test("the database refuses the same week on a second live invoice", async () => {
+    const other = await repo.insertRecord("invoice", {
+      invoice_number: "TS-MANUAL-1", account_id: globex.id, project_id: project.id,
+      purchase_order_id: po.id }, mark.id);
+    await assert.rejects(
+      () => repo.insertRecord("invoice_line", {
+        invoice_id: other.id, kind: "time", timecard_id: weeks[0].id,
+        description: "billing it twice", amount: 4200 }, mark.id),
+      /already on a live invoice/);
+    await pool.query(`delete from invoice where id = $1`, [other.id]);
+  });
+
+  test("sending is what burns the PO", async () => {
+    const sent = await repo.sendInvoice(invoice.id, "2026-08-20", mark.id);
+    assert.equal(sent.status, "sent");
+    assert.equal(Number(sent.total), 12720);
+    // 45 day terms by default.
+    assert.equal(sent.due_date.toISOString().slice(0, 10), "2026-10-04");
+    const [b] = await repo.poBurndown({ projectId: project.id });
+    assert.equal(Number(b.invoiced), 12720);
+    assert.equal(Number(b.drafted_not_sent), 0);
+    assert.equal(Number(b.remaining), 30000 - 12720);
+    assert.equal(Number(b.pct_invoiced), 42.4);
+  });
+
+  test("a payment lowers what is outstanding but not the burn", async () => {
+    const part = await repo.recordPayment(
+      { invoiceId: invoice.id, amount: 5000, method: "ACH" }, mark.id);
+    assert.equal(part.status, "part_paid");
+    assert.equal(Number(part.outstanding), 7720);
+    const [b] = await repo.poBurndown({ projectId: project.id });
+    assert.equal(Number(b.invoiced), 12720, "paying does not change what was billed");
+    assert.equal(Number(b.paid), 5000);
+    assert.equal(Number(b.outstanding), 7720);
+
+    const settled = await repo.recordPayment(
+      { invoiceId: invoice.id, amount: 7720, method: "ACH" }, mark.id);
+    assert.equal(settled.status, "paid");
+    assert.equal(Number(settled.outstanding), 0);
+  });
+
+  test("time the client has not approved cannot be invoiced", async () => {
+    const raw = await repo.insertRecord("timecard",
+      { placement_id: pl.id, purchase_order_id: po.id, week_ending: "2026-08-14",
+        hours: 40, status: "submitted" }, mark.id);
+    const draft = await repo.insertRecord("invoice", {
+      invoice_number: "TS-MANUAL-2", account_id: globex.id, project_id: project.id,
+      purchase_order_id: po.id }, mark.id);
+    await assert.rejects(
+      () => repo.insertRecord("invoice_line", {
+        invoice_id: draft.id, kind: "time", timecard_id: raw.id,
+        description: "not approved yet", amount: 4320 }, mark.id),
+      /not approved/);
+    await pool.query(`delete from invoice where id = $1`, [draft.id]);
+  });
+
+  test("an invoice cannot be changed once it has been sent", async () => {
+    await assert.rejects(
+      () => repo.insertRecord("invoice_line", {
+        invoice_id: invoice.id, kind: "adjustment",
+        description: "sneaking one on", amount: 500 }, mark.id),
+      /can only change while it is a draft/);
+  });
+
+  test("an invoice that would overrun the PO is refused, and says what to do", async () => {
+    const over = await repo.insertRecord("invoice", {
+      invoice_number: "TS-MANUAL-3", account_id: globex.id, project_id: project.id,
+      purchase_order_id: po.id }, mark.id);
+    await repo.insertRecord("invoice_line", {
+      invoice_id: over.id, kind: "adjustment", description: "big one",
+      amount: 25000 }, mark.id);
+    await assert.rejects(
+      () => repo.sendInvoice(over.id, "2026-08-21", mark.id),
+      /over its limit.*change order/s);
+    await pool.query(`delete from invoice where id = $1`, [over.id]);
+  });
+
+  test("voiding keeps the invoice and releases its weeks to be billed again", async () => {
+    const voided = await repo.voidInvoice(invoice.id, "wrong PO", mark.id);
+    assert.equal(voided.status, "void");
+    const still = await one(`select id from invoice where id = $1`, [invoice.id]);
+    assert.ok(still, "the invoice row is still there");
+    const [b] = await repo.poBurndown({ projectId: project.id });
+    assert.equal(Number(b.invoiced), 0, "a void does not burn");
+    assert.equal(Number(b.approved_unbilled), 12720, "the time is billable again");
+    const redo = await repo.draftInvoiceFromApproved({ purchaseOrderId: po.id }, mark.id);
+    assert.equal(redo.line_count, 3);
+    await pool.query(`delete from invoice where id = $1`, [redo.id]);
+  });
+
+  test("aging buckets an issued invoice and ignores drafts", async () => {
+    const inv = await repo.insertRecord("invoice", {
+      invoice_number: "TS-AGE-1", account_id: globex.id, project_id: project.id,
+      terms_days: 30 }, mark.id);
+    await repo.insertRecord("invoice_line", {
+      invoice_id: inv.id, kind: "adjustment", description: "fee", amount: 1000 }, mark.id);
+    const drafts = await repo.invoiceAging();
+    assert.ok(!drafts.some((a) => a.invoice_number === "TS-AGE-1"),
+      "a draft is not a receivable");
+
+    // Issued 100 days ago with 30 day terms, so it is 70 days past due.
+    const old = new Date(Date.now() - 100 * 864e5).toISOString().slice(0, 10);
+    await repo.sendInvoice(inv.id, old, mark.id);
+    const aged = await repo.invoiceAging();
+    const row = aged.find((a) => a.invoice_number === "TS-AGE-1");
+    assert.equal(row.bucket, "61-90");
+    assert.equal(row.days_overdue, 70);
+  });
+
+  test("the burn-down flags a PO that is already spent on approved work alone", async () => {
+    const small = await repo.insertRecord("purchase_order",
+      { project_id: project.id, po_number: "PO-TIGHT", amount: 1000,
+        start_date: "2026-06-01", end_date: "2026-12-31" }, mark.id);
+    const tc = await repo.insertRecord("timecard",
+      { placement_id: pl.id, purchase_order_id: small.id, week_ending: "2026-09-04",
+        hours: 40, status: "submitted" }, mark.id);
+    await repo.approveTimecards([tc.id], "Dana Reyes", mark.id);
+    const risky = await repo.poBurndown({ atRisk: true });
+    const row = risky.find((r) => r.po_number === "PO-TIGHT");
+    assert.ok(row, "an over-committed PO shows up as at risk");
+    assert.equal(Number(row.remaining), 1000, "nothing invoiced, so it looks healthy");
+    assert.ok(Number(row.projected_remaining) < 0,
+      "but the approved backlog already exceeds it");
   });
 });
 
