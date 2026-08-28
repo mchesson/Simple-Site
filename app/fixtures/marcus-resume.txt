@@ -1,8 +1,0 @@
-Marcus Delacroix
-Senior Site Reliability Engineer
-Austin, TX | marcus.delacroix@example.com | (512) 555-0184
-
-TECHNICAL SKILLS
-Kubernetes, Terraform, Go, AWS
-
-11 years of experience running large estates.
