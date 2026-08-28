@@ -1,6 +1,9 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
-const authored = fs.readFileSync(process.argv[2],'utf8');
+const authored = fs.readFileSync(process.argv[2],'utf8')
+  // the published file carries the real (cleared) workspace; tests want the sample data
+  .replace(/<script type="application\/json" id="app-state">[\s\S]*?<\/script>/,
+           '<script type="application/json" id="app-state">null</script>');
 const wrap = b => `<!doctype html><html lang="en"><head><meta charset="utf-8"></head><body>${b}</body></html>`;
 const results=[]; const ok=(n,c,x='')=>results.push([c?'PASS':'FAIL',n,x]);
 const stateOf = h => { const m=h&&h.match(/<script type="application\/json" id="app-state">([\s\S]*?)<\/script>/); return m?JSON.parse(m[1]):null; };

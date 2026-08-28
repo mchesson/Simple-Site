@@ -1,6 +1,9 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
-const authored = fs.readFileSync(process.argv[2],'utf8');
+const authored = fs.readFileSync(process.argv[2],'utf8')
+  // the published file carries the real (cleared) workspace; tests want the sample data
+  .replace(/<script type="application\/json" id="app-state">[\s\S]*?<\/script>/,
+           '<script type="application/json" id="app-state">null</script>');
 const wrap = b => `<!doctype html><html lang="en"><head><meta charset="utf-8"></head><body>${b}</body></html>`;
 const results=[]; const ok=(n,c,x='')=>results.push([c?'PASS':'FAIL',n,x]);
 const stateOf = h => { const m=h&&h.match(/<script type="application\/json" id="app-state">([\s\S]*?)<\/script>/); return m?JSON.parse(m[1]):null; };
@@ -118,11 +121,12 @@ ok('a file already filed is marked as such, not offered twice', alreadyPill>=1, 
 await r2.page.click('nav.tabs button[data-v="orgs"]'); await r2.page.waitForTimeout(200);
 await r2.page.locator('tbody tr',{hasText:'Veradigm'}).first().click(); await r2.page.waitForTimeout(250);
 let detail = await r2.page.locator('.wrap').innerText();
-ok('the account screen has a SharePoint card', /SharePoint/.test(detail));
-ok('it shows the connector as connected', /connected/i.test(detail));
-ok('it counts what is linked from SharePoint', /1 linked from SharePoint/i.test(detail), detail.slice(0,400));
-ok('it offers a per-account search', (await r2.page.locator('button[data-a="spFind"]').count())===1);
-ok('the document row offers Open original', (await r2.page.locator('.docrow a.btn', {hasText:'Open original'}).count())>=1);
+ok('there is a single Documents section, not a separate SharePoint one',
+   (await r2.page.locator('.card-h h2', {hasText:'Documents'}).count())===1 &&
+   (await r2.page.locator('.card-h h2', {hasText:/^SharePoint$/}).count())===0);
+ok('the Documents section shows the connector state', /SharePoint/.test(detail), detail.slice(0,300));
+ok('SharePoint search is offered from inside Documents', (await r2.page.locator('button[data-a="spFind"]').count())===1);
+ok('a linked document offers to open the original', (await r2.page.locator('.docrow a.btn', {hasText:'Open'}).count())>=1);
 await r2.page.locator('button[data-a="spFind"]').click();
 await r2.page.waitForTimeout(450);
 ok('the per-account button runs a SharePoint search', /files in SharePoint/i.test(await last(r2.page)));
@@ -177,7 +181,7 @@ ok('searching without a connector explains how to add it', /Settings → Connect
 await r5.page.click('nav.tabs button[data-v="orgs"]'); await r5.page.waitForTimeout(150);
 await r5.page.locator('tbody tr').first().click(); await r5.page.waitForTimeout(250);
 detail = await r5.page.locator('.wrap').innerText();
-ok('the account card degrades with a fix, not an error', /not connected/i.test(detail) && /Settings → Connectors/.test(detail), detail.slice(0,300));
+ok('the Documents section degrades with a fix, not an error', /not connected/i.test(detail) && /Settings → Connectors/.test(detail), detail.slice(0,400));
 
 let r6 = await boot(wrap(authored), { authStatus:'needs_reauth' });
 await ask(r6.page,'sharepoint status');

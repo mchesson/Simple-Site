@@ -1,6 +1,9 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
-const authored = fs.readFileSync(process.argv[2],'utf8');
+const authored = fs.readFileSync(process.argv[2],'utf8')
+  // the published file carries the real (cleared) workspace; tests want the sample data
+  .replace(/<script type="application\/json" id="app-state">[\s\S]*?<\/script>/,
+           '<script type="application/json" id="app-state">null</script>');
 const wrap = b => `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>${b}</body></html>`;
 const results = []; let FAILED = false;
 const ok = (n,c,x='') => { results.push([c?'PASS':'FAIL',n,x]); if(!c) FAILED=true; };
@@ -30,9 +33,12 @@ async function ask(page, text){
 const lastMsg = page => page.locator('.msg.as').last().innerText();
 
 let {page,errs} = await boot(wrap(authored));
-ok('assistant is the landing screen', (await page.locator('.ph h1').first().textContent()).trim()==='Assistant');
+ok('the assistant is the landing screen', (await page.locator('.ph h1').first().textContent()).trim()==='TS Project Assistant');
 ok('composer is present', await page.locator('#askin').isVisible());
-ok('opening suggestions offered', (await page.locator('.askintro .chip.act').count())>=5);
+ok('no account chips clutter the assistant — navigation lives in the sidebar',
+   (await page.locator('.askintro .chip.act').count())===0);
+ok('the composer is a roomy text area', (await page.locator('.composer textarea').count())===1);
+ok('the composer invites a document drop', /Drop files here/i.test(await page.locator('.composer').innerText()));
 ok('no boot errors', errs.length===0, errs.join(' | '));
 
 // ---- 1. plain-English lists ----
@@ -53,23 +59,25 @@ ok('“how many candidates” answers with a count', /^\s*5 candidates/i.test(t.
 // ---- 2. "my accounts" asks who you are, then works ----
 await ask(page,'my accounts');
 t = await lastMsg(page);
-ok('“my accounts” asks for your name first', /what is your name/i.test(t), t.slice(0,140));
-await ask(page,'Matt Chesson');
+ok('“my accounts” asks which workspace user you are', /which workspace user are you/i.test(t), t.slice(0,180));
+await ask(page,'I am Jordan Blake');
 t = await lastMsg(page);
-ok('after naming yourself it replays the query', /no accounts owned by matt/i.test(t), t.slice(0,160));
+ok('after identifying yourself it replays the query', /1 account owned by Jordan Blake/i.test(t), t.replace(/\n/g,' ').slice(0,200));
 
 await ask(page,'assign Ardent Logistics to me');
 t = await lastMsg(page);
-ok('assigning an account to yourself works', /Matt Chesson.*now owns.*Ardent/is.test(t), t.slice(0,160));
-await ask(page,'my accounts');
+ok('assigning an account to yourself works', /Jordan Blake.*now owns.*Ardent/is.test(t), t.slice(0,200));
+
+// only real workspace users can own an account
+await ask(page,'assign Ardent Logistics to Some Random Person');
 t = await lastMsg(page);
-ok('“my accounts” now returns it', /1 account owned by Matt/i.test(t), t.replace(/\n/g,' ').slice(0,160));
+ok('a non-user cannot be made an owner', /not a workspace user/i.test(t), t.slice(0,200));
 
 // ---- 3. multiple owners on one account ----
 await ask(page,'assign Ardent Logistics to Dana Reed');
 await ask(page,'who owns Ardent Logistics');
 t = await lastMsg(page);
-ok('an account can hold several owners', /Matt Chesson/.test(t)&&/Dana Reed/.test(t), t.slice(0,180));
+ok('an account can hold several owners', /Jordan Blake/.test(t)&&/Dana Reed/.test(t), t.slice(0,200));
 
 // ---- 4. slot filling: missing required fields ----
 await ask(page,'add candidate Jane');
@@ -178,11 +186,21 @@ await r5.page.waitForTimeout(200);
 const detail = await r5.page.locator('.wrap').innerText();
 ok('account detail shows Owners', /Owners/.test(detail));
 ok('account detail shows Locations', /Locations/.test(detail));
-ok('account detail shows Agreements & documents', /Agreements/.test(detail));
+ok('account detail has one Documents section', /Documents/.test(detail) && !/SharePoint\n/.test(detail));
 ok('account detail shows Change history', /Change history/.test(detail));
-ok('rules of engagement are shown per location', /Rules of engagement/i.test(detail));
+// locations are now a compact list; the detail lives on the location page
+ok('locations are listed compactly on the account', (await r5.page.locator('.lrow[data-a="openLocation"]').count()) >= 2);
+await r5.page.locator('.lrow[data-a="openLocation"]').first().click();
+await r5.page.waitForTimeout(250);
+const locPage = await r5.page.locator('.wrap').innerText();
+ok('clicking a location opens its own page', /Chicago HQ/.test(locPage), locPage.slice(0,120));
+ok('rules of engagement live on the location page', /Rules of engagement/i.test(locPage));
+ok('the location page shows screening inherited from the account', /Screening required/i.test(locPage) && /Seven-year/i.test(locPage), locPage.slice(0,400));
+await r5.page.locator('.back').first().click();
+await r5.page.waitForTimeout(250);
 ok('account-wide vs location-specific agreements are separated',
    /Account-wide/.test(detail) && /Location specific/.test(detail), detail.slice(0,80));
+ok('owners are shown as workspace users', /Jordan Blake/.test(detail), detail.slice(0,300));
 
 // ---- 11. edits are recorded, not silent ----
 let r6 = await boot(await r5.page.evaluate(()=>window.__published));

@@ -74,8 +74,8 @@ a:hover{text-decoration:underline}
 .app{display:grid; grid-template-columns:15.5rem minmax(0,1fr); min-height:100vh}
 .side{
   background:var(--surface); border-right:1px solid var(--line);
-  padding:1.35rem 1rem; position:sticky; top:0; height:100vh;
-  display:flex; flex-direction:column; gap:1.6rem;
+  padding:1.5rem 1.1rem; position:sticky; top:0; height:100vh;
+  display:flex; flex-direction:column; gap:1.75rem;
 }
 .brand{display:flex; align-items:center; gap:.7rem; padding:0 .3rem}
 .brand .mark{
@@ -88,8 +88,8 @@ a:hover{text-decoration:underline}
 .brand small{display:block; font-size:.75rem; color:var(--faint); font-weight:500}
 nav.tabs{display:flex; flex-direction:column; gap:.15rem}
 nav.tabs button{
-  display:flex; align-items:center; gap:.7rem; width:100%; text-align:left;
-  padding:.55rem .7rem; border:0; background:transparent; border-radius:10px;
+  display:flex; align-items:center; gap:.75rem; width:100%; text-align:left;
+  padding:.62rem .8rem; border:0; background:transparent; border-radius:12px;
   color:var(--muted); font-weight:600; font-size:.9375rem; letter-spacing:-.01em;
   transition:background .13s ease, color .13s ease;
 }
@@ -97,9 +97,11 @@ nav.tabs button svg{width:18px; height:18px; flex-shrink:0; opacity:.9}
 nav.tabs button:hover{background:var(--surface-2); color:var(--ink)}
 nav.tabs button[aria-current="page"]{background:var(--accent); color:var(--accent-ink); box-shadow:var(--sh-pri)}
 nav.tabs button[aria-current="page"] svg{opacity:1}
-nav.tabs .cnt{margin-left:auto; font-size:.75rem; font-weight:700; opacity:.72; font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums}
+nav.tabs .cnt{margin-left:auto; font-size:.75rem; font-weight:700; opacity:.72; font-variant-numeric:tabular-nums}
 .sidefoot{margin-top:auto; display:grid; gap:.5rem}
 .status{font-size:.75rem; color:var(--muted); min-height:1.1em; padding:0 .3rem}
+.teamlink{display:flex; align-items:center; gap:.55rem; width:100%; border:0; background:transparent; color:var(--ink-2); padding:.5rem .6rem; border-radius:12px; font-weight:600; font-size:.875rem; text-align:left}
+.teamlink:hover{background:var(--surface-2); color:var(--ink)}
 .status.busy{color:var(--accent)}
 .status.bad{color:var(--neg)}
 @media (max-width:900px){
@@ -119,9 +121,9 @@ nav.tabs .cnt{margin-left:auto; font-size:.75rem; font-weight:700; opacity:.72; 
 
 /* ---------- page header + body ---------- */
 main{min-width:0; display:flex; flex-direction:column}
-.wrap{padding:1.6rem clamp(1rem,3vw,2.25rem) 5rem; max-width:1440px; width:100%}
-.ph{display:flex; align-items:center; gap:1rem; margin:0 0 1.4rem; flex-wrap:wrap}
-.ph h1{font-size:1.75rem; font-weight:700; letter-spacing:-.035em; margin:0; line-height:1.15}
+.wrap{padding:2rem clamp(1rem,3.5vw,2.75rem) 6rem; max-width:1480px; width:100%}
+.ph{display:flex; align-items:baseline; gap:1rem; margin:0 0 1.6rem; flex-wrap:wrap}
+.ph h1{font-size:2.0625rem; font-weight:700; letter-spacing:-.042em; margin:0; line-height:1.1}
 .ph .sub{color:var(--muted); font-size:.9375rem; font-weight:500}
 .ph .sp{margin-left:auto; display:flex; gap:.55rem; flex-wrap:wrap; align-items:center}
 .back{
@@ -151,7 +153,7 @@ main{min-width:0; display:flex; flex-direction:column}
 /* ---------- buttons ---------- */
 .btn{
   border:1px solid var(--line-strong); background:var(--surface); color:var(--ink);
-  padding:.5rem .9rem; border-radius:10px; font-weight:600; font-size:.875rem;
+  padding:.55rem .95rem; border-radius:12px; font-weight:600; font-size:.875rem;
   white-space:nowrap; box-shadow:var(--sh-xs); letter-spacing:-.01em;
   transition:background .13s ease, border-color .13s ease, transform .08s ease;
 }
@@ -171,25 +173,25 @@ main{min-width:0; display:flex; flex-direction:column}
 .cols2{display:grid; gap:1.1rem; grid-template-columns:minmax(0,1fr); align-items:start}
 @media (min-width:1040px){.cols2{grid-template-columns:1.4fr 1fr}}
 .card{
-  background:var(--surface); border:1px solid var(--line); border-radius:14px;
+  background:var(--surface); border:1px solid var(--line); border-radius:18px;
   box-shadow:var(--sh-sm); overflow:hidden;
 }
-.card-h{padding:1.05rem 1.15rem .85rem; display:flex; align-items:center; gap:.7rem}
-.card-h h2{font-size:1.0625rem; font-weight:700; margin:0; letter-spacing:-.025em}
+.card-h{padding:1.25rem 1.35rem .9rem; display:flex; align-items:center; gap:.7rem}
+.card-h h2{font-size:1.125rem; font-weight:700; margin:0; letter-spacing:-.03em}
 .card-h .sp{margin-left:auto; display:flex; gap:.45rem; align-items:center}
-.card-b{padding:0 1.15rem 1.15rem}
+.card-b{padding:0 1.35rem 1.35rem}
 .card-b.flush{padding:0}
 .card-b.flush thead th{border-top:1px solid var(--line)}
 
 /* ---------- stat tiles ---------- */
 .tiles{display:grid; gap:1rem; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); margin-bottom:1.4rem}
 .tile{
-  background:var(--surface); border:1px solid var(--line); border-radius:14px;
-  padding:1.05rem 1.15rem; box-shadow:var(--sh-sm);
+  background:var(--surface); border:1px solid var(--line); border-radius:18px;
+  padding:1.2rem 1.3rem; box-shadow:var(--sh-sm);
 }
 .tile .lab{display:block; font-size:.8125rem; font-weight:600; color:var(--muted); margin-bottom:.45rem}
 .tile .val{
-  display:block; font-size:2.125rem; font-weight:700; letter-spacing:-.04em; line-height:1;
+  display:block; font-size:2.375rem; font-weight:700; letter-spacing:-.045em; line-height:1;
   font-variant-numeric:tabular-nums; font-family:"Plus Jakarta Sans",system-ui,sans-serif;
 }
 .tile .val.mv{color:var(--pos)}
@@ -198,17 +200,18 @@ main{min-width:0; display:flex; flex-direction:column}
 /* ---------- tables ---------- */
 .tw{overflow-x:auto}
 table{border-collapse:collapse; width:100%; font-size:.9375rem}
-th,td{text-align:left; padding:.8rem 1.15rem; vertical-align:middle}
+th,td{text-align:left; padding:.95rem 1.35rem; vertical-align:middle}
 thead th{
-  font-size:.8125rem; font-weight:600; color:var(--muted); white-space:nowrap;
-  border-bottom:1px solid var(--line); background:transparent; letter-spacing:-.005em;
+  font-size:.75rem; font-weight:600; color:var(--faint); white-space:nowrap;
+  border-bottom:1px solid var(--line); background:transparent; letter-spacing:.01em;
+  padding-top:.65rem; padding-bottom:.65rem;
 }
 tbody td{border-bottom:1px solid var(--line-soft)}
 tbody tr:last-child td{border-bottom:0}
 tbody tr.clk{cursor:pointer; transition:background .1s ease}
-tbody tr.clk:hover{background:var(--surface-2)}
+tbody tr.clk:hover td{background:var(--surface-2)}
 td.num,th.num{text-align:right; white-space:nowrap}
-td .nm{font-weight:700; letter-spacing:-.015em}
+td .nm{font-weight:700; letter-spacing:-.015em; white-space:nowrap}
 td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
 .who{display:flex; align-items:center; gap:.7rem; min-width:0}
 .who .t{min-width:0}
@@ -227,8 +230,8 @@ td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
 
 /* ---------- pills / chips ---------- */
 .pill{
-  display:inline-flex; align-items:center; gap:.3rem; padding:.2rem .6rem;
-  border-radius:999px; font-size:.8125rem; font-weight:600; white-space:nowrap;
+  display:inline-flex; align-items:center; gap:.3rem; padding:.22rem .65rem;
+  border-radius:999px; font-size:.75rem; font-weight:600; white-space:nowrap;
   letter-spacing:-.01em;
 }
 .pill.n{background:var(--surface-2); color:var(--muted)}
@@ -252,8 +255,8 @@ td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
   font-size:.8125rem; font-weight:700; color:var(--ink-2); letter-spacing:-.01em;
 }
 .lane-h .c{
-  margin-left:auto; font-family:"JetBrains Mono",monospace; font-size:.75rem;
-  color:var(--faint); font-variant-numeric:tabular-nums; font-weight:500;
+  margin-left:auto; font-size:.75rem; color:var(--faint);
+  font-variant-numeric:tabular-nums; font-weight:600;
 }
 .lane-b{padding:.35rem .5rem .55rem; display:flex; flex-direction:column; gap:.45rem}
 .pcard{
@@ -262,7 +265,7 @@ td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
 }
 .pcard .top{display:flex; align-items:center; gap:.5rem; min-width:0}
 .pcard .nm{font-weight:700; line-height:1.25; letter-spacing:-.015em; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
-.pcard .mt{display:block; color:var(--muted); font-size:.8125rem; margin-top:.3rem; font-family:"JetBrains Mono",monospace; font-variant-numeric:tabular-nums}
+.pcard .mt{display:block; color:var(--muted); font-size:.8125rem; margin-top:.3rem; font-variant-numeric:tabular-nums}
 .pcard .acts{display:flex; gap:.3rem; margin-top:.5rem; flex-wrap:wrap}
 .pcard .acts button{
   border:1px solid var(--line-strong); background:var(--surface-2); border-radius:7px;
@@ -284,7 +287,7 @@ td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
 .hist{list-style:none; margin:0; padding:0; font-size:.875rem}
 .hist li{display:flex; gap:.7rem; padding:.35rem 0; border-bottom:1px solid var(--line-soft)}
 .hist li:last-child{border:0}
-.hist .w{font-family:"JetBrains Mono",monospace; color:var(--faint); font-size:.8125rem; flex-shrink:0; width:6.5rem}
+.hist .w{color:var(--faint); font-size:.8125rem; flex-shrink:0; width:6.5rem}
 
 /* ---------- search ---------- */
 .search{display:flex; gap:.6rem; align-items:center; flex-wrap:wrap; margin-bottom:1.1rem}
@@ -306,7 +309,7 @@ td .sec{color:var(--muted); font-size:.875rem; font-weight:500}
   overflow-y:auto; backdrop-filter:blur(3px);
 }
 .modal{
-  background:var(--surface); border:1px solid var(--line); border-radius:16px;
+  background:var(--surface); border:1px solid var(--line); border-radius:20px;
   box-shadow:var(--sh-md); width:100%; max-width:640px; margin:auto;
 }
 .modal-h{padding:1.15rem 1.3rem .5rem; display:flex; align-items:center; gap:.7rem}
@@ -329,7 +332,7 @@ label.f{display:grid; gap:.3rem; min-width:0}
 label.f>span{font-size:.875rem; color:var(--ink-2); font-weight:600; letter-spacing:-.01em}
 label.f>span .req{color:var(--neg)}
 label.f input,label.f select,label.f textarea{
-  padding:.55rem .75rem; border:1px solid var(--line-strong); border-radius:10px;
+  padding:.65rem .85rem; border:1px solid var(--line-strong); border-radius:12px;
   background:var(--bg); color:var(--ink); width:100%; transition:border-color .12s;
 }
 label.f input:focus,label.f select:focus,label.f textarea:focus{
@@ -382,17 +385,21 @@ label.f .hint{font-size:.8125rem; color:var(--faint); font-weight:500}
 .msg .bub p:last-child{margin:0}
 .msg .bub strong{font-weight:700}
 .composer{
-  position:sticky; bottom:1rem; display:flex; gap:.6rem; align-items:center;
-  background:var(--surface); border:1px solid var(--line-strong); border-radius:14px;
-  padding:.5rem .5rem .5rem .9rem; box-shadow:var(--sh-md);
+  position:sticky; bottom:1rem; display:flex; flex-direction:column; gap:.5rem;
+  background:var(--surface); border:1px solid var(--line-strong); border-radius:18px;
+  padding:.9rem 1rem .75rem; box-shadow:var(--sh-md); transition:border-color .12s, box-shadow .12s;
 }
-.composer input{
-  flex:1; min-width:0; border:0; background:transparent; color:var(--ink);
-  font-size:1rem; padding:.45rem 0;
+.composer.dragging{border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft), var(--sh-md)}
+.composer textarea{
+  width:100%; border:0; background:transparent; color:var(--ink); resize:none;
+  font-family:inherit; font-size:1.0625rem; line-height:1.5; padding:0; min-height:4.5rem;
 }
-.composer input:focus{outline:none}
-.composer input::placeholder{color:var(--faint)}
-.dropnote{margin:0; text-align:center; font-size:.8125rem; color:var(--faint)}
+.composer textarea:focus{outline:none}
+.composer textarea::placeholder{color:var(--faint)}
+.composer-f{display:flex; align-items:center; gap:.7rem; flex-wrap:wrap}
+.composer-hint{margin-left:auto; font-size:.75rem; color:var(--faint)}
+.composer-f .btn.pri{margin-left:.2rem}
+@media (max-width:620px){ .composer-hint{display:none} .composer-f .btn.pri{margin-left:auto} }
 .chip.act{cursor:pointer; border:1px solid var(--line-strong); background:var(--surface); font-weight:600; transition:background .12s,color .12s}
 .chip.act:hover{background:var(--accent); color:var(--accent-ink); border-color:transparent}
 .chipx{
@@ -433,8 +440,8 @@ label.f .hint{font-size:.8125rem; color:var(--faint); font-weight:500}
 .tl{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.7rem}
 .tl li{display:flex; gap:.8rem; align-items:flex-start}
 .tlw{
-  font-family:"JetBrains Mono",monospace; font-size:.75rem; color:var(--faint);
-  flex-shrink:0; width:5.5rem; padding-top:.15rem;
+  font-size:.8125rem; color:var(--faint); font-weight:500;
+  flex-shrink:0; width:6rem; padding-top:.15rem;
 }
 .tlb{min-width:0; display:flex; flex-direction:column; gap:.25rem}
 .tlh{display:flex; gap:.4rem; align-items:center; flex-wrap:wrap}
@@ -478,13 +485,28 @@ a.chip.act:hover{text-decoration:none}
 .chip.act.on b{opacity:.8}
 td.mono{font-size:.8125rem}
 
+/* ---------- clickable row list ---------- */
+.rowlist{display:flex; flex-direction:column}
+.lrow{
+  display:flex; align-items:center; gap:.85rem; width:100%; text-align:left;
+  border:0; border-top:1px solid var(--line-soft); background:transparent; color:var(--ink);
+  padding:.95rem 1.35rem; transition:background .12s ease;
+}
+.rowlist .lrow:first-child{border-top:1px solid var(--line)}
+.lrow:hover{background:var(--surface-2)}
+.lrow-t{display:flex; flex-direction:column; gap:.15rem; min-width:0; flex:1}
+.lrow-t b{font-weight:700; font-size:.9375rem; letter-spacing:-.015em}
+.lrow-t span{color:var(--muted); font-size:.8125rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.lrow-go{color:var(--faint); font-size:1rem; flex-shrink:0; transition:transform .12s ease, color .12s ease}
+.lrow:hover .lrow-go{color:var(--accent); transform:translateX(2px)}
+
 footer.ft{
   margin-top:2.25rem; padding-top:1.25rem; border-top:1px solid var(--line);
   color:var(--faint); font-size:.8125rem; max-width:78ch; line-height:1.6;
 }
 </style>
 <div id="root"></div>
-<script type="application/json" id="app-state">null</script>
+<script type="application/json" id="app-state">{"v":4,"sample":false,"users":[],"people":[],"orgs":[],"locations":[],"jobs":[],"subs":[],"placements":[],"docs":[],"activity":[],"audit":[],"lists":[]}</script>
 <script id="app-src">
 /* ============================================================
    TS Workspace — a working ATS + CRM for a staffing desk.
@@ -495,7 +517,7 @@ footer.ft{
 
 const STAGES = ["Sourced","Submitted","Client review","Interview","Offer","Placed"];
 const CLOSED = ["Rejected","Withdrawn"];
-const JOBTYPES = ["Contract","Direct hire","Contract-to-hire","SOW / project"];
+const JOBTYPES = ["Staffing (contract)","Contract-to-hire","Managed project","Managed services","Direct hire"];
 const JOBSTATUS = ["Open","On hold","Filled","Closed","Lost"];
 const ORGKINDS = ["Client","Prospect","MSP / VMS"];
 const WORKAUTH = ["US citizen","Green card","H-1B","EAD","TN","Needs sponsorship","Other"];
@@ -543,13 +565,18 @@ function billToHold(pay, burdenPct, targetGmPct){
 
 /* ---------- state ---------- */
 function emptyState(){
-  return { v:2, sample:false, people:[], orgs:[], locations:[], jobs:[], subs:[],
-           placements:[], docs:[], activity:[], audit:[] };
+  return { v:4, sample:false, users:[], people:[], orgs:[], locations:[], jobs:[], subs:[],
+           placements:[], docs:[], activity:[], audit:[], lists:[] };
 }
 function seedState(){
   const S = emptyState();
   S.sample = true;
-  const o1 = { id:uid("o"), name:"Northwind Health", kind:"Client", status:"Active", owners:["Jordan Blake"], notes:"Master agreement signed. Net 45. Two approved suppliers.", createdAt:nowISO() };
+  S.users.push(
+    { id:uid("u"), name:"Jordan Blake", email:"jordan.blake@technicalsource.com", active:true, createdAt:nowISO() },
+    { id:uid("u"), name:"Dana Reed",    email:"dana.reed@technicalsource.com",    active:true, createdAt:nowISO() }
+  );
+  const o1 = { id:uid("o"), name:"Northwind Health", kind:"Client", status:"Active", owners:[S.users[0].id], notes:"Master agreement signed. Net 45. Two approved suppliers.",
+    screening:{ background:"Seven-year criminal background check", drug:"5-panel, pre-start", notes:"Client-wide minimum. Sites may add to this but not reduce it." }, createdAt:nowISO() };
   const o2 = { id:uid("o"), name:"Ardent Logistics", kind:"Client", status:"Active", owners:[], notes:"New account, first req came through referral. No owner yet.", createdAt:nowISO() };
   const o3 = { id:uid("o"), name:"Fieldglass (MSP)", kind:"MSP / VMS", status:"Active", owners:[], notes:"Reqs arrive through the portal. End client is Ardent.", createdAt:nowISO() };
   S.orgs.push(o1,o2,o3);
@@ -644,12 +671,12 @@ function loadState(){
 let S = loadState() || seedState();
 
 /* ---------- UI state (per viewer, survives the save-reload) ---------- */
-let UI = { view:"ask", sel:null, q:"", jobFilter:"Open", docKind:"", modal:null, md:null, err:null, focusId:null };
+let UI = { view:"ask", sel:null, q:"", jobFilter:"Open", docKind:"", roleFilter:"", modal:null, md:null, err:null, focusId:null };
 try{
   const st = sessionStorage.getItem("pd_ui");
   if(st) UI = Object.assign(UI, JSON.parse(st), { modal:null, md:null, err:null });
 }catch(e){}
-function saveUI(){ try{ sessionStorage.setItem("pd_ui", JSON.stringify({ view:UI.view, sel:UI.sel, q:UI.q, jobFilter:UI.jobFilter, docKind:UI.docKind })); }catch(e){} }
+function saveUI(){ try{ sessionStorage.setItem("pd_ui", JSON.stringify({ view:UI.view, sel:UI.sel, q:UI.q, jobFilter:UI.jobFilter, docKind:UI.docKind, roleFilter:UI.roleFilter })); }catch(e){} }
 
 let READONLY = false;
 let NOSAVE = false;
@@ -787,13 +814,17 @@ function topBar(){
     '<nav class="tabs">'+
       tab("ask","Assistant")+
       tab("desk","Desk")+
-      tab("jobs","Jobs", S.jobs.filter(j=>j.status==="Open").length)+
-      tab("cands","Candidates", candidates().length)+
+      tab("jobs","Projects", S.jobs.filter(j=>j.status==="Open").length)+
+      tab("cands","Contacts", allContacts().length)+
       tab("orgs","Accounts", S.orgs.filter(o=>!o.archived).length)+
       tab("docs","Documents", (S.docs||[]).length)+
-      tab("place","Placements", m.activePl.length)+
+      tab("place","Assignments", m.activePl.length)+
     '</nav>'+
-    '<div class="sidefoot"><div class="status'+(SAVING?" busy":"")+'" id="status">'+esc(statusText())+'</div></div>'+
+    '<div class="sidefoot">'+
+      '<button class="teamlink" data-a="view" data-v="team">'+
+        (ME?avatar(meName(),true)+'<span>'+esc(meName())+'</span>':'<span class="av s av1">?</span><span>Set who you are</span>')+
+      '</button>'+
+      '<div class="status'+(SAVING?" busy":"")+'" id="status">'+esc(statusText())+'</div></div>'+
   '</aside>';
 }
 let STATUS = "";
@@ -812,7 +843,7 @@ function banner(){
   }
   if(!S.sample) return out;
   return out + '<div class="banner"><p><b>This is sample data</b> so you can try the workflow immediately. '+
-    'Clear it when you are ready to enter your own candidates and jobs.</p>'+
+    'Clear it when you are ready to enter your own contacts and projects.</p>'+
     '<span class="sp"><button class="btn sm" data-a="clearSample">Clear sample data</button></span></div>';
 }
 
@@ -821,15 +852,15 @@ function viewDesk(){
   const m = metrics();
   const tiles =
     '<div class="tiles">'+
-      tile("Open jobs", m.openReqs.length, m.openings+" openings to fill")+
+      tile("Open projects", m.openReqs.length, m.openings+" resources to find")+
       tile("Active submissions", m.active.length, m.stale.length+" need a nudge")+
-      tile("Active placements", m.activePl.length, m.ending.length+" ending within 30 days")+
+      tile("Active assignments", m.activePl.length, m.ending.length+" ending within 30 days")+
       tile("Weekly gross margin", money0(m.weeklyGM), "from hourly placements, at 40 hrs", true)+
-      (m.feeBooked ? tile("Perm fees booked", money0(m.feeBooked), "direct hire placements", true) : "")+
+      (m.feeBooked ? tile("Direct hire fees", money0(m.feeBooked), "one-time placement fees", true) : "")+
     '</div>';
 
   const needs = m.stale.length ? '<div class="tw"><table><thead><tr>'+
-      '<th>Candidate</th><th>Job</th><th>Stage</th><th class="num">Waiting</th><th></th>'+
+      '<th>Candidate</th><th>Project</th><th>Stage</th><th class="num">Waiting</th><th></th>'+
     '</tr></thead><tbody>'+
     m.stale.slice(0,8).map(s => {
       const p = person(s.personId), j = job(s.jobId);
@@ -877,7 +908,7 @@ function viewDesk(){
         card("Quick actions","",
           '<div class="card-b" style="display:grid;gap:.5rem">'+
             btn("addCand","Add a candidate",true)+
-            btn("addJob","Add a job")+
+            btn("addJob","Add a project")+
             btn("addOrg","Add a company")+
             btn("exportCsv","Export candidates to a spreadsheet")+
           '</div>', false)+
@@ -905,7 +936,7 @@ function viewJobs(){
   const opts = ["Open","On hold","Filled","Closed","Lost"].map(s =>
     '<option value="'+s+'"'+(f===s?" selected":"")+'>'+s+'</option>').join("");
   const body = list.length ? '<div class="tw"><table><thead><tr>'+
-      '<th>Job</th><th>Company</th><th>Type</th><th class="num">Openings</th>'+
+      '<th>Project</th><th>Account</th><th>Type</th><th class="num">Resources</th>'+
       '<th class="num">Pipeline</th><th>Rates</th><th>Status</th><th class="num">Age</th>'+
     '</tr></thead><tbody>'+
     list.map(j => {
@@ -920,10 +951,10 @@ function viewJobs(){
         '<td>'+statusPill(j.status)+'</td>'+
         '<td class="num">'+daysAgo(j.createdAt)+'d</td></tr>';
     }).join("")+'</tbody></table></div>'
-    : emptyBox("No jobs here","Nothing matches this filter.", btn("addJob","Add a job",true));
-  return '<div class="ph"><h1>Jobs</h1><span class="sub">'+list.length+' shown</span>'+
+    : emptyBox("No projects here","Nothing matches this filter.", btn("addJob","Add a project",true));
+  return '<div class="ph"><h1>Projects</h1><span class="sub">'+list.length+' shown</span>'+
     '<span class="sp"><select data-a="jobFilter"><option value="all"'+(f==="all"?" selected":"")+'>All statuses</option>'+opts+'</select>'+
-    btn("addJob","Add a job",true)+'</span></div>'+
+    btn("addJob","Add a project",true)+'</span></div>'+
     '<section class="card"><div class="card-b flush">'+body+'</div></section>';
 }
 function viewJobDetail(j){
@@ -951,16 +982,16 @@ function viewJobDetail(j){
     dd("Opened", esc(fmtDate(j.createdAt))+' <span class="sec">('+daysAgo(j.createdAt)+' days ago)</span>')+
   '</dl>'+ (j.notes?'<div class="note" style="margin-top:.75rem">'+esc(j.notes)+'</div>':"") +'</div>';
 
-  return '<button class="back" data-a="view" data-v="jobs">← All jobs</button>'+
+  return '<button class="back" data-a="navBack" data-v="jobs">← All projects</button>'+
     '<div class="ph"><h1>'+esc(j.title)+'</h1><span class="sub">'+esc(jobLine(j))+'</span>'+
-    '<span class="sp">'+btn("addToPipeline","Add candidate to pipeline",true)+btn("editJob","Edit job")+'</span></div>'+
+    '<span class="sp">'+btn("addToPipeline","Add candidate to pipeline",true)+btn("editJob","Edit project")+'</span></div>'+
     '<div class="cols2">'+
       '<section class="card"><div class="card-h"><h2>Pipeline</h2><span class="sp"><span class="sec" style="color:var(--muted);font-size:.8125rem">'+
         ss.filter(s=>isOpenStage(s.stage)).length+' active</span></span></div>'+
         '<div class="card-b">'+(ss.length?'<div class="board">'+lanes+'</div>':emptyBox("Nobody in this pipeline yet","Add a candidate to get started.",btn("addToPipeline","Add candidate",true)))+'</div>'+
         closedHtml+
       '</section>'+
-      card("Job details","",details,false)+
+      card("Project details","",details,false)+
     '</div>';
 }
 function pipeCard(s,j){
@@ -988,42 +1019,83 @@ function dd(k,v){ return '<dt>'+esc(k)+'</dt><dd>'+v+'</dd>'; }
 function viewCands(){
   if(UI.sel){ const p = person(UI.sel); if(p) return viewPersonDetail(p); UI.sel = null; }
   const q = UI.q.trim().toLowerCase();
-  let list = candidates().filter(p => !p.archived);
+  const role = UI.roleFilter || "";
+  let list = allContacts();
+  if(role === "candidate") list = list.filter(p => p.isCandidate);
+  else if(role === "manager") list = list.filter(p => p.isContact);
+  else if(role === "both") list = list.filter(p => p.isCandidate && p.isContact);
+  else if(role === "payroll") list = list.filter(p => p.onPayroll);
+  else if(role.indexOf("list:") === 0){
+    const lf = (S.lists||[]).find(x => x.id === role.slice(5));
+    const ids = lf ? (lf.personIds||[]) : [];
+    list = list.filter(p => ids.indexOf(p.id) >= 0);
+  }
   if(q){
     const terms = q.split(/\s+/);
     list = list.filter(p => {
-      const hay = [p.name,p.title,p.city,p.workAuth,(p.skills||[]).join(" "),p.notes].join(" ").toLowerCase();
+      const hay = [p.name,p.title,p.city,p.workAuth,(p.skills||[]).join(" "),p.notes,personPlace(p)].join(" ").toLowerCase();
       return terms.every(t => hay.indexOf(t) >= 0);
     });
   }
   list = list.sort((a,b) => new Date(b.lastContact||b.createdAt) - new Date(a.lastContact||a.createdAt));
+  const all = allContacts();
+  const nCand = all.filter(p => p.isCandidate).length;
+  const nMgr = all.filter(p => p.isContact).length;
+  const nBoth = all.filter(p => p.isCandidate && p.isContact).length;
+  const chip = (v,label,n) => '<button class="chip act'+(role===v?" on":"")+'" data-a="roleFilter" data-v="'+v+'">'+
+    esc(label)+' <b>'+n+'</b></button>';
+  const ls = myLists();
+  const chips = '<div class="chips" style="margin-bottom:1.1rem">'+
+    chip("","Everyone",all.length)+chip("candidate","Candidates",nCand)+
+    chip("manager","Managers",nMgr)+(nBoth?chip("both","Both",nBoth):"")+
+    chip("payroll","On payroll",all.filter(x=>x.onPayroll).length)+
+    ls.map(l => '<button class="chip act'+(role==="list:"+l.id?" on":"")+'" data-a="roleFilter" data-v="list:'+esc(l.id)+'">'+
+      esc(l.name)+' <b>'+(l.personIds||[]).length+'</b></button>').join("")+
+  '</div>';
   const body = list.length ? '<div class="tw"><table><thead><tr>'+
-      '<th>Candidate</th><th>Title</th><th>Skills</th><th>Location</th>'+
-      '<th>Work auth</th><th class="num">Wants</th><th class="num">Last contact</th><th class="num">Active</th>'+
+      '<th>Contact</th><th>Roles</th><th>Title</th><th>Account</th><th>Skills</th>'+
+      '<th class="num">Wants</th><th class="num">Last contact</th><th class="num">Active</th>'+
     '</tr></thead><tbody>'+
     list.map(p => {
       const act = personSubs(p.id).filter(s => isOpenStage(s.stage)).length;
       const dc = daysAgo(p.lastContact);
+      const place = personPlace(p);
       return '<tr class="clk" data-a="openPerson" data-id="'+p.id+'">'+
-        '<td>'+who(p.name, esc(p.email||""))+'</td>'+
+        '<td>'+who(p.name, esc(p.email||p.city||""))+'</td>'+
+        '<td><div class="chips">'+personRoles(p).map(r =>
+          '<span class="pill '+(r==="Candidate"?"a":"m")+'">'+esc(r)+'</span>').join("")+
+          (p.onPayroll?'<span class="pill g">payroll</span>':"")+'</div></td>'+
         '<td>'+esc(p.title||"—")+(p.years?'<br><span class="sec">'+p.years+' yrs</span>':"")+'</td>'+
-        '<td><div class="chips">'+(p.skills||[]).slice(0,4).map(s=>'<span class="chip">'+esc(s)+'</span>').join("")+'</div></td>'+
-        '<td class="sec">'+esc(p.city||"—")+'</td>'+
-        '<td class="sec">'+esc(p.workAuth||"—")+'</td>'+
+        '<td class="sec">'+(place?esc(place):"—")+'</td>'+
+        '<td><div class="chips">'+(p.skills||[]).slice(0,3).map(x=>'<span class="chip">'+esc(x)+'</span>').join("")+'</div></td>'+
         '<td class="num">'+(p.desiredPay?money0(p.desiredPay)+"/hr":"—")+'</td>'+
-        '<td class="num"'+(dc>30?' style="color:var(--alert)"':dc>14?' style="color:var(--warn)"':'')+'>'+(p.lastContact?dc+"d":"—")+'</td>'+
-        '<td class="num">'+(act?'<span class="pill a">'+act+'</span>':'<span class="sec">—</span>')+
-          (p.isContact?' <span class="pill m">manager</span>':"")+'</td></tr>';
+        '<td class="num"'+(dc>30?' style="color:var(--neg)"':dc>14?' style="color:var(--warn)"':'')+'>'+(p.lastContact?dc+"d":"—")+'</td>'+
+        '<td class="num">'+(act?'<span class="pill a">'+act+'</span>':'<span class="sec">—</span>')+'</td></tr>';
     }).join("")+'</tbody></table></div>'
-    : emptyBox(q?"No candidates match":"No candidates yet", q?"Try fewer words, or a single skill.":"Add your first candidate to start building the database.", btn("addCand","Add a candidate",true));
-  return '<div class="ph"><h1>Candidates</h1><span class="sub">'+list.length+' of '+candidates().length+'</span>'+
-    '<span class="sp">'+btn("exportCsv","Export")+btn("addCand","Add a candidate",true)+'</span></div>'+
-    '<div class="search"><input type="search" id="q" data-a="q" placeholder="Search name, title, skill, city…" value="'+esc(UI.q)+'"></div>'+
+    : emptyBox(q||role?"Nobody matches":"No contacts yet",
+        q||role?"Try clearing the filter, or searching for less.":"Everyone lives here — candidates, hiring managers, or both.",
+        btn("addCand","Add a candidate",true));
+  return '<div class="ph"><h1>Contacts</h1><span class="sub">'+list.length+' of '+all.length+'</span>'+
+    '<span class="sp">'+btn("exportCsv","Export")+btn("addContact2","Add a manager")+btn("addCand","Add a candidate",true)+'</span></div>'+
+    chips+
+    '<div class="search"><input type="search" id="q" data-a="q" placeholder="Search name, title, skill, account…" value="'+esc(UI.q)+'"></div>'+
     '<section class="card"><div class="card-b flush">'+body+'</div></section>';
 }
 function viewPersonDetail(p){
   const subs = personSubs(p.id).sort((a,b) => new Date(b.stageSince) - new Date(a.stageSince));
-  const backTo = p.isContact ? "orgs" : "cands";
+  const prev = NAV[NAV.length-1];
+  const backLabel = prev
+    ? (prev.view==="cands" ? (prev.q ? "Back to “"+prev.q+"”" : "Back to Contacts")
+      : prev.view==="orgs" && prev.sel ? "Back to "+orgName(prev.sel)
+      : prev.view==="orgs" ? "Back to Accounts"
+      : prev.view==="jobs" && prev.sel ? "Back to the project"
+      : prev.view==="jobs" ? "Back to Projects"
+      : prev.view==="location" && prev.sel ? "Back to "+locLabel(prev.sel)
+      : prev.view==="ask" ? "Back to the assistant"
+      : prev.view==="docs" ? "Back to Documents"
+      : "Back")
+    : (p.isContact && p.orgId && org(p.orgId) ? "Back to "+orgName(p.orgId) : "Back to Contacts");
+  const backBtn = '<button class="back" data-a="navBack" data-v="cands">← '+esc(backLabel)+'</button>';
   const o = p.orgId ? org(p.orgId) : null;
   const details = '<div class="card-b"><dl class="dl">'+
     dd("Email", p.email?'<a href="mailto:'+esc(p.email)+'">'+esc(p.email)+'</a>':"—")+
@@ -1041,7 +1113,7 @@ function viewPersonDetail(p){
   (p.notes?'<div class="note" style="margin-top:.75rem"><span class="w">Notes</span>'+esc(p.notes)+'</div>':"")+
   '</div>';
 
-  const hist = subs.length ? '<div class="tw"><table><thead><tr><th>Job</th><th>Company</th><th>Stage</th><th class="num">Since</th><th></th></tr></thead><tbody>'+
+  const hist = subs.length ? '<div class="tw"><table><thead><tr><th>Project</th><th>Company</th><th>Stage</th><th class="num">Since</th><th></th></tr></thead><tbody>'+
     subs.map(s => { const j = job(s.jobId);
       return '<tr><td><span class="nm">'+esc(j?j.title:"—")+'</span></td>'+
         '<td class="sec">'+esc(j?orgName(j.orgId):"—")+'</td>'+
@@ -1053,7 +1125,7 @@ function viewPersonDetail(p){
   const acts = READONLY ? "" : '<span class="sp">'+
     (p.isCandidate?btn("submitToJob","Submit to a job",true):"")+
     btn("logContact","Log contact")+ btn("editPerson","Edit")+'</span>';
-  return '<button class="back" data-a="view" data-v="'+backTo+'">← Back</button>'+
+  return backBtn +
     '<div class="ph"><h1>'+esc(p.name)+'</h1><span class="sub">'+esc(p.title||"")+(o?" · "+esc(o.name):"")+'</span>'+acts+'</div>'+
     '<div class="cols2"><div class="grid">'+
       card("Activity", '<span class="sub">logged against the role we were dealing with</span>', timelineCard(p), false)+
@@ -1066,6 +1138,86 @@ function viewPersonDetail(p){
 }
 
 /* ---------- COMPANIES ---------- */
+function viewTeam(){
+  const us = (S.users || []).slice().sort((a,b) => String(a.name).localeCompare(String(b.name)));
+  const body = us.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>User</th><th>Email</th><th class="num">Accounts owned</th><th>Status</th><th></th>'+
+    '</tr></thead><tbody>'+
+    us.map(u => {
+      const owns = S.orgs.filter(o => !o.archived && orgOwners(o).indexOf(u.id) >= 0);
+      return '<tr>'+
+        '<td>'+who(u.name, u.id===ME?'<span class="pill a">that is you</span>':"")+'</td>'+
+        '<td class="sec">'+esc(u.email||"—")+'</td>'+
+        '<td class="num">'+owns.length+'</td>'+
+        '<td>'+(u.active===false?'<span class="pill n">inactive</span>':'<span class="pill g">active</span>')+'</td>'+
+        '<td class="num">'+(READONLY?"":
+          '<button class="btn sm" data-a="editUser" data-id="'+u.id+'">Edit</button>'+
+          (u.id===ME?"":' <button class="btn sm" data-a="beUser" data-id="'+u.id+'">This is me</button>'))+'</td>'+
+      '</tr>';
+    }).join("")+'</tbody></table></div>'
+    : emptyBox("No workspace users yet","Add the people who use this workspace. Only users can own accounts.",
+        READONLY?"":'<button class="btn pri" data-a="addUser">Add a user</button>');
+  return '<div class="ph"><h1>Team</h1><span class="sub">'+(ME?"signed in as "+esc(meName()):"nobody signed in on this device")+'</span>'+
+    '<span class="sp">'+(READONLY?"":'<button class="btn" data-a="whoami">Who am I?</button><button class="btn pri" data-a="addUser">Add a user</button>')+'</span></div>'+
+    '<div class="ro-note" style="margin-bottom:1.1rem">Account owners are picked from this list, so nobody can be typed in by hand. Everyone here can be given accounts to own.</div>'+
+    '<section class="card"><div class="card-b flush">'+body+'</div></section>';
+}
+function viewLocation(l){
+  const o = org(l.orgId);
+  const cs = locationContacts(l.id);
+  const ds = docsForLocation(l.id);
+  const det = '<div class="card-b"><dl class="dl">'+
+    dd("Account", o?'<a href="#" data-a="openOrg" data-id="'+o.id+'">'+esc(o.name)+'</a>':"—")+
+    dd("Address", esc(locLine(l) || "—"))+
+    dd("Contacts", String(cs.length))+
+    dd("Agreements", String(ds.length))+
+  '</dl>'+(l.notes?'<div class="note" style="margin-top:.75rem">'+esc(l.notes)+'</div>':"")+'</div>';
+  const scr = (o && o.screening) || {};
+  const screening = '<div class="card-b">'+
+    ((scr.background||scr.drug||scr.notes)
+      ? '<div class="note"><span class="w">From '+esc(o?o.name:"the account")+' — applies here</span>'+
+          (scr.background?'Background check: '+esc(scr.background)+'<br>':"")+
+          (scr.drug?'Drug screen: '+esc(scr.drug)+'<br>':"")+
+          (scr.notes?esc(scr.notes):"")+'</div>'
+      : '<p class="muted" style="margin:0 0 .6rem">The account has no screening requirements recorded yet.</p>')+
+    (l.screeningExtra
+      ? '<div class="note" style="border-left:3px solid var(--warn)"><span class="w">Additional, this site only</span>'+esc(l.screeningExtra)+'</div>'
+      : '<p class="muted" style="margin:.4rem 0 0;font-size:.875rem">This site adds nothing beyond the account requirements.</p>')+
+  '</div>';
+  const roe = '<div class="card-b">'+(l.roe
+    ? '<p style="margin:0;white-space:pre-wrap">'+esc(l.roe)+'</p>'
+    : '<p class="muted" style="margin:0">Nothing recorded. Rules of engagement are the things a recruiter must follow at this site — submittal limits, screening, badging lead time.</p>')+
+    (READONLY?"":'<div class="chips" style="margin-top:.8rem"><button class="btn sm" data-a="editLocation" data-id="'+l.id+'">Edit this location</button></div>')+
+  '</div>';
+  const conHtml = cs.length ? '<div class="tw"><table><thead><tr><th>Contact</th><th>Title</th><th>Roles</th><th class="num">Last contact</th></tr></thead><tbody>'+
+    cs.map(c => '<tr class="clk" data-a="openPerson" data-id="'+c.id+'">'+
+      '<td>'+who(c.name, esc(c.email||""))+'</td>'+
+      '<td class="sec">'+esc(c.title||"—")+'</td>'+
+      '<td><div class="chips">'+personRoles(c).map(r =>
+        '<span class="pill '+(r==="Candidate"?"a":"m")+'">'+esc(r)+'</span>').join("")+'</div></td>'+
+      '<td class="sec">'+esc(fmtAgo(c.lastContact))+'</td></tr>').join("")+'</tbody></table></div>'
+    : emptyBox("Nobody here yet","Add the people you deal with at this location.",
+        READONLY?"":'<button class="btn pri" data-a="addContactAt" data-id="'+l.id+'">Add a contact here</button>');
+  const docHtml = ds.length ? '<div class="card-b">'+ds.map(d =>
+      '<div class="docrow"><button class="rrow" data-a="openDoc" data-id="'+d.id+'">'+
+      '<span class="av s '+avClass(d.kind)+'">'+esc(d.kind.slice(0,2).toUpperCase())+'</span>'+
+      '<span class="rt"><b>'+esc(d.name)+'</b><span>'+esc(d.kind+" · "+fmtDate(d.at))+'</span></span></button>'+
+      (d.link?'<a class="btn sm" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open</a>':"")+'</div>').join("")+'</div>'
+    : '<div class="card-b">'+emptyBox("No agreements for this location","Anything that applies only here — an Exhibit A, a site rate schedule — lives on this page.")+'</div>';
+  return '<button class="back" data-a="navBack" data-v="orgs">\u2190 '+esc(o?o.name:"Account")+'</button>'+
+    '<div class="ph"><h1>'+esc(l.name)+'</h1><span class="sub">'+esc(locLine(l) || (o?o.name:""))+'</span>'+
+    (READONLY?"":'<span class="sp"><button class="btn pri" data-a="addContactAt" data-id="'+l.id+'">Add a contact</button>'+
+      '<button class="btn" data-a="editLocation" data-id="'+l.id+'">Edit</button></span>')+'</div>'+
+    '<div class="cols2"><div class="grid">'+
+      card("Contacts here", '<span class="sub">'+cs.length+'</span>', conHtml, true)+
+      card("Agreements for this location","",docHtml,false)+
+    '</div><div class="grid">'+
+      card("Rules of engagement","",roe,false)+
+      card("Screening required", '<span class="sub">account + site</span>', screening, false)+
+      card("Details","",det,false)+
+      card("Change history","",historyCard(l.id),false)+
+    '</div></div>';
+}
 function viewOrgs(){
   if(UI.sel){ const o = org(UI.sel); if(o) return viewOrgDetail(o); UI.sel = null; }
   const q = (UI.q||"").trim().toLowerCase();
@@ -1074,7 +1226,7 @@ function viewOrgs(){
   else if(UI.orgOwner === "none") list = list.filter(o => !orgOwners(o).length);
   if(q) list = list.filter(o => (o.name+" "+o.kind+" "+(o.notes||"")+" "+orgOwners(o).join(" ")).toLowerCase().includes(q));
   const body = list.length ? '<div class="tw"><table><thead><tr>'+
-      '<th>Account</th><th>Owners</th><th>Type</th><th class="num">Locations</th><th class="num">Open jobs</th><th class="num">Contacts</th><th class="num">Docs</th><th>Status</th>'+
+      '<th>Account</th><th>Owners</th><th>Type</th><th class="num">Locations</th><th class="num">Open projects</th><th class="num">Contacts</th><th class="num">Docs</th><th>Status</th>'+
     '</tr></thead><tbody>'+
     list.map(o => {
       const js = orgJobs(o.id), openJ = js.filter(j=>j.status==="Open").length;
@@ -1082,7 +1234,7 @@ function viewOrgs(){
       const ow = orgOwners(o);
       return '<tr class="clk" data-a="openOrg" data-id="'+o.id+'">'+
         '<td>'+who(o.name, esc((o.notes||"").slice(0,48)))+'</td>'+
-        '<td>'+(ow.length?'<div class="chips">'+ow.map(n=>'<span class="chip">'+esc(n)+'</span>').join("")+'</div>'
+        '<td>'+(ow.length?'<div class="chips">'+ow.map(n=>'<span class="chip">'+esc(userName(n))+'</span>').join("")+'</div>'
               :'<span class="pill w">unassigned</span>')+'</td>'+
         '<td><span class="pill '+(o.kind==="MSP / VMS"?"m":"n")+'">'+esc(o.kind)+'</span></td>'+
         '<td class="num">'+orgLocations(o.id).length+'</td>'+
@@ -1105,34 +1257,39 @@ function viewOrgs(){
     '<section class="card"><div class="card-b flush">'+body+'</div></section>';
 }
 function viewOrgDetail(o){
-  const cs = orgContacts(o.id), js = orgJobs(o.id);
-  const contactsHtml = cs.length ? '<div class="tw"><table><tbody>'+
-    cs.map(c => '<tr class="clk" data-a="openPerson" data-id="'+c.id+'"><td>'+who(c.name, esc(c.title||""))+
-      (c.isCandidate?' <span class="pill a">also a candidate</span>':"")+'</td>'+
-      '<td class="sec">'+esc(c.email||"")+'<br>'+esc(c.phone||"")+'</td>'+
-      '<td class="num sec">'+esc(fmtAgo(c.lastContact))+'</td></tr>').join("")+'</tbody></table></div>'
-    : emptyBox("No contacts yet","Add the people you deal with here.");
-  const jobsHtml = js.length ? '<div class="tw"><table><thead><tr><th>Job</th><th>Type</th><th class="num">Pipeline</th><th>Status</th></tr></thead><tbody>'+
+  const cs = orgContactsAll(o.id), js = orgJobs(o.id);
+  const contactsHtml = cs.length ? '<div class="tw"><table><thead><tr>'+
+      '<th>Contact</th><th>Location</th><th>Roles</th><th class="num">Last contact</th>'+
+    '</tr></thead><tbody>'+
+    cs.map(c => '<tr class="clk" data-a="openPerson" data-id="'+c.id+'">'+
+      '<td>'+who(c.name, esc(c.title||""))+'</td>'+
+      '<td class="sec">'+(c.locationId && locById(c.locationId) ? esc(locLabel(c.locationId)) : '<span class="pill n">account-wide</span>')+'</td>'+
+      '<td><div class="chips">'+personRoles(c).map(r =>
+        '<span class="pill '+(r==="Candidate"?"a":"m")+'">'+esc(r)+'</span>').join("")+'</div></td>'+
+      '<td class="sec">'+esc(fmtAgo(c.lastContact))+'</td></tr>').join("")+'</tbody></table></div>'
+    : emptyBox("No contacts yet","Add the people you deal with at this account.");
+  const jobsHtml = js.length ? '<div class="tw"><table><thead><tr><th>Project</th><th>Type</th><th class="num">Pipeline</th><th>Status</th></tr></thead><tbody>'+
     js.map(j => '<tr class="clk" data-a="openJob" data-id="'+j.id+'"><td><span class="nm">'+esc(j.title)+'</span>'+
       (j.endClientOrgId===o.id?'<br><span class="pill m">via '+esc(orgName(j.orgId))+'</span>':"")+'</td>'+
       '<td class="sec">'+esc(j.type)+'</td><td class="num">'+jobSubs(j.id).filter(s=>isOpenStage(s.stage)).length+'</td>'+
       '<td>'+statusPill(j.status)+'</td></tr>').join("")+'</tbody></table></div>'
-    : emptyBox("No jobs yet","No requisitions recorded for this company.");
+    : emptyBox("No projects yet","Nothing recorded for this account yet.");
   const det = '<div class="card-b"><dl class="dl">'+
     dd("Type", esc(o.kind))+ dd("Status", statusPill(o.status||"Active"))+
-    dd("Open jobs", String(js.filter(j=>j.status==="Open").length))+
+    dd("Open projects", String(js.filter(j=>j.status==="Open").length))+
+    dd("Background check", esc((o.screening&&o.screening.background)||"—"))+
+    dd("Drug screen", esc((o.screening&&o.screening.drug)||"—"))+
   '</dl>'+(o.notes?'<div class="note" style="margin-top:.75rem">'+esc(o.notes)+'</div>':"")+'</div>';
-  const acts = READONLY?"":'<span class="sp">'+btn("addContact","Add a contact",true)+btn("addJob","Add a job")+btn("editOrg","Edit")+'</span>';
+  const acts = READONLY?"":'<span class="sp">'+btn("addContact","Add a contact",true)+btn("addJob","Add a project")+btn("editOrg","Edit")+'</span>';
   const ow = orgOwners(o);
-  const sub2 = esc(o.kind) + " · " + (ow.length ? "owned by " + esc(ow.join(", ")) : "no owner");
-  return '<button class="back" data-a="view" data-v="orgs">← All accounts</button>'+
+  const sub2 = esc(o.kind) + " · " + (ow.length ? "owned by " + esc(ow.map(userName).join(", ")) : "no owner");
+  return '<button class="back" data-a="navBack" data-v="orgs">← All accounts</button>'+
     '<div class="ph"><h1>'+esc(o.name)+'</h1><span class="sub">'+sub2+'</span>'+acts+'</div>'+
     '<div class="cols2"><div class="grid">'+
       card("Locations", '<span class="sub">'+orgLocations(o.id).length+'</span>', locationsCard(o), false)+
-      card("Agreements & documents","",docsCard(o),false)+
-      card("SharePoint", spStatusPill(), spAccountCard(o), false)+
-      card("Jobs","",jobsHtml,true)+
-      card("Contacts","",contactsHtml,true)+
+      card("Documents", spStatusPill(), docsCard(o), false)+
+      card("Projects","",jobsHtml,true)+
+      card("Contacts", '<span class="sub">everyone at this account</span>', contactsHtml, true)+
     '</div><div class="grid">'+
       card("Owners","",ownersCard(o),false)+
       card("Account details","",det,false)+
@@ -1169,8 +1326,8 @@ function viewPlace(){
         '<td class="num"'+(d!=null&&d<=30?' style="color:var(--warn)"':'')+'>'+(p.endsOn?fmtDate(p.endsOn):"—")+'</td>'+
         '<td>'+statusPill(p.status)+'</td></tr>';
     }).join("")+'</tbody></table></div>'
-    : emptyBox("No placements yet","Move a candidate to Placed on a job and the placement is created here, with the margin worked out for you.");
-  return '<div class="ph"><h1>Placements</h1><span class="sub">'+money0(totGM)+' weekly gross margin from active hourly placements</span>'+
+    : emptyBox("No assignments yet","Move a candidate to Placed on a project and the assignment is created here, with the margin worked out for you.");
+  return '<div class="ph"><h1>Assignments</h1><span class="sub">'+money0(totGM)+' weekly gross margin from active hourly placements</span>'+
     '<span class="sp">'+btn("exportPlacements","Export")+'</span></div>'+
     '<section class="card"><div class="card-b flush">'+body+'</div></section>';
 }
@@ -1221,6 +1378,13 @@ function modalHtml(){
         '<div class="fr three">'+fld("city","Location",p.city,{ph:"Chicago, IL"})+fld("years","Years experience",p.years,{type:"number",step:"0.5",min:0})+
           fld("workAuth","Work authorization",p.workAuth,{type:"select",options:WORKAUTH,blank:"—"})+'</div>'+
         '<div class="fr two">'+fld("desiredPay","Wants ($/hr)",p.desiredPay,{type:"number",step:"0.5",min:0})+fld("availFrom","Available from",p.availFrom,{type:"date"})+'</div>'+
+        '<div class="fr two">'+
+          fld("onPayroll","On our payroll",p.onPayroll?"yes":"no",{type:"select",
+            options:[{v:"no",l:"No — general candidate"},{v:"yes",l:"Yes — consultant on our payroll"}],
+            hint:"Candidates belong to the firm, not to a recruiter. This marks the ones we employ."})+
+          fld("recruiterId","Their recruiter",p.recruiterId||"",{type:"select",blank:"— none —",
+            options:activeUsers().map(u=>({v:u.id,l:u.name})),hint:"Only meaningful for consultants on payroll."})+
+        '</div>'+
         fld("skills","Skills",(p.skills||[]).join(", "),{hint:"Separate with commas — these are what search matches on."})+
         fld("notes","Notes",p.notes,{type:"textarea",ph:"Screening notes, rate conversation, availability…"})+
       '</div>', stdFooter(d.id?"Save changes":"Add candidate"));
@@ -1234,6 +1398,12 @@ function modalHtml(){
         '<div class="fr two">'+fld("kind","Type",o.kind||"Client",{type:"select",options:ORGKINDS})+
           fld("status","Status",o.status||"Active",{type:"select",options:["Active","Prospect","Dormant","Do not use","Credit hold"]})+'</div>'+
         fld("notes","Notes",o.notes,{type:"textarea",ph:"Terms, agreement status, who owns the relationship…"})+
+        '<div class="fr two">'+
+          fld("scrBackground","Background check",(o.screening||{}).background,{ph:"Seven-year criminal",
+            hint:"Applies to every site unless a site adds more."})+
+          fld("scrDrug","Drug screen",(o.screening||{}).drug,{ph:"5-panel, pre-start"})+
+        '</div>'+
+        fld("scrNotes","Screening notes",(o.screening||{}).notes,{type:"textarea",ph:"Anything else onboarding must satisfy for this client."})+
       '</div>', stdFooter(d.id?"Save changes":"Add company"));
   }
 
@@ -1243,7 +1413,13 @@ function modalHtml(){
     return modalShell(d.id?"Edit contact":"Add a contact",
       '<div class="fg">'+
         '<div class="fr two">'+fld("name","Full name",p.name,{req:true})+fld("title","Title",p.title,{ph:"Director of Engineering"})+'</div>'+
-        fld("orgId","Company",oid,{type:"select",req:true,options:S.orgs.map(o=>({v:o.id,l:o.name}))})+
+        fld("orgId","Account",oid,{type:"select",req:true,options:S.orgs.filter(o=>!o.archived).map(o=>({v:o.id,l:o.name}))})+
+        ((S.locations||[]).filter(l=>!l.archived).length
+          ? fld("locationId","Location",(d.locationId||p.locationId||""),{type:"select",
+              blank:"— account-wide, no specific location —",
+              options:(S.locations||[]).filter(l=>!l.archived).map(l=>({v:l.id,l:orgName(l.orgId)+" — "+l.name})),
+              hint:"Leave blank if they cover the whole account."})
+          : "")+
         '<div class="fr two">'+fld("email","Email",p.email,{type:"email"})+fld("phone","Phone",p.phone)+'</div>'+
         fld("notes","Notes",p.notes,{type:"textarea",ph:"How they buy, what they want to see…"})+
       '</div>', stdFooter(d.id?"Save changes":"Add contact"));
@@ -1256,16 +1432,18 @@ function modalHtml(){
     const isPerm = type==="Direct hire";
     const hmOpts = S.people.filter(p=>p.isContact).map(p=>({v:p.id,l:p.name+" — "+orgName(p.orgId)}));
     if(!S.orgs.length) return modalShell("Add a job",
-      '<div class="fwarn"><b>Add a company first.</b> Every job belongs to the company you are filling it for.</div>',
+      '<div class="fwarn"><b>Add a company first.</b> Every project belongs to the account you are delivering it for.</div>',
       '<span class="sp"><button type="button" class="btn" data-a="closeModal">Cancel</button><button type="button" class="btn pri" data-a="addOrg">Add a company</button></span>');
-    return modalShell(d.id?"Edit job":"Add a job",
+    return modalShell(d.id?"Edit project":"Add a project",
       '<div class="fg">'+
-        '<div class="fr two">'+fld("title","Job title",j.title,{req:true,ph:"Senior Backend Engineer"})+
-          fld("type","Type",type,{type:"select",options:JOBTYPES})+'</div>'+
+        '<div class="fr two">'+fld("title","Resource needed / role",j.title,{req:true,ph:"Senior Backend Engineer",
+            hint:"A project may need one resource or many. This is the need you are filling."})+
+          fld("type","How we deliver",type,{type:"select",options:JOBTYPES,
+            hint:"Staffing and contract-to-hire today; managed project and services work use the same project record."})+'</div>'+
         '<div class="fr two">'+fld("orgId","Company you invoice",oid,{type:"select",req:true,options:S.orgs.map(o=>({v:o.id,l:o.name}))})+
           fld("endClientOrgId","End client (if via an MSP)",j.endClientOrgId,{type:"select",blank:"— same as above —",options:S.orgs.map(o=>({v:o.id,l:o.name})),hint:"Set this when work happens somewhere other than who you bill."})+'</div>'+
         '<div class="fr three">'+fld("city","Location",j.city,{ph:"Chicago, IL (hybrid)"})+
-          fld("openings","Openings",j.openings||1,{type:"number",min:1})+
+          fld("openings","Resources needed",j.openings||1,{type:"number",min:1})+
           fld("status","Status",j.status||"Open",{type:"select",options:JOBSTATUS})+'</div>'+
         '<div class="fr two">'+
           fld("billMax","Max bill rate ($/hr)",j.billMax,{type:"number",step:"0.5",min:0,hint:isPerm?"For hourly work — leave blank on a perm role.":"Your ceiling. Submissions above it get flagged."})+
@@ -1372,26 +1550,68 @@ function modalHtml(){
         fld("address","Street address",l.address,{ph:"400 W Monroe St"})+
         '<div class="fr three">'+fld("city","City",l.city)+fld("state","State",l.state,{ph:"IL"})+fld("zip","ZIP",l.zip)+'</div>'+
         fld("roe","Rules of engagement",l.roe,{type:"textarea",
-          ph:"Submittal limits, portal rules, screening required before start, badging lead time…",
+          ph:"Submittal limits, portal rules, badging lead time…",
           hint:"Anything specific to this site that a recruiter must follow."})+
+        fld("screeningExtra","Extra screening for this site",l.screeningExtra,{type:"textarea",
+          ph:"Anything this site requires on top of the account's screening.",
+          hint:"The account's background check and drug screen already apply here — only add what this site adds."})+
         fld("notes","Notes",l.notes,{type:"textarea"})+
       '</div>', stdFooter(d.id?"Save location":"Add location"));
   }
 
   case "owner": {
+    const oo = org(d.id);
+    const taken = orgOwners(oo || {});
+    const free = activeUsers().filter(u => taken.indexOf(u.id) < 0);
+    if(!free.length) return modalShell("Add an owner",
+      '<div class="fwarn">Every workspace user already owns this account. Add more people under <b>Team</b>.</div>',
+      '<span class="sp"><button type="button" class="btn" data-a="closeModal">Close</button>'+
+      '<button type="button" class="btn pri" data-a="view" data-v="team">Open Team</button></span>');
     return modalShell("Add an owner",
       '<div class="fg">'+
         '<div class="note"><span class="w">Account</span>'+esc(orgName(d.id))+'</div>'+
-        fld("name","Owner name",d.name||"",{req:true,ph:"Jordan Blake",
-          hint:"An account can have as many owners as it needs."})+
+        fld("userId","Owner",free[0].id,{type:"select",req:true,
+          options:free.map(u=>({v:u.id,l:u.name+(u.email?" — "+u.email:"")})),
+          hint:"Only workspace users can own an account."})+
       '</div>', stdFooter("Add owner"));
   }
 
+  case "list": {
+    const pp2 = person(d.id);
+    const mine = myLists();
+    return modalShell("Add " + (pp2?pp2.name:"someone") + " to a list",
+      '<div class="fg">'+
+        (mine.length?fld("listId","Existing list","",{type:"select",blank:"— new list —",
+          options:mine.map(l=>({v:l.id,l:l.name+" ("+(l.personIds||[]).length+")"}))}):"")+
+        fld("name","Or name a new one","",{ph:"Hot Java · Chicago",
+          hint:"Your own list. Pull it up later without searching again."})+
+      '</div>', stdFooter("Add to list"));
+  }
+
+  case "user": {
+    const u = d.id?user(d.id):{};
+    return modalShell(d.id?"Edit user":"Add a workspace user",
+      '<div class="fg">'+
+        '<div class="fr two">'+fld("name","Name",u.name,{req:true,ph:"Jordan Blake"})+
+          fld("email","Email",u.email,{type:"email",ph:"jordan.blake@technicalsource.com"})+'</div>'+
+        (d.id?fld("active","Status",u.active===false?"no":"yes",{type:"select",
+          options:[{v:"yes",l:"Active"},{v:"no",l:"Inactive"}],
+          hint:"Inactive users keep their history but cannot be given new accounts."}):"")+
+      '</div>', stdFooter(d.id?"Save user":"Add user"));
+  }
+
   case "whoami": {
+    const us = activeUsers();
+    if(!us.length) return modalShell("Who are you?",
+      '<div class="fg">'+
+        '<p style="margin:0;color:var(--muted)">There are no workspace users yet. Add yourself first.</p>'+
+        fld("name","Your name",'',{req:true,ph:"Your name"})+
+        fld("email","Email",'',{type:"email"})+
+      '</div>', stdFooter("Add me"));
     return modalShell("Who are you?",
       '<div class="fg">'+
-        '<p style="margin:0;color:var(--muted)">So that “my accounts” means something. Stored on this device only.</p>'+
-        fld("name","Your name",ME,{req:true,ph:"Your name"})+
+        '<p style="margin:0;color:var(--muted)">Pick yourself from the workspace users. Stored on this device only.</p>'+
+        fld("userId","You are",ME||us[0].id,{type:"select",req:true,options:us.map(u=>({v:u.id,l:u.name}))})+
       '</div>', stdFooter("Save"));
   }
 
@@ -1722,7 +1942,10 @@ function extractFields(rest, kind){
     const v = jt[1].toLowerCase();
     f.jobType = /c2h|contract to hire|contract-to-hire/.test(v) ? "Contract-to-hire"
       : /direct|perm/.test(v) ? "Direct hire"
-      : /sow|project/.test(v) ? "SOW / project" : "Contract";
+      : /managed service/.test(v) ? "Managed services"
+      : /managed project/.test(v) ? "Managed project"
+      : /sow|statement of work/.test(v) ? "Managed services"
+      : "Staffing (contract)";
     s = s.replace(jt[0], " ");
   }
 
@@ -1812,8 +2035,10 @@ const NEEDS = {
         const low = v.toLowerCase();
         f.jobType = /c2h|contract to hire|contract-to-hire/.test(low) ? "Contract-to-hire"
           : /direct|perm/.test(low) ? "Direct hire"
-          : /sow|project/.test(low) ? "SOW / project"
-          : /contract/.test(low) ? "Contract" : null;
+          : /managed service/.test(low) ? "Managed services"
+          : /managed project/.test(low) ? "Managed project"
+          : /sow|statement of work/.test(low) ? "Managed services"
+          : /contract|staffing/.test(low) ? "Staffing (contract)" : null;
         return !!f.jobType;
       },
       ok:f => !!f.jobType }
@@ -1884,12 +2109,19 @@ function runAssistant(raw, quiet){
   /* answering one of our own questions, for the flows with bespoke slots */
   if(CHAT.pending && CHAT.pending.kind === "identity"){
     const nm = text.replace(/^\s*(?:i am|i'm|im|my name is|call me|this is)\s+/i, "").trim();
-    if(nm){
-      setMe(titleCaseName(nm));
+    const u = nm ? findUserByName(nm) : null;
+    if(u){
+      setMeUser(u.id);
       const replay = CHAT.pending.replay;
       CHAT.pending = null;
-      say("Thanks — you are **" + ME + "** on this device.");
+      say("Thanks — you are **" + u.name + "**.");
       if(replay){ saveChat(); return runAssistant(replay, true); }
+      return finishTurn();
+    }
+    if(nm){
+      CHAT.pending = null;
+      say("**" + esc(nm) + "** is not a workspace user. Add them under **Team**, then tell me again.",
+          activeUsers().slice(0,6).map(x => "I am " + x.name));
       return finishTurn();
     }
   }
@@ -2040,6 +2272,7 @@ function runAssistant(raw, quiet){
   }
 
   if(tryIdentity(text)) return finishTurn();
+  if(tryLists(text)) return finishTurn();
   if(tryRoles(text)) return finishTurn();
   if(tryLogActivity(text)) return finishTurn();
   if(trySharePoint(text)) return finishTurn();
@@ -2183,7 +2416,7 @@ async function commitDraft(id){
               (added ? " I added the **candidate** role to that same record rather than creating a duplicate." : " No new record was needed.") +
               (ch.length ? " I also filled in " + ch.map(c => c.f).join(", ") + "." : "") +
               " Nothing was overwritten." + rn1,
-        link: { type: "candidate", id: dupe.id, name: dupe.name, view: "cands" }
+        link: { type: "candidate", id: dupe.id, name: dupe.name, view: "person" }
       });
       saveChat(); render(); save();
       return;
@@ -2196,7 +2429,7 @@ async function commitDraft(id){
     S.people.push(p);
     logChange("person", p.id, p.name, [{ f: "created", from: "—", to: "candidate" }]);
     extra += await attachResumeDoc(f, p);
-    created = { type: "candidate", id: p.id, name: p.name, view: "cands" };
+    created = { type: "candidate", id: p.id, name: p.name, view: "person" };
   }
   else if(d.kind === "contact"){
     const { org: o, created: madeOrg } = resolveOrg(f.company);
@@ -2213,7 +2446,7 @@ async function commitDraft(id){
               (added ? " I added the **contact** role at **" + o.name + "** to that same record — a hiring manager who is also a candidate stays one person." : "") +
               (madeOrg ? " I created the account **" + o.name + "** too." : "") +
               " Nothing was overwritten.",
-        link: { type: "contact", id: dupe.id, name: dupe.name, view: "orgs" }
+        link: { type: "contact", id: dupe.id, name: dupe.name, view: "person" }
       });
       saveChat(); render(); save();
       return;
@@ -2223,7 +2456,7 @@ async function commitDraft(id){
       lastContact: nowISO(), createdAt: nowISO() };
     S.people.push(p);
     logChange("person", p.id, p.name, [{ f: "created", from: "—", to: "contact at " + o.name }]);
-    created = { type: "contact", id: p.id, name: p.name + " at " + o.name, view: "orgs" };
+    created = { type: "contact", id: p.id, name: p.name + " at " + o.name, view: "person" };
     if(madeOrg) extra = " I also created the company **"+o.name+"**.";
   }
   else if(d.kind === "company"){
@@ -2340,13 +2573,14 @@ function ingestResumeText(text, filename, ftok){
 /* ============================================================
    WHO AM I — needed for "my accounts". Per device, not shared.
    ============================================================ */
-let ME = "";
-try{ ME = localStorage.getItem("ts_me") || ""; }catch(e){}
-function setMe(n){
-  ME = String(n||"").trim();
-  try{ localStorage.setItem("ts_me", ME); }catch(e){}
+let ME = "";                       /* the signed-in workspace user's id */
+try{ ME = localStorage.getItem("ts_me_id") || ""; }catch(e){}
+function setMeUser(id){
+  ME = id || "";
+  try{ localStorage.setItem("ts_me_id", ME); }catch(e){}
 }
-const ownedByMe = o => !!(ME && orgOwners(o).some(n => String(n).toLowerCase() === ME.toLowerCase()));
+const meName = () => { const u = user(ME); return u ? u.name : ""; };
+const ownedByMe = o => !!(ME && orgOwners(o).indexOf(ME) >= 0);
 
 /* ============================================================
    NATURAL-LANGUAGE LIST QUERIES
@@ -2458,7 +2692,7 @@ function applyFilters(entity, f){
 }
 function describeFilters(entity, f){
   const bits = [];
-  if(f.mine) bits.push("owned by " + (ME || "me"));
+  if(f.mine) bits.push("owned by " + (meName() || "me"));
   if(f.unassigned) bits.push("with no owner");
   if(f.status) bits.push(f.status.toLowerCase());
   else if(f.active) bits.push("active");
@@ -2481,7 +2715,8 @@ function tryListQuery(text){
 
   if(f.mine && !ME){
     CHAT.pending = { kind: "identity", fields: {}, slot: "name", replay: text };
-    say("Before I can show what is **yours**, what is your name? I will remember it on this device.");
+    say("Before I can show what is **yours** — which workspace user are you?",
+        activeUsers().slice(0,6).map(x => "I am " + x.name));
     return true;
   }
 
@@ -2511,9 +2746,37 @@ function tryListQuery(text){
 
 function tryIdentity(text){
   let m = text.match(/^\s*(?:i am|i'm|im|my name is|call me|this is)\s+([A-Za-z][\w.'\- ]{1,40})\s*$/i);
-  if(m){ setMe(titleCaseName(m[1].trim())); say("Noted — you are **" + ME + "**. Now “my accounts” will work."); return true; }
+  if(m){
+    const nm = m[1].trim();
+    const u = findUserByName(nm);
+    if(u){ setMeUser(u.id); say("Noted — you are **" + u.name + "**. Now “my accounts” will work."); render(); return true; }
+    say("**" + esc(nm) + "** is not a workspace user yet. Only users can own accounts, so add them under **Team** first.",
+        activeUsers().slice(0,6).map(x => "I am " + x.name).concat(["add user " + nm]));
+    return true;
+  }
+  m = text.match(/^\s*add\s+user\s+(.+)$/i);
+  if(m){
+    const parts = m[1].split(",").map(x => x.trim());
+    const nm = parts[0], em = (m[1].match(RX_EMAIL) || [""])[0];
+    if(!nm){ say("What is their name?"); return true; }
+    if(findUserByName(nm)){ say("**" + esc(nm) + "** is already a user."); return true; }
+    const u = { id:uid("u"), name:titleCaseName(nm.replace(RX_EMAIL,"").replace(/,$/,"").trim()), email:em, active:true, createdAt:nowISO() };
+    S.users.push(u);
+    logChange("user", u.id, u.name, [{ f:"created", from:"—", to:"workspace user" }]);
+    say("Added **" + u.name + "** as a workspace user. They can now own accounts." +
+        (ME ? "" : " Say “I am " + u.name + "” if that is you."));
+    render(); save();
+    return true;
+  }
+  if(/^\s*(?:list|show)\s+(?:the\s+)?(?:users|team)\s*\??$/i.test(text)){
+    const us = activeUsers();
+    if(!us.length){ say("No workspace users yet. Add one with “add user Jane Doe, jane@technicalsource.com”."); return true; }
+    say("**" + us.length + "** workspace user" + (us.length===1?"":"s") + ": " + us.map(u => "**"+u.name+"**").join(", ") + ".");
+    return true;
+  }
   if(/^\s*who am i\s*\??$/i.test(text)){
-    say(ME ? "You are **" + ME + "** on this device." : "I do not know yet — tell me with “I am Matt”.");
+    say(ME ? "You are **" + meName() + "** on this device." : "I do not know yet — tell me with “I am <your name>”.",
+        activeUsers().slice(0,6).map(x => "I am " + x.name));
     return true;
   }
   return false;
@@ -2532,7 +2795,7 @@ function fmtVal(v){
 function logChange(entity, id, name, changes){
   if(!changes || !changes.length) return;
   S.audit = S.audit || [];
-  S.audit.push({ at: nowISO(), by: ME || "someone", entity, id, name, changes });
+  S.audit.push({ at: nowISO(), by: meName() || "someone", entity, id, name, changes });
   if(S.audit.length > 1500) S.audit = S.audit.slice(-1500);
 }
 /* applies patch to obj, returns the list of what actually changed */
@@ -2596,7 +2859,7 @@ function stateBytes(){
 }
 function addDoc(rec){
   S.docs = S.docs || [];
-  const d = Object.assign({ id: uid("doc"), at: nowISO(), by: ME || "someone" }, rec);
+  const d = Object.assign({ id: uid("doc"), at: nowISO(), by: meName() || "someone" }, rec);
   if(d.text && d.text.length > DOC_TEXT_CAP){
     d.text = d.text.slice(0, DOC_TEXT_CAP);
     d.truncated = true;
@@ -2705,14 +2968,35 @@ async function fileDocToOrg(doc, o, loc, createdOrg){
    are either account-wide or tied to one location.
    ============================================================ */
 function migrateState(){
+  S.users = S.users || [];
+  S.lists = S.lists || [];
   S.locations = S.locations || [];
   S.docs = S.docs || [];
   S.audit = S.audit || [];
   (S.orgs || []).forEach(o => {
     if(!Array.isArray(o.owners)) o.owners = o.owner ? [o.owner] : [];
     delete o.owner;
+    /* owners are workspace users; convert any legacy names to real user records */
+    o.owners = o.owners.map(v => {
+      if(user(v)) return v;
+      const byName = findUserByName(v);
+      if(byName) return byName.id;
+      const u = { id:uid("u"), name:String(v), email:"", active:true, createdAt:nowISO() };
+      S.users.push(u);
+      return u.id;
+    }).filter(Boolean);
   });
   (S.docs || []).forEach(d => { if(!d.scope) d.scope = d.locationId ? "location" : "account"; });
+}
+const user = id => (S.users || []).find(u => u.id === id) || null;
+const userName = id => { const u = user(id); return u ? u.name : String(id || "—"); };
+const activeUsers = () => (S.users || []).filter(u => u.active !== false);
+function findUserByName(n){
+  const t = String(n || "").trim().toLowerCase();
+  if(!t) return null;
+  return (S.users || []).find(u => String(u.name).toLowerCase() === t)
+      || (S.users || []).find(u => String(u.email || "").toLowerCase() === t)
+      || (S.users || []).find(u => String(u.name).toLowerCase().indexOf(t) === 0) || null;
 }
 const orgOwners = o => (o && Array.isArray(o.owners)) ? o.owners : [];
 const orgLocations = oid => (S.locations || []).filter(l => l.orgId === oid && !l.archived);
@@ -2725,24 +3009,23 @@ const docsForOrg = oid => (S.docs || []).filter(d => d.orgId === oid);
 const docsAccountWide = oid => docsForOrg(oid).filter(d => !d.locationId);
 const docsForLocation = lid => (S.docs || []).filter(d => d.locationId === lid);
 
-function addOwner(o, name){
-  const n = String(name || "").trim();
-  if(!n) return false;
+/* owners are always workspace users — never free text */
+function addOwner(o, userId){
+  if(!userId || !user(userId)) return false;
   o.owners = orgOwners(o);
-  if(o.owners.some(x => x.toLowerCase() === n.toLowerCase())) return false;
-  const before = o.owners.join(", ") || "—";
-  o.owners = o.owners.concat([n]);
-  logChange("org", o.id, o.name, [{ f: "owners", from: before, to: o.owners.join(", ") }]);
+  if(o.owners.indexOf(userId) >= 0) return false;
+  const before = o.owners.map(userName).join(", ") || "—";
+  o.owners = o.owners.concat([userId]);
+  logChange("org", o.id, o.name, [{ f:"owners", from:before, to:o.owners.map(userName).join(", ") }]);
   return true;
 }
-function removeOwner(o, name){
-  const n = String(name || "").trim().toLowerCase();
+function removeOwner(o, userId){
   o.owners = orgOwners(o);
-  const before = o.owners.join(", ") || "—";
-  const next = o.owners.filter(x => x.toLowerCase() !== n);
+  const before = o.owners.map(userName).join(", ") || "—";
+  const next = o.owners.filter(x => x !== userId);
   if(next.length === o.owners.length) return false;
   o.owners = next;
-  logChange("org", o.id, o.name, [{ f: "owners", from: before, to: o.owners.join(", ") || "—" }]);
+  logChange("org", o.id, o.name, [{ f:"owners", from:before, to:o.owners.map(userName).join(", ") || "—" }]);
   return true;
 }
 
@@ -2753,15 +3036,23 @@ function tryOwnership(text){
   if(m){
     const o = findOrgByName(m[1]);
     if(!o){ say("I have no account called **" + esc(m[1].trim()) + "**."); return true; }
-    let to = m[2].trim();
-    if(/^(me|myself)$/i.test(to)){
-      if(!ME){ CHAT.pending = { kind:"identity", fields:{}, slot:"name", replay:text };
-        say("What is your name? I will remember it on this device."); return true; }
-      to = ME;
+    let toId = null, toRaw = m[2].trim();
+    if(/^(me|myself)$/i.test(toRaw)){
+      if(!ME){ modal("whoami", {}); return true; }
+      toId = ME;
+    }else{
+      const u = findUserByName(toRaw);
+      if(!u){
+        say("**" + esc(toRaw) + "** is not a workspace user, and only users can own accounts. " +
+            "Add them under **Team** first, then assign the account.",
+            activeUsers().slice(0,6).map(x => "assign " + o.name + " to " + x.name));
+        return true;
+      }
+      toId = u.id;
     }
-    const added = addOwner(o, to);
-    say(added ? "**" + to + "** now owns **" + o.name + "** — it has " + orgOwners(o).length + " owner" + (orgOwners(o).length===1?"":"s") + ": " + orgOwners(o).join(", ") + "."
-              : "**" + to + "** already owns **" + o.name + "**.");
+    const added = addOwner(o, toId);
+    say(added ? "**" + userName(toId) + "** now owns **" + o.name + "** — it has " + orgOwners(o).length + " owner" + (orgOwners(o).length===1?"":"s") + ": " + orgOwners(o).map(userName).join(", ") + "."
+              : "**" + userName(toId) + "** already owns **" + o.name + "**.");
     render(); if(added) save();
     return true;
   }
@@ -2769,11 +3060,12 @@ function tryOwnership(text){
   if(m){
     const o = findOrgByName(m[2]);
     if(!o){ say("I have no account called **" + esc(m[2].trim()) + "**."); return true; }
-    const target = m[1] ? m[1].trim() : ME;
-    if(!target){ say("Tell me who to remove, or set your name first with “I am Matt”."); return true; }
-    const gone = removeOwner(o, target);
-    say(gone ? "**" + target + "** no longer owns **" + o.name + "**" + (orgOwners(o).length ? " — still owned by " + orgOwners(o).join(", ") + "." : " — it has no owner now.")
-             : "**" + target + "** was not an owner of **" + o.name + "**.");
+    let targetId = ME, targetLabel = meName();
+    if(m[1]){ const u = findUserByName(m[1].trim()); targetId = u ? u.id : null; targetLabel = u ? u.name : m[1].trim(); }
+    if(!targetId){ say("**" + esc(targetLabel || "That person") + "** is not a workspace user."); return true; }
+    const gone = removeOwner(o, targetId);
+    say(gone ? "**" + targetLabel + "** no longer owns **" + o.name + "**" + (orgOwners(o).length ? " — still owned by " + orgOwners(o).map(userName).join(", ") + "." : " — it has no owner now.")
+             : "**" + targetLabel + "** was not an owner of **" + o.name + "**.");
     render(); if(gone) save();
     return true;
   }
@@ -2782,7 +3074,7 @@ function tryOwnership(text){
     const o = findOrgByName(m[1]);
     if(!o){ say("I have no account called **" + esc(m[1].trim()) + "**."); return true; }
     const ow = orgOwners(o);
-    say(ow.length ? "**" + o.name + "** is owned by " + ow.map(x => "**"+x+"**").join(" and ") + "."
+    say(ow.length ? "**" + o.name + "** is owned by " + ow.map(x => "**"+userName(x)+"**").join(" and ") + "."
                   : "**" + o.name + "** has no owner. Say “assign " + o.name + " to me” to take it.");
     return true;
   }
@@ -2857,8 +3149,40 @@ function createLocation(o, f, madeOrg){
 function personRoles(p){
   const r = [];
   if(p.isCandidate) r.push("Candidate");
-  if(p.isContact) r.push("Contact");
+  if(p.isContact) r.push("Manager");
   return r;
+}
+/* everyone is a contact; the roles say what kind */
+const allContacts = () => S.people.filter(p => !p.archived && (p.isCandidate || p.isContact));
+/* candidates belong to the firm, not to a recruiter. These say who has touched them. */
+function recentRecruiters(pid){
+  const seen = {};
+  activityFor(pid).forEach(a => { if(a.by && !seen[a.by]) seen[a.by] = a.at; });
+  return Object.keys(seen).map(n => ({ name:n, at:seen[n] })).slice(0, 5);
+}
+const myLists = () => (S.lists || []).filter(l => !ME || l.byUserId === ME);
+const listsFor = pid => (S.lists || []).filter(l => (l.personIds || []).indexOf(pid) >= 0);
+function listByName(n){
+  const t = String(n || "").trim().toLowerCase();
+  return (S.lists || []).find(l => String(l.name).toLowerCase() === t)
+      || (S.lists || []).find(l => String(l.name).toLowerCase().indexOf(t) === 0) || null;
+}
+function addToList(listName, pid){
+  let l = listByName(listName), made = false;
+  if(!l){
+    l = { id:uid("li"), name:String(listName).trim(), byUserId:ME || null, personIds:[], createdAt:nowISO() };
+    S.lists.push(l); made = true;
+  }
+  if((l.personIds || []).indexOf(pid) < 0) l.personIds = (l.personIds || []).concat([pid]);
+  return { list:l, made:made };
+}
+const locationContacts = lid => S.people.filter(p => !p.archived && p.isContact && p.locationId === lid);
+const orgContactsAll = oid => S.people.filter(p => !p.archived && p.isContact && p.orgId === oid);
+function personPlace(p){
+  if(!p.isContact || !p.orgId) return "";
+  const o = org(p.orgId);
+  if(!o) return "";
+  return o.name + (p.locationId && locById(p.locationId) ? " · " + locLabel(p.locationId) : "");
 }
 function findPersonByContact(email, phone){
   const e = normEmail(email), d = digits(phone);
@@ -2902,6 +3226,42 @@ function grantRole(p, role, orgId){
   if(changes.length) logChange("person", p.id, p.name, changes);
   return changes.length > 0;
 }
+function tryLists(text){
+  let m = text.match(/^\s*(?:add|tag|put)\s+(.+?)\s+(?:to|on|in)\s+(?:my\s+)?(.+?)\s*(?:list)?\s*$/i);
+  if(m && !/^(?:a\s+)?(?:candidate|contact|manager|company|account|job|project|location|user)\b/i.test(m[1].trim())){
+    const pf = findPersonByName(m[1]) || S.people.find(x => String(x.name||"").toLowerCase().includes(m[1].trim().toLowerCase()));
+    if(pf){
+      const r = addToList(m[2].trim(), pf.id);
+      say("Added **" + pf.name + "** to " + (r.made ? "a new list " : "") + "**" + r.list.name + "** (" +
+          r.list.personIds.length + " on it). Say “show my " + r.list.name + " list” to pull it up.");
+      render(); save();
+      return true;
+    }
+  }
+  m = text.match(/^\s*(?:show|open|pull\s*up|list)\s+(?:my\s+)?(.+?)\s+list\s*$/i);
+  if(m){
+    const l = listByName(m[1].trim());
+    if(!l){
+      const ls2 = myLists();
+      say("You have no list called **" + esc(m[1].trim()) + "**." + (ls2.length?" You have:":""),
+          ls2.map(x => "show my " + x.name + " list"));
+      return true;
+    }
+    const ids = l.personIds || [];
+    if(!ids.length){ say("**" + l.name + "** is empty."); return true; }
+    push("as", "results", { q:l.name, lead:"**" + l.name + "** — " + ids.length + " on this list",
+      ids:{ cands: ids.slice(0,25) }, openView:"cands" });
+    return true;
+  }
+  if(/^\s*(?:show|list)\s+(?:my\s+)?lists\s*\??$/i.test(text)){
+    const ls3 = myLists();
+    if(!ls3.length){ say("You have no lists yet. Tag someone with “add Priya to Hot Java”."); return true; }
+    say("Your lists: " + ls3.map(l => "**"+l.name+"** ("+(l.personIds||[]).length+")").join(", ") + ".",
+        ls3.map(l => "show my " + l.name + " list"));
+    return true;
+  }
+  return false;
+}
 function tryRoles(text){
   let m = text.match(/^\s*(?:make|mark|also track|treat)\s+(.+?)\s+(?:as\s+)?(?:a\s+)?(candidate|contact|hiring manager|manager)\b(?:\s+(?:at|for)\s+(.+))?\s*$/i);
   if(!m) return false;
@@ -2944,7 +3304,7 @@ function logActivity(personId, ctx, kind, note){
     jobId: ctx && ctx.jobId ? ctx.jobId : null,
     subId: ctx && ctx.subId ? ctx.subId : null,
     kind: kind || "Note", note: note || "",
-    at: nowISO(), by: ME || "someone"
+    at: nowISO(), by: meName() || "someone"
   };
   S.activity.push(a);
   if(S.activity.length > 3000) S.activity = S.activity.slice(-3000);
@@ -3053,34 +3413,27 @@ function md(t){
 function viewAsk(){
   const msgs = CHAT.msgs.map(renderMsg).join("");
   const empty = !CHAT.msgs.length;
-  const openers = [
-    "list of accounts",
-    "unassigned accounts",
-    "who do we know at Northwind Health",
-    "candidates with kubernetes",
-    "open jobs in dallas",
-    "search documents for termination"
-  ];
   const intro = empty ? '<div class="askintro">'+
       '<h2>What do you need?</h2>'+
-      '<p>Ask in plain English, or add a record by describing it. Drop a resume, MSA or Exhibit A anywhere on this page and I will read it, work out what it is and file it.</p>'+
-      '<div class="chips">'+openers.map(o => '<button class="chip act" data-a="chip" data-v="'+esc(o)+'">'+esc(o)+'</button>').join("")+'</div>'+
-      '<p class="askhint">Type <b>help</b> for everything I understand.</p>'+
+      '<p>Ask in plain English, or describe what to add. Drop a resume, agreement or exhibit straight into the box below and I will read it, work out what it is, and file it.</p>'+
     '</div>' : "";
-  return '<div class="ph"><h1>Assistant</h1>'+
-      (ME?'<span class="sub">signed in as '+esc(ME)+'</span>':'<span class="sub">tell me your name to use “my accounts”</span>')+
+  return '<div class="ph"><h1>TS Project Assistant</h1>'+
+      (ME?'<span class="sub">'+esc(meName())+'</span>'
+         :'<span class="sub"><button class="chip act" data-a="whoami">Set who you are</button></span>')+
       '<span class="sp">'+
         (CHAT.msgs.length?'<button class="btn gh" data-a="clearChat">Clear</button>':"")+
-        '<button class="btn" data-a="pasteResume">Paste a resume</button>'+
-        '<button class="btn" data-a="pickFile">Upload a document</button>'+
+        '<button class="btn" data-a="pasteResume">Paste text</button>'+
       '</span></div>'+
     '<div class="chat">'+ intro + '<div class="msgs" id="msgs">'+msgs+'</div>'+
       '<form class="composer" data-a="askform">'+
-        '<input id="askin" name="q" autocomplete="off" placeholder="'+
-          (CHAT.pending?'Answer above, or type cancel…':'Ask, or describe what to add…')+'" value="">'+
-        '<button class="btn pri" type="submit" aria-label="Send">Send</button>'+
+        '<textarea id="askin" name="q" rows="3" autocomplete="off" placeholder="'+
+          (CHAT.pending?'Answer above, or type cancel…':'Ask anything, describe what to add, or drop a document here…')+'"></textarea>'+
+        '<div class="composer-f">'+
+          '<button type="button" class="btn sm gh" data-a="pickFile">Attach a document</button>'+
+          '<span class="composer-hint">Drop files here · Enter to send, Shift+Enter for a new line</span>'+
+          '<button class="btn pri" type="submit">Send</button>'+
+        '</div>'+
       '</form>'+
-      '<p class="dropnote">Drop a file anywhere · PDF, Word or text</p>'+
     '</div>'+
     '<input type="file" id="filein" multiple accept=".pdf,.docx,.txt,.md,.csv,.rtf,.doc" hidden>';
 }
@@ -3140,7 +3493,7 @@ function resultsCard(d){
   };
   out += sec("Accounts", d.ids.orgs, id => { const o = org(id); if(!o) return "";
     const ow = orgOwners(o);
-    return rrow("openOrg", id, o.name, o.kind + " · " + (ow.length ? "owned by " + ow.join(", ") : "no owner") +
+    return rrow("openOrg", id, o.name, o.kind + " · " + (ow.length ? "owned by " + ow.map(userName).join(", ") : "no owner") +
       " · " + orgLocations(o.id).length + " location" + (orgLocations(o.id).length===1?"":"s")); });
   out += sec("Candidates", d.ids.cands, id => { const p = person(id); if(!p) return "";
     return rrow("openPerson", id, p.name, [p.title, p.city, (p.skills||[]).slice(0,3).join(", ")].filter(Boolean).join(" · ")
@@ -3226,85 +3579,77 @@ function locResultsCard(d){
 /* ---------- account detail: owners, locations, agreements, history ---------- */
 function ownersCard(o){
   const ow = orgOwners(o);
-  const mine = ME && ow.some(x => x.toLowerCase() === ME.toLowerCase());
+  const mine = ME && ow.indexOf(ME) >= 0;
+  const free = activeUsers().filter(u => ow.indexOf(u.id) < 0);
   return '<div class="card-b">'+
     (ow.length
-      ? '<div class="chips">'+ow.map(n => '<span class="chip">'+avatar(n,true)+' '+esc(n)+
-          (READONLY?"":'<button class="chipx" data-a="removeOwner" data-id="'+o.id+'" data-v="'+esc(n)+'" aria-label="Remove '+esc(n)+'">×</button>')+'</span>').join("")+'</div>'
+      ? '<div class="chips">'+ow.map(id => '<span class="chip">'+avatar(userName(id),true)+' '+esc(userName(id))+
+          (READONLY?"":'<button class="chipx" data-a="removeOwner" data-id="'+o.id+'" data-v="'+esc(id)+'" aria-label="Remove '+esc(userName(id))+'">×</button>')+'</span>').join("")+'</div>'
       : '<p class="muted">Nobody owns this account yet.</p>')+
-    (READONLY?"":'<div class="chips" style="margin-top:.7rem">'+
-      (mine?"":'<button class="btn sm pri" data-a="ownMe" data-id="'+o.id+'">'+(ME?"Add me as an owner":"Claim this account")+'</button>')+
-      '<button class="btn sm" data-a="addOwner" data-id="'+o.id+'">Add someone else</button>'+
+    (READONLY?"":'<div class="chips" style="margin-top:.8rem">'+
+      (mine?"":'<button class="btn sm pri" data-a="ownMe" data-id="'+o.id+'">'+(ME?"Add me":"Claim this account")+'</button>')+
+      (free.length?'<button class="btn sm" data-a="addOwner" data-id="'+o.id+'">Add an owner</button>':"")+
     '</div>')+
+    '<p class="muted" style="margin:.8rem 0 0;font-size:.8125rem">Owners are workspace users. Manage who they are under <b>Team</b>.</p>'+
   '</div>';
 }
 function locationsCard(o){
   const ls = orgLocations(o.id);
   if(!ls.length) return '<div class="card-b">'+emptyBox("No locations yet",
-    "Add a location when a site has its own address, rules of engagement or agreement.",
+    "Add a location when a site has its own address, contacts, rules of engagement or agreements.",
     READONLY?"":btn2("addLocation", o.id, "Add a location", true))+'</div>';
-  return '<div class="card-b" style="display:grid;gap:.7rem">'+
+  return '<div class="card-b flush"><div class="rowlist">'+
     ls.map(l => {
-      const dl = docsForLocation(l.id);
-      return '<div class="loc">'+
-        '<div class="loc-h">'+avatar(l.name, true)+'<b>'+esc(l.name)+'</b>'+
-          (dl.length?'<span class="pill m">'+dl.length+' agreement'+(dl.length===1?"":"s")+'</span>':"")+
-          (READONLY?"":'<span class="sp"><button class="btn sm" data-a="editLocation" data-id="'+l.id+'">Edit</button></span>')+
-        '</div>'+
-        (locLine(l)?'<p class="loc-addr">'+esc(locLine(l))+'</p>':"")+
-        (l.roe?'<div class="note"><span class="w">Rules of engagement</span>'+esc(l.roe)+'</div>':
-          '<p class="muted" style="font-size:.875rem;margin:.2rem 0 0">No rules of engagement recorded.</p>')+
-        (dl.length?'<div class="chips" style="margin-top:.5rem">'+dl.map(d =>
-          '<button class="chip act" data-a="openDoc" data-id="'+d.id+'">'+esc(d.kind)+' · '+esc(d.name)+'</button>').join("")+'</div>':"")+
-      '</div>';
-    }).join("")+
-    (READONLY?"":'<div>'+btn2("addLocation", o.id, "Add a location")+'</div>')+
+      const nDocs = docsForLocation(l.id).length, nCon = locationContacts(l.id).length;
+      const meta = [locLine(l), nCon ? nCon + " contact" + (nCon===1?"":"s") : null,
+                    nDocs ? nDocs + " agreement" + (nDocs===1?"":"s") : null].filter(Boolean).join(" · ");
+      return '<button class="lrow" data-a="openLocation" data-id="'+l.id+'">'+
+        avatar(l.name, true)+
+        '<span class="lrow-t"><b>'+esc(l.name)+'</b><span>'+esc(meta || "No details yet")+'</span></span>'+
+        '<span class="lrow-go" aria-hidden="true">\u2192</span></button>';
+    }).join("")+'</div>'+
+    (READONLY?"":'<div style="padding:.9rem 1.15rem 0">'+btn2("addLocation", o.id, "Add a location")+'</div>')+
   '</div>';
 }
 function spStatusPill(){
   if(!SP.probed) return '<span class="pill n">checking…</span>';
-  if(SP.status === "connected") return '<span class="pill g">connected</span>';
-  if(SP.status === "needs_reauth") return '<span class="pill w">reconnect needed</span>';
-  if(SP.status === "not_connected") return '<span class="pill w">not connected</span>';
+  if(SP.status === "connected") return '<span class="pill g">SharePoint</span>';
+  if(SP.status === "needs_reauth") return '<span class="pill w">reconnect SharePoint</span>';
+  if(SP.status === "not_connected") return '<span class="pill w">SharePoint off</span>';
   if(SP.status === "choose") return '<span class="pill w">choose an account</span>';
-  if(SP.status === "unavailable") return '<span class="pill n">not in this view</span>';
-  return '<span class="pill r">unavailable</span>';
-}
-function spAccountCard(o){
-  if(!SP.probed) return '<div class="card-b"><p class="muted">Checking the Microsoft 365 connector…</p></div>';
-  if(SP.status !== "connected"){
-    const c = spErr({ code: SP.status === "not_connected" ? "server_not_connected"
-                          : SP.status === "needs_reauth" ? "needs_reauth"
-                          : SP.status === "choose" ? "selection_required"
-                          : SP.status === "unavailable" ? "not_granted" : "upstream_error" });
-    return '<div class="card-b"><p style="margin:0 0 .3rem;font-weight:600">'+esc(c.t)+'</p>'+
-      '<p class="muted" style="margin:0">'+esc(c.d)+'</p></div>';
-  }
-  const linked = docsForOrg(o.id).filter(d => d.spItemId).length;
-  return '<div class="card-b">'+
-    '<p class="muted" style="margin:0 0 .7rem">Search your SharePoint for this account and file what you find against it — the link points at the original, and the text is indexed so it turns up in search.</p>'+
-    (linked?'<p style="margin:0 0 .7rem"><span class="pill g">'+linked+' linked from SharePoint</span></p>':"")+
-    (READONLY?"":'<div class="chips">'+
-      '<button class="btn sm pri" data-a="spFind" data-id="'+o.id+'">Find documents for '+esc(o.name)+'</button>'+
-    '</div>')+
-    (spWriteState()==="ok"?"":'<p class="muted" style="margin:.7rem 0 0;font-size:.8125rem">'+esc(spWriteNote())+'</p>')+
-  '</div>';
+  if(SP.status === "unavailable") return "";
+  return '<span class="pill r">SharePoint unavailable</span>';
 }
 function docsCard(o){
   const wide = docsAccountWide(o.id);
   const perLoc = docsForOrg(o.id).filter(d => d.locationId);
-  if(!wide.length && !perLoc.length) return '<div class="card-b">'+emptyBox("No agreements stored",
-    "Drop an MSA, SOW or Exhibit A anywhere on the page and I will file it here.",
-    READONLY?"":'<button class="btn pri" data-a="pickFile">Upload a document</button>')+'</div>';
   const row = d => '<div class="docrow"><button class="rrow" data-a="openDoc" data-id="'+d.id+'">'+
     '<span class="av s '+avClass(d.kind)+'">'+esc(d.kind.slice(0,2).toUpperCase())+'</span>'+
-    '<span class="rt"><b>'+esc(d.name)+'</b><span>'+esc(d.kind+" · added "+fmtDate(d.at)+" by "+d.by+
-      (d.locationId?" · "+locLabel(d.locationId):"")+(d.spItemId?" · from SharePoint":""))+'</span></span></button>'+
-    (d.link?'<a class="btn sm" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open original</a>':"")+
+    '<span class="rt"><b>'+esc(d.name)+'</b><span>'+esc(d.kind+" · "+fmtDate(d.at)+
+      (d.locationId?" · "+locLabel(d.locationId):"")+(d.spItemId?" · SharePoint":""))+'</span></span></button>'+
+    (d.link?'<a class="btn sm" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open</a>':"")+
     '</div>';
+  const findBtn = (!READONLY && SP.probed && SP.status === "connected")
+    ? '<button class="btn sm" data-a="spFind" data-id="'+o.id+'">Find in SharePoint</button>' : "";
+  let spNote = "";
+  if(SP.probed && SP.status !== "connected"){
+    const c = spErr({ code: SP.status === "not_connected" ? "server_not_connected"
+                          : SP.status === "needs_reauth" ? "needs_reauth"
+                          : SP.status === "choose" ? "selection_required"
+                          : SP.status === "unavailable" ? "not_granted" : "upstream_error" });
+    spNote = '<p class="muted" style="margin:.9rem 0 0;font-size:.8125rem"><b>'+esc(c.t)+'.</b> '+esc(c.d)+'</p>';
+  }
+  if(!wide.length && !perLoc.length){
+    return '<div class="card-b">'+emptyBox("No documents yet",
+      "Drop an MSA, SOW or Exhibit A anywhere on the page and I will read it and file it here — or pull one in from SharePoint.",
+      READONLY?"":'<button class="btn pri" data-a="pickFile">Upload a document</button> '+findBtn)+spNote+'</div>';
+  }
   return '<div class="card-b">'+
     (wide.length?'<div class="rsec"><span class="rtitle">Account-wide</span>'+wide.map(row).join("")+'</div>':"")+
     (perLoc.length?'<div class="rsec"><span class="rtitle">Location specific</span>'+perLoc.map(row).join("")+'</div>':"")+
+    (READONLY?"":'<div class="chips" style="margin-top:.6rem">'+
+      '<button class="btn sm" data-a="pickFile">Upload</button>'+findBtn+'</div>')+
+    spNote+
   '</div>';
 }
 function historyCard(id){
@@ -3328,8 +3673,30 @@ function rolesCard(p){
       (roles.length?roles.map(r => '<span class="pill '+(r==="Candidate"?"a":"m")+'">'+esc(r)+'</span>').join("")
         :'<span class="pill n">no role yet</span>')+
       (o?'<span class="chip">at '+esc(o.name)+'</span>':"")+
+      (p.locationId && locById(p.locationId)?'<button class="chip act" data-a="openLocation" data-id="'+p.locationId+'">'+esc(locLabel(p.locationId))+'</button>':"")+
     '</div>'+
     (roles.length===2?'<p class="muted" style="margin:.6rem 0 0;font-size:.875rem">One record, both roles — we log against whichever one we were dealing with, so the history never splits.</p>':"")+
+    (p.isCandidate?'<div class="chips" style="margin-top:.7rem">'+
+      (p.onPayroll
+        ? '<span class="pill g">on our payroll</span>'+(p.recruiterId?'<span class="chip">recruiter: '+esc(userName(p.recruiterId))+'</span>':"")
+        : '<span class="pill n">not on payroll</span><span class="chip">open to any recruiter</span>')+
+    '</div>':"")+
+    (p.isCandidate?(function(){
+      const rr = recentRecruiters(p.id);
+      return rr.length
+        ? '<div style="margin-top:.85rem"><span class="eyebrow">Recruiters who have worked this candidate</span>'+
+          '<div class="chips" style="margin-top:.4rem">'+rr.map(r =>
+            '<span class="chip">'+avatar(r.name,true)+' '+esc(r.name)+' · '+esc(fmtAgo(r.at))+'</span>').join("")+'</div></div>'
+        : '<p class="muted" style="margin:.7rem 0 0;font-size:.875rem">Nobody has logged contact with them yet.</p>';
+    })():"")+
+    (function(){
+      const ls = listsFor(p.id);
+      return '<div style="margin-top:.85rem"><span class="eyebrow">Lists</span><div class="chips" style="margin-top:.4rem">'+
+        (ls.length?ls.map(l => '<button class="chip act" data-a="openList" data-v="'+esc(l.id)+'">'+esc(l.name)+'</button>').join("")
+                  :'<span class="muted" style="font-size:.875rem">Not on any list</span>')+
+        (READONLY?"":'<button class="chip act" data-a="addToList" data-id="'+p.id+'">+ Add to a list</button>')+
+      '</div></div>';
+    })()+
     (READONLY?"":'<div class="chips" style="margin-top:.7rem">'+
       (p.isCandidate?"":'<button class="btn sm" data-a="grantCand" data-id="'+p.id+'">Also a candidate</button>')+
       (p.isContact?"":'<button class="btn sm" data-a="grantContact" data-id="'+p.id+'">Also a contact</button>')+
@@ -3902,8 +4269,8 @@ function viewDocs(){
         (d.text?'<br><span class="sec">'+esc(d.text.slice(0,64).replace(/\s+/g," "))+'…</span>':"")+'</div></div></td>'+
       '<td><span class="pill '+(d.kind==="Resume"?"a":"m")+'">'+esc(d.kind)+'</span></td>'+
       '<td>'+esc(docOwnerLabel(d))+'</td>'+
-      '<td class="sec mono">'+esc(spPlannedPath(d.kind, d.orgId?orgName(d.orgId):null))+'</td>'+
-      '<td class="num sec">'+esc(fmtDate(d.at))+'</td>'+
+      '<td class="sec">'+esc(spPlannedPath(d.kind, d.orgId?orgName(d.orgId):null))+'</td>'+
+      '<td class="sec">'+esc(fmtDate(d.at))+'</td>'+
       '<td class="num">'+(d.link?'<a class="btn sm" href="'+esc(d.link)+'" target="_blank" rel="noopener">Open</a>':'<span class="sec">no original</span>')+'</td>'+
     '</tr>').join("")+'</tbody></table></div>'
     : emptyBox(q||kind?"Nothing here":"No documents yet",
@@ -3928,6 +4295,19 @@ function viewHtml(){
   switch(UI.view){
     case "ask": return viewAsk();
     case "docs": return viewDocs();
+    case "team": return viewTeam();
+    case "location": {
+      const l = locById(UI.sel);
+      if(l) return viewLocation(l);
+      UI.sel = null; UI.view = "orgs"; saveUI();
+      return viewOrgs();
+    }
+    case "person": {
+      const p = person(UI.sel);
+      if(p) return viewPersonDetail(p);
+      UI.sel = null; UI.view = "cands"; saveUI();
+      return viewCands();
+    }
     case "jobs": return viewJobs();
     case "cands": return viewCands();
     case "orgs": return viewOrgs();
@@ -3937,7 +4317,7 @@ function viewHtml(){
 }
 function footerHtml(){
   return '<footer class="ft">TS Workspace keeps the whole team on one set of records — every change you save is published for everyone. '+
-    'It covers the recruiting workflow: candidates, companies, jobs, pipeline, placements and margin. '+
+    'It covers project-based work: accounts and their locations, projects and the resources they need, contacts, documents and margin. '+
     'It is deliberately not a payroll, tax or invoicing system.</footer>';
 }
 function render(){
@@ -3960,8 +4340,36 @@ function render(){
     }
   }
 }
-function go(view){ UI.view=view; UI.sel=null; UI.q=""; UI.focusId=null; saveUI(); render(); }
-function openRec(view,id){ UI.view=view; UI.sel=id; UI.focusId=null; saveUI(); render(); }
+/* a small history stack so "back" returns you to the list you came from,
+   with its search and filters intact, instead of starting over */
+let NAV = [];
+try{ const n = sessionStorage.getItem("ts_nav"); if(n) NAV = JSON.parse(n) || []; }catch(e){}
+function saveNav(){ try{ sessionStorage.setItem("ts_nav", JSON.stringify(NAV.slice(-20))); }catch(e){} }
+function navSnapshot(){
+  return { view:UI.view, sel:UI.sel, q:UI.q, jobFilter:UI.jobFilter, docKind:UI.docKind, roleFilter:UI.roleFilter };
+}
+function navPush(){
+  const cur = navSnapshot();
+  const top = NAV[NAV.length-1];
+  if(!top || top.view !== cur.view || top.sel !== cur.sel || top.q !== cur.q || top.roleFilter !== cur.roleFilter){
+    NAV.push(cur);
+    if(NAV.length > 20) NAV.shift();
+    saveNav();
+  }
+}
+function navBack(fallback){
+  const prev = NAV.pop();
+  saveNav();
+  if(prev){
+    UI.view = prev.view; UI.sel = prev.sel; UI.q = prev.q || "";
+    UI.jobFilter = prev.jobFilter; UI.docKind = prev.docKind || ""; UI.roleFilter = prev.roleFilter || "";
+  }else if(fallback){
+    UI.view = fallback; UI.sel = null; UI.q = "";
+  }
+  UI.focusId = null; saveUI(); render();
+}
+function go(view){ UI.view=view; UI.sel=null; UI.q=""; UI.focusId=null; NAV=[]; saveNav(); saveUI(); render(); }
+function openRec(view,id){ navPush(); UI.view=view; UI.sel=id; UI.focusId=null; saveUI(); render(); }
 function modal(kind,data){ UI.modal=kind; UI.md=data||{}; UI.err=null; UI.focusId=null; render(); }
 function closeModal(){ UI.modal=null; UI.md=null; UI.err=null; UI.focusId=null; render(); }
 
@@ -4031,7 +4439,7 @@ function advance(sid, dir){
   if(STAGES[ni] === "Placed"){ modal("placement",{subId:sid}); return; }
   s.stage = STAGES[ni];
   s.stageSince = nowISO();
-  s.hist = s.hist||[]; s.hist.push({ s:s.stage, at:s.stageSince, by:ME||"me" });
+  s.hist = s.hist||[]; s.hist.push({ s:s.stage, at:s.stageSince, by:meName()||"me" });
   const jb = job(s.jobId);
   logActivity(s.personId, { role:"candidate", orgId:jb?jb.orgId:null, jobId:s.jobId, subId:s.id },
     "Stage change", "Moved to " + s.stage + (jb ? " on " + jb.title : ""));
@@ -4061,13 +4469,16 @@ function handleSubmitForm(form){
       logChange("person", p.id, v.name, applyPatch(p,
         { name:v.name, title:v.title, email:v.email, phone:v.phone, city:v.city,
           years:numOrNull(v.years), workAuth:v.workAuth, desiredPay:numOrNull(v.desiredPay),
-          availFrom:v.availFrom||null, skills, notes:v.notes },
+          availFrom:v.availFrom||null, skills, notes:v.notes,
+          onPayroll:v.onPayroll==="yes", recruiterId:v.recruiterId||null },
         { name:"name", title:"title", email:"email", phone:"phone", city:"location", years:"experience",
+          onPayroll:"on payroll", recruiterId:"recruiter",
           workAuth:"work authorization", desiredPay:"wants", availFrom:"available from", skills:"skills", notes:"notes" }));
     }else{
       const p = { id:uid("p"), name:v.name, title:v.title, email:v.email, phone:v.phone, city:v.city,
         years:numOrNull(v.years), workAuth:v.workAuth, desiredPay:numOrNull(v.desiredPay),
         availFrom:v.availFrom||null, skills, notes:v.notes, isCandidate:true, isContact:false,
+        onPayroll:v.onPayroll==="yes", recruiterId:v.recruiterId||null,
         orgId:null, lastContact:nowISO(), createdAt:nowISO() };
       S.people.push(p);
       UI.view="cands"; UI.sel=p.id;
@@ -4079,10 +4490,14 @@ function handleSubmitForm(form){
     if(!v.name){ UI.err="A company name is required."; render(); return; }
     if(d.id){
       const oe = org(d.id);
+      oe.screening = oe.screening || {};
       logChange("org", oe.id, v.name, applyPatch(oe, { name:v.name, kind:v.kind, status:v.status, notes:v.notes },
-        { name:"name", kind:"type", status:"status", notes:"notes" }));
+        { name:"name", kind:"type", status:"status", notes:"notes" })
+        .concat(applyPatch(oe.screening, { background:v.scrBackground, drug:v.scrDrug, notes:v.scrNotes },
+          { background:"background check", drug:"drug screen", notes:"screening notes" })));
     }
-    else { const o = { id:uid("o"), name:v.name, kind:v.kind, status:v.status, owners:[], notes:v.notes, createdAt:nowISO() };
+    else { const o = { id:uid("o"), name:v.name, kind:v.kind, status:v.status, owners:[], notes:v.notes,
+        screening:{ background:v.scrBackground||"", drug:v.scrDrug||"", notes:v.scrNotes||"" }, createdAt:nowISO() };
       S.orgs.push(o);
       logChange("org", o.id, o.name, [{ f:"created", from:"—", to:v.kind }]);
       UI.view="orgs"; UI.sel=o.id; }
@@ -4095,16 +4510,22 @@ function handleSubmitForm(form){
     if(d.id){
       const pp = person(d.id);
       logChange("person", pp.id, v.name, applyPatch(pp,
-        { name:v.name, title:v.title, orgId:v.orgId, email:v.email, phone:v.phone, notes:v.notes },
-        { name:"name", title:"title", orgId:"company", email:"email", phone:"phone", notes:"notes" }));
+        { name:v.name, title:v.title, orgId:v.orgId, locationId:v.locationId||null, email:v.email, phone:v.phone, notes:v.notes },
+        { name:"name", title:"title", orgId:"account", locationId:"location", email:"email", phone:"phone", notes:"notes" }));
     }
-    else S.people.push({ id:uid("p"), name:v.name, title:v.title, orgId:v.orgId, email:v.email, phone:v.phone,
-      notes:v.notes, isContact:true, isCandidate:false, skills:[], lastContact:nowISO(), createdAt:nowISO() });
+    else{
+      const np = { id:uid("p"), name:v.name, title:v.title, orgId:v.orgId, locationId:v.locationId||null,
+        email:v.email, phone:v.phone, notes:v.notes, isContact:true, isCandidate:false, skills:[],
+        lastContact:nowISO(), createdAt:nowISO() };
+      S.people.push(np);
+      logChange("person", np.id, np.name, [{ f:"created", from:"—", to:"manager at "+orgName(v.orgId) }]);
+      UI.view="person"; UI.sel=np.id;
+    }
     break;
   }
 
   case "job": {
-    if(!v.title){ UI.err="A job title is required."; render(); return; }
+    if(!v.title){ UI.err="A role or resource need is required."; render(); return; }
     if(!v.orgId){ UI.err="Pick the company you are filling this for."; render(); return; }
     const patch = { title:v.title, type:v.type, orgId:v.orgId,
       endClientOrgId:(v.endClientOrgId && v.endClientOrgId!==v.orgId) ? v.endClientOrgId : null,
@@ -4208,16 +4629,17 @@ function handleSubmitForm(form){
 
   case "location": {
     if(!v.name){ UI.err="A location name is required."; render(); return; }
-    const labels = { name:"name", address:"address", city:"city", state:"state", zip:"ZIP", roe:"rules of engagement", notes:"notes" };
+    const labels = { name:"name", address:"address", city:"city", state:"state", zip:"ZIP", roe:"rules of engagement", screeningExtra:"extra screening", notes:"notes" };
     if(d.id){
       const l = locById(d.id);
       logChange("location", l.id, v.name, applyPatch(l,
-        { name:v.name, address:v.address, city:v.city, state:v.state, zip:v.zip, roe:v.roe, notes:v.notes }, labels));
+        { name:v.name, address:v.address, city:v.city, state:v.state, zip:v.zip, roe:v.roe,
+          screeningExtra:v.screeningExtra, notes:v.notes }, labels));
       UI.view="orgs"; UI.sel=l.orgId;
     }else{
       const oid = d.orgId;
       const l = { id:uid("loc"), orgId:oid, name:v.name, address:v.address, city:v.city, state:v.state,
-        zip:v.zip, roe:v.roe, notes:v.notes, archived:false, createdAt:nowISO() };
+        zip:v.zip, roe:v.roe, screeningExtra:v.screeningExtra||"", notes:v.notes, archived:false, createdAt:nowISO() };
       S.locations = S.locations||[]; S.locations.push(l);
       logChange("location", l.id, l.name, [{ f:"created", from:"—", to:orgName(oid) }]);
       UI.view="orgs"; UI.sel=oid;
@@ -4226,15 +4648,50 @@ function handleSubmitForm(form){
   }
 
   case "owner": {
-    if(!v.name){ UI.err="A name is required."; render(); return; }
+    if(!v.userId){ UI.err="Pick a user."; render(); return; }
     const oo = org(d.id);
-    if(oo) addOwner(oo, v.name);
+    if(oo) addOwner(oo, v.userId);
+    break;
+  }
+
+  case "list": {
+    let nm = (v.name||"").trim();
+    if(!nm && v.listId){ const l0 = (S.lists||[]).find(x => x.id === v.listId); nm = l0 ? l0.name : ""; }
+    if(!nm){ UI.err="Pick a list or name a new one."; render(); return; }
+    const r = addToList(nm, d.id);
+    logChange("person", d.id, (person(d.id)||{}).name, [{ f:"list", from:"—", to:r.list.name }]);
+    break;
+  }
+
+  case "user": {
+    if(!v.name){ UI.err="A name is required."; render(); return; }
+    if(d.id){
+      const u = user(d.id);
+      logChange("user", u.id, v.name, applyPatch(u,
+        { name:v.name, email:v.email, active:v.active !== "no" },
+        { name:"name", email:"email", active:"status" }));
+    }else{
+      if(findUserByName(v.name)){ UI.err="There is already a user with that name."; render(); return; }
+      const u = { id:uid("u"), name:v.name, email:v.email||"", active:true, createdAt:nowISO() };
+      S.users.push(u);
+      logChange("user", u.id, u.name, [{ f:"created", from:"—", to:"workspace user" }]);
+      if(!ME) setMeUser(u.id);
+    }
     break;
   }
 
   case "whoami": {
-    if(!v.name){ UI.err="A name is required."; render(); return; }
-    setMe(titleCaseName(v.name));
+    if(v.userId){ setMeUser(v.userId); }
+    else{
+      if(!v.name){ UI.err="A name is required."; render(); return; }
+      const u = { id:uid("u"), name:titleCaseName(v.name), email:v.email||"", active:true, createdAt:nowISO() };
+      S.users.push(u);
+      logChange("user", u.id, u.name, [{ f:"created", from:"—", to:"workspace user" }]);
+      setMeUser(u.id);
+      UI.modal=null; UI.md=null; UI.err=null;
+      render(); save();
+      return;
+    }
     UI.modal=null; UI.md=null; UI.err=null;
     render();
     return;
@@ -4340,13 +4797,14 @@ document.addEventListener("click", function(e){
 
   switch(a){
     case "view":        go(t.dataset.v); return;
+    case "navBack":     navBack(t.dataset.v); return;
     case "jobFilter":   return;                     /* handled on change */
     case "q":           return;
     case "scrim":
     case "closeModal":  closeModal(); return;
 
     case "openJob":     openRec("jobs", id); return;
-    case "openPerson":  { const p = person(id); openRec(p && p.isContact ? "orgs" : "cands", id); return; }
+    case "openPerson":  openRec("person", id); return;
     case "openOrg":     openRec("orgs", id); return;
     case "openSub":     { const s = sub(id); if(s) openRec("jobs", s.jobId); return; }
     case "openPlacement": {
@@ -4387,7 +4845,7 @@ document.addEventListener("click", function(e){
 
     case "clearSample": {
       confirmThen("Clear the sample data?",
-        "Every sample candidate, company, job and placement is removed so you can start entering your own. This cannot be undone.",
+        "Every sample contact, account, project and assignment is removed so you can start entering your own. This cannot be undone.",
         "Clear it", true, function(){
           S = emptyState();
           UI.view = "desk"; UI.sel = null; UI.q = "";
@@ -4412,6 +4870,15 @@ document.addEventListener("click", function(e){
     case "pasteResume":     modal("pasteResume", {}); return;
     case "whoami":          modal("whoami", {}); return;
     case "addLocation":     modal("location", { orgId:id }); return;
+    case "openLocation":    openRec("location", id); return;
+    case "addContactAt":    { const l = locById(id); if(l) modal("contact", { orgId:l.orgId, locationId:l.id }); return; }
+    case "addContact2":     modal("contact", {}); return;
+    case "roleFilter":      UI.roleFilter = t.dataset.v; UI.q=""; saveUI(); render(); return;
+    case "addToList":       modal("list", { id:id }); return;
+    case "openList":        UI.view="cands"; UI.roleFilter="list:"+t.dataset.v; UI.q=""; UI.sel=null; saveUI(); render(); return;
+    case "addUser":         modal("user", {}); return;
+    case "editUser":        modal("user", { id:id }); return;
+    case "beUser":          setMeUser(id); render(); return;
     case "editLocation":    modal("location", { id:id }); return;
     case "addOwner":        modal("owner", { id:id }); return;
     case "ownMe": {
@@ -4475,7 +4942,13 @@ document.addEventListener("submit", function(e){
 });
 
 document.addEventListener("keydown", function(e){
-  if(e.key === "Escape" && UI.modal){ e.preventDefault(); closeModal(); }
+  if(e.key === "Escape" && UI.modal){ e.preventDefault(); closeModal(); return; }
+  if(e.key === "Enter" && !e.shiftKey && e.target && e.target.id === "askin"){
+    e.preventDefault();
+    const q = e.target.value;
+    e.target.value = "";
+    runAssistant(q);
+  }
 });
 
 /* ---------- drag and drop, anywhere on the page ---------- */
@@ -4501,17 +4974,22 @@ function hasFiles(e){
 document.addEventListener("dragenter", function(e){
   if(!hasFiles(e)) return;
   e.preventDefault(); DRAG_DEPTH++; dropOverlay(true);
+  const c = document.querySelector(".composer"); if(c) c.classList.add("dragging");
 });
 document.addEventListener("dragover", function(e){ if(hasFiles(e)){ e.preventDefault(); e.dataTransfer.dropEffect = "copy"; } });
 document.addEventListener("dragleave", function(e){
   if(!hasFiles(e)) return;
   DRAG_DEPTH = Math.max(0, DRAG_DEPTH - 1);
-  if(!DRAG_DEPTH) dropOverlay(false);
+  if(!DRAG_DEPTH){
+    dropOverlay(false);
+    const c = document.querySelector(".composer"); if(c) c.classList.remove("dragging");
+  }
 });
 document.addEventListener("drop", function(e){
   if(!hasFiles(e)) return;
   e.preventDefault();
   DRAG_DEPTH = 0; dropOverlay(false);
+  const cc = document.querySelector(".composer"); if(cc) cc.classList.remove("dragging");
   if(READONLY){ setStatus("Read-only view", true); return; }
   intakeFiles(e.dataTransfer.files);
 });
@@ -4519,7 +4997,7 @@ document.addEventListener("drop", function(e){
 /* ---------- boot ---------- */
 migrateState();
 if(!S.docs) S.docs = [];
-if(!UI.view || ["desk","jobs","cands","orgs","place","ask","docs"].indexOf(UI.view) < 0) UI.view = "ask";
+if(!UI.view || ["desk","jobs","cands","orgs","place","ask","docs","person","location","team"].indexOf(UI.view) < 0) UI.view = "ask";
 render();
 getApi().then(function(api){
   if(!api){ NOSAVE = true; render(); }

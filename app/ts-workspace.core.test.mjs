@@ -2,7 +2,10 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 
 const SRC = process.argv[2];
-const authored = fs.readFileSync(SRC, 'utf8');
+const authored = fs.readFileSync(SRC, 'utf8')
+  // the published file carries the real (cleared) workspace; tests want the sample data
+  .replace(/<script type="application\/json" id="app-state">[\s\S]*?<\/script>/,
+           '<script type="application/json" id="app-state">null</script>');
 // mimic how the platform wraps an authored artifact file
 const wrap = body => `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"></head><body>${body}</body></html>`;
@@ -68,7 +71,7 @@ ok('desk shows stat tiles', tileVals.length >= 4, JSON.stringify(tileVals));
 ok('weekly GM tile is a dollar figure', /^\$[\d,]+$/.test(tileVals[3]||''), tileVals[3]);
 
 // ---------- 2. navigation ----------
-for (const [label, sel] of [['Jobs','jobs'],['Candidates','cands'],['Accounts','orgs'],['Placements','place'],['Assistant','ask']]) {
+for (const [label, sel] of [['Projects','jobs'],['Contacts','cands'],['Accounts','orgs'],['Assignments','place'],['TS Project Assistant','ask']]) {
   await page.click(`nav.tabs button[data-v="${sel}"]`);
   await page.waitForTimeout(60);
   const h = await page.locator('.ph h1').first().textContent();
@@ -222,7 +225,61 @@ ok('empty desk has no sample banner', (await r5.page.locator('.banner').count())
 ok('empty desk still shows tiles', (await r5.page.locator('.tile').count()) >= 4);
 await r5.page.click('nav.tabs button[data-v="cands"]');
 await r5.page.waitForTimeout(60);
-ok('empty candidates screen guides the user', (await r5.page.locator('.empty b').innerText()).includes('No candidates'));
+ok('empty contacts screen guides the user', (await r5.page.locator('.empty b').innerText()).includes('No contacts'));
+
+// ---------- 10b. clicking a person opens that person (regression) ----------
+{
+  const rp = await newPage(wrap(authored));
+  const where = () => rp.page.evaluate(() => ({ view:UI.view, sel:UI.sel,
+    h1:(document.querySelector('.ph h1')||{}).textContent }));
+
+  // a contact, from inside an account
+  await rp.page.click('nav.tabs button[data-v="orgs"]');
+  await rp.page.waitForTimeout(120);
+  await rp.page.locator('tbody tr', {hasText:'Northwind'}).first().click();
+  await rp.page.waitForTimeout(200);
+  await rp.page.locator('tr[data-a="openPerson"]').first().click();
+  await rp.page.waitForTimeout(220);
+  let w = await where();
+  ok('clicking a contact opens that contact', w.view === 'person' && (w.h1||'').trim() === 'Dana Whitfield', JSON.stringify(w));
+  ok('the contact page shows their roles', /Roles/.test(await rp.page.locator('.wrap').innerText()));
+  ok('back from a contact returns to their account',
+     (await rp.page.locator('.back').innerText()).includes('Northwind Health'),
+     await rp.page.locator('.back').innerText());
+  await rp.page.locator('.back').click();
+  await rp.page.waitForTimeout(200);
+  w = await where();
+  ok('and that back button really goes there', w.view === 'orgs' && (w.h1||'').trim() === 'Northwind Health', JSON.stringify(w));
+
+  // a candidate, from the candidates list
+  await rp.page.click('nav.tabs button[data-v="cands"]');
+  await rp.page.waitForTimeout(150);
+  await rp.page.locator('tbody tr').first().click();
+  await rp.page.waitForTimeout(220);
+  w = await where();
+  ok('clicking a candidate opens that candidate', w.view === 'person' && !!w.sel, JSON.stringify(w));
+  ok('back from a candidate returns to Contacts',
+     (await rp.page.locator('.back').innerText()).includes('Contacts'));
+
+  // a contact, from an assistant result
+  await rp.page.click('nav.tabs button[data-v="ask"]');
+  await rp.page.waitForTimeout(150);
+  await rp.page.fill('#askin', 'who do we know at Northwind Health');
+  await rp.page.press('#askin', 'Enter');
+  await rp.page.waitForTimeout(400);
+  await rp.page.locator('.rrow[data-a="openPerson"]').first().click();
+  await rp.page.waitForTimeout(250);
+  w = await where();
+  ok('clicking a person in an assistant result opens them', w.view === 'person' && (w.h1||'').trim() === 'Dana Whitfield', JSON.stringify(w));
+
+  // a stale id must not strand the view
+  await rp.page.evaluate(() => { UI.view = 'person'; UI.sel = 'p_does_not_exist'; render(); });
+  await rp.page.waitForTimeout(200);
+  w = await where();
+  ok('a deleted person falls back to the contacts list instead of a blank screen',
+     w.view === 'cands' && (w.h1||'').trim() === 'Contacts', JSON.stringify(w));
+  await rp.ctx.close();
+}
 
 // ---------- 11. no-capability preview mode ----------
 const ctx6 = await browser.newContext();
