@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TS Workspace Inspector</title>
+<link rel="icon" href="/favicon.svg">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<div class="shell">
+  <aside class="nav">
+    <div class="brand"><div class="mark">TS</div><h1>Inspector</h1></div>
+    <div class="navsec">Sections</div>
+    <button class="item on" data-tab="turns">Turns</button>
+    <button class="item" data-tab="data">Data</button>
+    <button class="item" data-tab="tools">Tools</button>
+    <button class="item" data-tab="prompt">Prompt</button>
+    <button class="item" data-tab="events">Events</button>
+    <div class="spacer"></div>
+    <div class="navsec">Workspace</div>
+    <a class="item" href="/">Back to the workspace</a>
+    <div class="foot" id="livestate">connecting…</div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <h2 id="title">Turns</h2>
+      <span class="sub" id="subtitle">Every model call, tool call and SQL statement</span>
+      <span class="grow"></span>
+      <span class="pill" id="live"><span class="dot"></span> live</span>
+    </div>
+    <div id="body" style="flex:1;min-height:0;display:flex;flex-direction:column"></div>
+  </main>
+</div>
+<script src="/inspect.js" type="module"></script>
+</body>
+</html>

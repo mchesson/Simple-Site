@@ -1,0 +1,13 @@
+{
+  "name": "ts-workspace-page",
+  "private": true,
+  "type": "module",
+  "description": "The hosted single page. Built from src/ by build.py.",
+  "scripts": {
+    "build": "python3 build.py",
+    "check": "python3 build.py && node test/sandbox-check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}

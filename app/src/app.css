@@ -1,0 +1,569 @@
+/* One stylesheet for both pages.
+   Monospace is for figures, SQL and JSON only - never for words. */
+
+:root{
+  --bg:#fbfaf9; --panel:#ffffff; --panel-2:#f5f3f1; --line:#e6e2dd;
+  --ink:#20201e; --ink-2:#6b6660; --ink-3:#95908a;
+  --accent:#bf5a34; --accent-soft:#fbeee8;
+  --good:#2f7d5d; --warn:#a9761c; --bad:#b3412e;
+  --radius:12px;
+  --sans:ui-sans-serif,-apple-system,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#16161a; --panel:#1d1d22; --panel-2:#25252b; --line:#33333c;
+    --ink:#ecebe8; --ink-2:#a5a19b; --ink-3:#726e69;
+    --accent:#e0805c; --accent-soft:#2b201b;
+    --good:#5fbd8f; --warn:#d7a24a; --bad:#e0705a;
+  }
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.55;
+  -webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent)}
+button{font:inherit; color:inherit}
+
+.shell{display:grid; grid-template-columns:212px 1fr; height:100vh; height:100dvh}
+
+aside.nav{
+  background:var(--panel); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; min-height:0;
+}
+.brand{padding:18px 18px 12px; display:flex; align-items:center; gap:9px}
+.brand .mark{
+  width:26px; height:26px; border-radius:7px; background:var(--accent);
+  display:grid; place-items:center; color:#fff; font-weight:650; font-size:12px;
+  letter-spacing:.02em;
+}
+.brand h1{font-size:14.5px; margin:0; font-weight:620; letter-spacing:-.01em}
+.navsec{padding:10px 10px 4px; font-size:11px; letter-spacing:.07em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:600}
+.nav a.item, .nav button.item{
+  display:flex; align-items:center; gap:9px; width:calc(100% - 16px); margin:1px 8px;
+  padding:7px 10px; border:0; background:none; border-radius:8px; cursor:pointer;
+  text-align:left; color:var(--ink-2); font-size:14px; text-decoration:none;
+}
+.nav .item:hover{background:var(--panel-2); color:var(--ink)}
+.nav .item.on{background:var(--accent-soft); color:var(--accent); font-weight:560}
+.nav .spacer{flex:1}
+.nav .foot{padding:12px 18px; border-top:1px solid var(--line); font-size:12px;
+  color:var(--ink-3)}
+
+main{min-width:0; min-height:0; display:flex; flex-direction:column}
+.topbar{
+  display:flex; align-items:center; gap:12px; padding:12px 20px;
+  border-bottom:1px solid var(--line); background:var(--panel);
+}
+.topbar h2{margin:0; font-size:15px; font-weight:600; letter-spacing:-.01em}
+.topbar .sub{color:var(--ink-3); font-size:13px}
+.grow{flex:1}
+
+.pill{
+  display:inline-flex; align-items:center; gap:6px; padding:2px 9px; border-radius:999px;
+  font-size:12px; font-weight:550; background:var(--panel-2); color:var(--ink-2);
+  border:1px solid var(--line); white-space:nowrap;
+}
+.pill.good{color:var(--good)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--bad)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+
+.num{font-family:var(--mono); font-variant-numeric:tabular-nums;
+     font-feature-settings:"tnum"; font-size:.94em}
+
+/* ------------------------------------------------------------------- chat */
+/* The chat view's styles are gone with the chat view: this page has no
+   assistant, and its .empty rule collided with the day cards below. */
+
+/* ---------------------------------------------------------------- records */
+.pane{flex:1; overflow-y:auto; padding:20px 24px}
+.card{background:var(--panel); border:1px solid var(--line); border-radius:var(--radius);
+  padding:16px 18px; margin-bottom:14px}
+.card h3{margin:0 0 4px; font-size:15px; font-weight:600}
+.card .meta{color:var(--ink-3); font-size:13px}
+table.grid{width:100%; border-collapse:collapse; font-size:14px}
+table.grid th{text-align:left; font-size:11px; letter-spacing:.06em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; padding:8px 12px 8px 0; border-bottom:1px solid var(--line)}
+table.grid td{padding:9px 12px 9px 0; border-bottom:1px solid var(--line)}
+table.grid tr:hover td{background:var(--panel-2)}
+.bar{height:6px; border-radius:4px; background:var(--panel-2); overflow:hidden; min-width:90px}
+.bar > i{display:block; height:100%; background:var(--accent)}
+
+/* --------------------------------------------------------------- billing */
+/* A purchase order's money in four states, in one bar. The eye should land on
+   the gap between what we billed and what we have already earned. */
+.stack{display:flex; height:9px; border-radius:5px; overflow:hidden;
+  background:var(--panel-2); border:1px solid var(--line)}
+.stack > i{display:block; height:100%}
+.stack .paid{background:var(--good)}
+.stack .billed{background:var(--accent)}
+.stack .draft{background:var(--accent); opacity:.42}
+.stack .earned{background:var(--warn)}
+.legend{display:flex; flex-wrap:wrap; gap:.35rem 1.1rem; margin-top:9px; font-size:12.5px;
+  color:var(--ink-2)}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.legend i{width:9px; height:9px; border-radius:2px; display:inline-block}
+.money{display:grid; grid-template-columns:repeat(auto-fit,minmax(7.5rem,1fr)); gap:14px;
+  margin:12px 0 0}
+.money .k{font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600}
+.money .v{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:17px;
+  font-weight:600; margin-top:2px}
+.money .v.neg{color:var(--bad)}
+tr.sel td{background:var(--accent-soft)}
+.bulkbar{display:flex; align-items:center; gap:10px; padding:10px 0; position:sticky;
+  top:0; background:var(--bg); z-index:2}
+input[type=checkbox]{accent-color:var(--accent); width:15px; height:15px}
+
+/* ------------------------------------------------------------ timesheets */
+/* The week grid. Rows are what the time was charged to, columns are days. */
+.wk{width:100%; border-collapse:collapse; font-size:14px}
+.wk th{
+  text-align:center; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+.wk th.tgt{text-align:left; min-width:15rem}
+.wk td{padding:5px 6px; border-bottom:1px solid var(--line); text-align:center}
+.wk td.tgt{text-align:left}
+.wk td.tgt strong{display:block; font-weight:560}
+.wk td.tgt span{color:var(--ink-3); font-size:12.5px}
+.wk input.h{
+  width:3.6rem; text-align:center; padding:6px 4px; border:1px solid transparent;
+  border-radius:7px; background:var(--panel-2); color:var(--ink);
+  font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:14px;
+}
+.wk input.h:hover{border-color:var(--line)}
+.wk input.h:focus{border-color:var(--accent); outline:none; background:var(--panel)}
+.wk input.h.zero{color:var(--ink-3)}
+.wk tfoot td{font-weight:600; border-bottom:0; border-top:1px solid var(--line)}
+.wk tfoot td.over{color:var(--bad)}
+.wk .rowtot{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600}
+.wkbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px}
+.wkbar .grow{flex:1}
+/* The primary action. It was lost when the chat styles came out - it lived
+   inside that block - and every screen uses it. */
+.send{
+  background:var(--accent); color:#fff; border:0; border-radius:9px;
+  padding:8px 15px; font-weight:560; cursor:pointer; font-size:14px;
+  min-height:38px;
+}
+.send:hover{filter:brightness(1.06)}
+.send:disabled{opacity:.45; cursor:default; filter:none}
+
+.ghost{
+  background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+  border-radius:9px; padding:7px 13px; font-weight:520; cursor:pointer; font-size:14px;
+}
+.ghost:hover{border-color:var(--accent)}
+.packet{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  padding:14px 16px; margin-bottom:12px;
+}
+.packet .hd{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.packet .hd h3{margin:0}
+.days{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0}
+.day{
+  border:1px solid var(--line); border-radius:8px; padding:5px 9px; font-size:13px;
+  background:var(--bg);
+}
+.day b{font-variant-numeric:tabular-nums; font-family:var(--mono)}
+
+/* -------------------------------------------------------------- inspector */
+.split{display:grid; grid-template-columns:340px 1fr; flex:1; min-height:0}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.tracelist{border-right:1px solid var(--line); overflow-y:auto; background:var(--panel)}
+.traceitem{padding:11px 16px; border-bottom:1px solid var(--line); cursor:pointer}
+.traceitem:hover{background:var(--panel-2)}
+.traceitem.on{background:var(--accent-soft)}
+.traceitem .p{font-size:13.5px; color:var(--ink); overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap}
+.traceitem .m{font-size:11.5px; color:var(--ink-3); margin-top:3px;
+  display:flex; gap:10px; flex-wrap:wrap}
+.detail{overflow-y:auto; padding:18px 22px}
+
+.tl{position:relative; margin:0; padding:0 0 0 22px; list-style:none}
+.tl::before{content:""; position:absolute; left:6px; top:6px; bottom:6px; width:1px;
+  background:var(--line)}
+.tl > li{position:relative; margin-bottom:14px}
+.tl > li::before{content:""; position:absolute; left:-19px; top:7px; width:9px; height:9px;
+  border-radius:50%; background:var(--ink-3); border:2px solid var(--bg)}
+.tl > li.llm::before{background:var(--accent)}
+.tl > li.tool::before{background:var(--good)}
+.tl > li.sql::before{background:var(--warn)}
+.tl > li.err::before{background:var(--bad)}
+.tl .hd{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap}
+.tl .lbl{font-weight:600; font-size:14px}
+.tl .sm{font-size:12px; color:var(--ink-3)}
+pre.code{font-family:var(--mono); font-size:12.5px; background:var(--panel-2);
+  border:1px solid var(--line); border-radius:9px; padding:10px 12px; overflow-x:auto;
+  margin:7px 0 0; white-space:pre-wrap; word-break:break-word; color:var(--ink-2)}
+details > summary{cursor:pointer; font-size:12.5px; color:var(--ink-3); padding:3px 0}
+details > summary:hover{color:var(--ink)}
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:10px;
+  margin-bottom:16px}
+.kpi{background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:12px 14px}
+.kpi .k{font-size:11px; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-3);
+  font-weight:600}
+.kpi .v{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:21px;
+  font-weight:600; margin-top:3px; letter-spacing:-.02em}
+.tabs{display:flex; gap:2px; border-bottom:1px solid var(--line); margin-bottom:16px}
+.tabs button{background:none; border:0; padding:9px 14px; cursor:pointer; color:var(--ink-3);
+  font-size:14px; border-bottom:2px solid transparent; margin-bottom:-1px}
+.tabs button.on{color:var(--ink); border-bottom-color:var(--accent); font-weight:560}
+.muted{color:var(--ink-3)}
+.err{color:var(--bad)}
+
+/* ---------------------------------------------- additions for the hosted page */
+.actbar{
+  display:flex; align-items:center; gap:8px; padding:9px 12px; margin:0 8px 6px;
+  border:1px solid var(--line); border-radius:10px; background:var(--panel-2);
+  font-size:13px;
+}
+.actbar select{
+  flex:1; min-width:0; border:0; background:none; color:var(--ink); font:inherit;
+  font-size:13px; outline:none;
+}
+.actbar .who{font-weight:560}
+.rolechip{
+  font-size:10.5px; letter-spacing:.05em; text-transform:uppercase; font-weight:600;
+  color:var(--accent);
+}
+.tour{max-width:760px; margin:0 auto; padding:26px 24px 40px}
+.tour h3{font-size:22px; font-weight:620; letter-spacing:-.02em; margin:0 0 6px}
+.tour > p{color:var(--ink-2); margin:0 0 22px}
+.steps-list{counter-reset:s; display:grid; gap:10px; margin:0; padding:0; list-style:none}
+.steps-list li{
+  counter-increment:s; position:relative; padding:13px 15px 13px 46px;
+  border:1px solid var(--line); border-radius:11px; background:var(--panel);
+}
+.steps-list li::before{
+  content:counter(s); position:absolute; left:14px; top:13px; width:20px; height:20px;
+  border-radius:50%; background:var(--accent-soft); color:var(--accent);
+  display:grid; place-items:center; font-size:11.5px; font-weight:650;
+}
+.steps-list b{display:block; font-weight:600; margin-bottom:2px}
+.steps-list span{color:var(--ink-2); font-size:14px}
+.steps-list button{
+  margin-top:9px; background:none; border:1px solid var(--line); border-radius:8px;
+  padding:5px 11px; cursor:pointer; font-size:13px; color:var(--accent); font-weight:550;
+}
+.steps-list button:hover{border-color:var(--accent)}
+.banner{
+  border:1px solid var(--line); border-left:3px solid var(--warn); border-radius:9px;
+  background:var(--panel); padding:11px 14px; margin:0 0 18px; font-size:13.5px;
+  color:var(--ink-2);
+}
+.banner b{color:var(--ink)}
+.saving{
+  position:fixed; right:16px; bottom:16px; background:var(--panel);
+  border:1px solid var(--line); border-radius:9px; padding:8px 13px; font-size:13px;
+  box-shadow:0 6px 22px rgba(0,0,0,.14); z-index:50;
+}
+
+
+/* ============================================================== mobile
+   On a phone the sidebar becomes a drawer, tables scroll inside their own
+   container rather than stretching the page, and the week grid stops being a
+   grid - eight columns of number inputs is not a thing you can use with a
+   thumb, so it becomes one card per day. */
+
+.menubtn{
+  display:none; align-items:center; justify-content:center;
+  width:36px; height:36px; margin:-4px 0 -4px -6px; padding:0;
+  border:1px solid var(--line); border-radius:9px; background:var(--panel);
+  cursor:pointer; flex:0 0 auto;
+}
+.menubtn svg{width:17px; height:17px; display:block}
+.scrim{
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,.42);
+  z-index:39; border:0; padding:0;
+}
+
+@media (max-width:860px){
+  .shell{grid-template-columns:1fr}
+
+  .menubtn{display:flex}
+
+  aside.nav{
+    position:fixed; inset:0 auto 0 0; width:min(84vw, 288px); z-index:40;
+    transform:translateX(-102%); transition:transform .22s ease;
+    box-shadow:0 0 40px rgba(0,0,0,.28); overflow-y:auto;
+  }
+  aside.nav.open{transform:none}
+  .scrim.on{display:block}
+  .nav a.item, .nav button.item{padding:11px 12px; font-size:15px}
+  .nav .actbar{padding:11px 12px}
+  .nav .actbar select{font-size:14px}
+  .navsec{padding:14px 12px 4px}
+  .brand{padding:16px 14px 10px}
+
+  main{min-width:0}
+  .topbar{padding:10px 14px; gap:9px}
+  .topbar h2{font-size:15.5px}
+  .rolechip{display:none}
+
+  .pane{padding:14px 14px 40px; -webkit-overflow-scrolling:touch}
+  .tour{padding:18px 14px 40px}
+  .tour h3{font-size:20px}
+
+  .card{padding:14px 15px}
+  .packet{padding:13px 14px}
+
+  /* Wide content scrolls inside itself; the page never scrolls sideways. */
+  .scrollx{overflow-x:auto; -webkit-overflow-scrolling:touch;
+           margin:0 -14px; padding:0 14px}
+  .scrollx > table{min-width:34rem}
+  .scrollx > table.wk{min-width:44rem}
+
+  .kpis{grid-template-columns:1fr 1fr; gap:9px}
+  .kpi{padding:11px 12px}
+  .kpi .v{font-size:18px}
+  .money{grid-template-columns:1fr 1fr; gap:12px}
+  .money .v{font-size:16px}
+  .legend{gap:.3rem .9rem; font-size:12px}
+
+  /* Touch targets and stacking for the action rows. */
+  .send, .ghost{padding:9px 14px; font-size:14px; min-height:40px}
+  .wkbar{gap:9px}
+  .wkbar > strong{flex:1 1 100%; order:-1}
+  .wkbar .grow{display:none}
+  .packet .hd{gap:6px}
+  .packet .hd h3{flex:1 1 100%}
+  .packet .hd .grow{display:none}
+  .bulkbar{flex-wrap:wrap}
+
+  table.grid th, table.grid td{padding:9px 10px 9px 0}
+  .steps-list li{padding:12px 14px 12px 42px}
+  .saving{left:14px; right:14px; text-align:center}
+}
+
+/* -------------------------------------------------- the week, day by day */
+.daycards{display:grid; gap:10px}
+.daycard{
+  border:1px solid var(--line); border-radius:11px; background:var(--panel);
+  padding:12px 14px;
+}
+.daycard.blank{background:none}
+.daycard .dh{
+  display:flex; align-items:baseline; gap:8px; margin-bottom:2px;
+}
+.daycard .dh b{font-size:15px; font-weight:600}
+.daycard .dh .dd{color:var(--ink-3); font-size:13px}
+.daycard .dh .dt{
+  margin-left:auto; font-family:var(--mono); font-variant-numeric:tabular-nums;
+  font-weight:600; font-size:15px;
+}
+.daycard .dh .dt.over{color:var(--bad)}
+.alloc{
+  display:flex; align-items:center; gap:10px; padding:9px 0 0;
+  border-top:1px solid var(--line); margin-top:9px;
+}
+.alloc:first-of-type{border-top:0; margin-top:4px}
+.alloc .what{flex:1; min-width:0}
+.alloc .what strong{display:block; font-weight:550; font-size:14px}
+.alloc .what span{color:var(--ink-3); font-size:12.5px}
+.alloc input.h{
+  width:4.2rem; min-height:42px; text-align:center; flex:0 0 auto;
+  border:1px solid var(--line); border-radius:9px; background:var(--panel-2);
+  color:var(--ink); font-family:var(--mono); font-size:16px;
+  font-variant-numeric:tabular-nums;
+}
+.alloc input.h:focus{border-color:var(--accent); outline:none; background:var(--panel)}
+.alloc input.h:disabled{opacity:.55}
+.weektot{
+  display:flex; align-items:baseline; gap:10px; padding:12px 14px; margin-top:2px;
+  border:1px solid var(--line); border-radius:11px; background:var(--panel-2);
+  font-weight:600;
+}
+.weektot .n{margin-left:auto; font-family:var(--mono);
+  font-variant-numeric:tabular-nums; font-size:17px}
+
+/* ================================================================== the desk */
+.deskhead{
+  display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:0 0 20px;
+}
+.dtitle{font-size:23px; font-weight:620; letter-spacing:-.02em; margin:0}
+.dsub{color:var(--ink-2); margin:3px 0 0; font-size:14.5px}
+.deskswitch{display:flex; gap:2px; margin-left:auto; border:1px solid var(--line);
+  border-radius:10px; padding:2px; background:var(--panel)}
+.seg{
+  border:0; background:none; padding:6px 14px; border-radius:8px; cursor:pointer;
+  font-size:13.5px; color:var(--ink-2); font-weight:520;
+}
+.seg.on{background:var(--accent-soft); color:var(--accent); font-weight:600}
+
+.desksec{margin:0 0 26px}
+.secblurb{color:var(--ink-3); font-size:13.5px; margin:0 0 10px; max-width:56ch}
+
+.kpi.alarm{border-color:var(--bad)}
+.kpi.alarm .v{color:var(--bad)}
+
+/* A row that needs somebody today gets a marker, not a shout. */
+table.grid tr.urgent td:first-child{box-shadow:inset 2px 0 0 var(--bad)}
+table.grid tr.urgent td:first-child{padding-left:10px}
+
+.linkbtn{
+  background:none; border:0; padding:2px 0; cursor:pointer; font-size:13px;
+  color:var(--accent); font-weight:550; text-align:left;
+}
+.linkbtn:hover{text-decoration:underline; text-underline-offset:3px}
+
+.pipegrid{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))}
+.pipemembers{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.chip{
+  border:1px solid var(--line); background:var(--bg); border-radius:999px;
+  padding:5px 11px; font-size:13px; cursor:pointer; color:var(--ink);
+}
+.chip span{color:var(--ink-3)}
+.chip:hover{border-color:var(--accent)}
+
+.tourbox{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  padding:13px 16px; margin:26px 0 0;
+}
+.tourbox > summary{font-weight:560; color:var(--ink-2); font-size:14.5px; cursor:pointer}
+.tourbox > summary:hover{color:var(--ink)}
+
+@media (max-width:860px){
+  .deskhead{gap:12px; margin-bottom:16px}
+  .dtitle{font-size:20px}
+  .deskswitch{margin-left:0; width:100%}
+  .seg{flex:1; text-align:center; padding:9px 10px; min-height:40px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .pipegrid{grid-template-columns:1fr}
+  .secblurb{font-size:13px}
+}
+.segs{display:flex; gap:8px; margin-left:auto; flex-wrap:wrap}
+@media (max-width:860px){ .segs{margin-left:0; width:100%} .segs .deskswitch{flex:1} }
+
+/* ============================================================ pipeline
+   The board is one grid with two layouts: columns per stage on a desktop,
+   and one column of stacked stages on a phone. Same DOM either way, so a
+   card cannot be built twice and drift. */
+
+.board{
+  display:grid; gap:12px; align-items:start;
+  grid-template-columns:repeat(var(--cols,4), minmax(15rem, 1fr));
+  min-width:min-content;
+}
+.bcol{
+  background:var(--panel-2); border:1px solid var(--line); border-radius:11px;
+  padding:9px; display:flex; flex-direction:column; gap:8px;
+}
+.bhead{
+  display:flex; align-items:center; gap:8px; padding:2px 4px 6px;
+  font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-2); font-weight:600; border-bottom:1px solid var(--line);
+}
+.bcount{
+  margin-left:auto; font-family:var(--mono); font-variant-numeric:tabular-nums;
+  background:var(--panel); border:1px solid var(--line); border-radius:20px;
+  padding:0 7px; font-size:11.5px; letter-spacing:0;
+}
+.bempty{color:var(--ink-3); text-align:center; padding:10px 0; font-size:13px}
+
+.subcard{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  background:var(--panel); border:1px solid var(--line); border-radius:9px;
+  padding:10px 11px; font:inherit; color:inherit;
+}
+.subcard:hover{border-color:var(--accent)}
+.subcard.stale{box-shadow:inset 3px 0 0 var(--warn)}
+.sctop{display:flex; align-items:center; gap:8px; margin-bottom:3px}
+.sctop strong{font-weight:600; font-size:14.5px}
+.sctop .pill{margin-left:auto}
+.scmeta{color:var(--ink-2); font-size:12.5px; line-height:1.4}
+.scfoot{display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px}
+.scnote{
+  margin-top:7px; padding-top:7px; border-top:1px dashed var(--line);
+  font-size:12.5px; color:var(--ink-2);
+}
+.scnote.warnnote{color:var(--warn)}
+
+.rowbtns{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px}
+.ghost.danger{color:var(--bad)}
+.ghost.danger:hover{border-color:var(--bad)}
+.needs{
+  display:block; font-size:11px; color:var(--ink-3); font-weight:400;
+  letter-spacing:.02em;
+}
+.kpi.clickable{cursor:pointer; text-align:left; font:inherit; color:inherit}
+.kpi.clickable:hover{border-color:var(--accent)}
+.banner.warn{border-left-color:var(--bad)}
+.pill.muted{color:var(--ink-3)}
+.err{color:var(--bad)}
+
+/* ---------------------------------------------------------------- dialogs */
+
+dialog.ask{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  color:var(--ink); padding:0; max-width:min(34rem, calc(100vw - 2rem));
+  width:100%; box-shadow:0 20px 60px rgba(0,0,0,.22);
+  /* A long form on a short screen scrolls inside the dialog rather than
+     running off the bottom of it with the buttons out of reach. */
+  max-height:calc(100dvh - 2rem); overflow:auto;
+}
+dialog.ask::backdrop{background:rgba(20,18,16,.45)}
+dialog.ask .askbody{padding:18px 20px 16px}
+dialog.ask h3{margin:0 0 4px; font-size:17px; font-weight:620; letter-spacing:-.01em}
+.askmeta{margin:0 0 14px; color:var(--ink-2); font-size:13.5px}
+.fields{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.field{display:flex; flex-direction:column; gap:4px; min-width:0}
+.field.wide{grid-column:1 / -1}
+.flab{font-size:12px; letter-spacing:.04em; text-transform:uppercase;
+      color:var(--ink-2); font-weight:600}
+.fhint{font-size:12px; color:var(--ink-3)}
+.fi{
+  background:var(--bg); border:1px solid var(--line); border-radius:8px;
+  padding:8px 10px; font:inherit; font-size:14.5px; color:var(--ink); width:100%;
+  min-height:38px;
+}
+.fi:focus{border-color:var(--accent); outline:none; background:var(--panel)}
+textarea.fi{resize:vertical; line-height:1.5}
+input[type=number].fi{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.livenote{
+  margin-top:14px; padding:10px 12px; border-radius:9px; background:var(--panel-2);
+  border:1px solid var(--line); font-size:13.5px; color:var(--ink-2);
+}
+.livenote b{color:var(--ink)}
+.askbtns{display:flex; justify-content:flex-end; gap:9px; margin-top:16px}
+
+@media (max-width:860px){
+  /* One stage at a time, full width - a column of 15rem cards side by side is
+     unreadable on a phone and a horizontal scroller hides the later stages. */
+  .board{grid-template-columns:1fr; min-width:0}
+  .fields{grid-template-columns:1fr}
+  dialog.ask{max-width:100%; margin:auto auto 0; border-radius:14px 14px 0 0;
+            max-height:92dvh}
+  .askbtns .send, .askbtns .ghost{flex:1; min-height:44px}
+}
+
+/* ------------------------------------------------------- pipeline categories */
+
+.pipehead{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap}
+.pipehead > div:first-child{flex:1; min-width:0}
+.chiprow{display:flex; flex-wrap:wrap; gap:6px}
+.linkbtn.danger{color:var(--bad)}
+
+@media (max-width:860px){
+  .pipehead{gap:8px}
+  .pipehead .rowbtns{width:100%}
+}
+
+/* A refusal is the most important thing the app says, so it stays on screen
+   until it is read rather than fading out on a timer. */
+.saving{display:flex; align-items:flex-start; gap:10px; max-width:min(26rem,calc(100vw - 2rem))}
+.saving.bad{border-left:3px solid var(--bad); color:var(--ink)}
+.notex{
+  background:none; border:0; cursor:pointer; color:var(--ink-3); font-size:18px;
+  line-height:1; padding:0 2px; margin-left:auto; flex:none;
+}
+.notex:hover{color:var(--ink)}
+.send.danger{background:var(--bad)}
+.ghost.danger{color:var(--bad)}
+.ghost.danger:hover{border-color:var(--bad)}
