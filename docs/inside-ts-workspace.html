@@ -208,7 +208,7 @@ footer p{margin-bottom:.7rem}
       you what both of them actually did.</p>
     <div class="byline">
       <span>Postgres 16 · Node 22 · claude-opus-5</span>
-      <span>31 tools · 32 tables · 71 tests</span>
+      <span>37 tools · 35 tables · 78 tests</span>
     </div>
   </div>
 </header>
@@ -405,8 +405,8 @@ on the pay side.</pre>
     <h2>Why it can answer in plain English</h2>
   </div>
 
-  <p>Thirty-one tools cover accounts, sites, contacts, projects, activity,
-    documents, pipelines, timecards, invoices and PO burn-down. Most are ordinary: fetch this, list
+  <p>Thirty-seven tools cover accounts, sites, contacts, projects, activity,
+    documents, pipelines, timesheets, approvals, invoices and PO burn-down. Most are ordinary: fetch this, list
     those, write that. Three design choices do the heavy lifting.</p>
 
   <h3>A tool that cannot proceed says what it needs</h3>
@@ -549,18 +549,23 @@ on the pay side.</pre>
     <p class="kicker">What burns a PO, and what only looks like it</p>
   </div>
 
-  <p>A purchase order is burned by what we have <strong>invoiced</strong>, not by
-    what our people worked. Those are different numbers, and the gap between them
-    is where the money hides. Time moves one way, and each step means something
-    different to the business:</p>
+  <p>A consultant fills in one timesheet a week and allocates their hours day by
+    day across whatever projects and purchase orders they worked on. Approval
+    follows that allocation rather than the week: each client manager approves
+    the part belonging to their project, so one slow approver cannot hold up a
+    week of billing.</p>
+
+  <p>And a purchase order is burned by what we have <strong>invoiced</strong>,
+    not by what our people worked. Those are different numbers, and the gap
+    between them is where the money hides:</p>
 
 </section>
 </div>
 
 <div class="wide">
 <figure>
-<svg class="fig" viewBox="0 0 880 190" role="img"
-     aria-label="Time moves from submitted, to approved, onto a draft invoice, to an issued invoice, to paid. Only the issued invoice burns the purchase order.">
+<svg class="fig" viewBox="0 0 900 250" role="img"
+     aria-label="A consultant enters and allocates a week, submits it, and one approval packet per project routes to that project's client manager. Approved days become billable, are drafted onto an invoice, and only an issued invoice burns the purchase order.">
   <defs>
     <marker id="ar2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
             orient="auto-start-reverse">
@@ -568,42 +573,45 @@ on the pay side.</pre>
     </marker>
   </defs>
   <g fill="none" stroke="currentColor" stroke-width="1.25">
-    <rect x="8"   y="46" width="150" height="52" rx="6" opacity=".55"/>
-    <rect x="186" y="46" width="150" height="52" rx="6" opacity=".55"/>
-    <rect x="364" y="46" width="150" height="52" rx="6" opacity=".55"/>
-    <rect x="542" y="46" width="150" height="52" rx="6" stroke-width="2"/>
-    <rect x="720" y="46" width="150" height="52" rx="6" opacity=".55"/>
-    <line x1="158" y1="72" x2="180" y2="72" marker-end="url(#ar2)"/>
-    <line x1="336" y1="72" x2="358" y2="72" marker-end="url(#ar2)"/>
-    <line x1="514" y1="72" x2="536" y2="72" marker-end="url(#ar2)"/>
-    <line x1="692" y1="72" x2="714" y2="72" marker-end="url(#ar2)"/>
-    <line x1="617" y1="104" x2="617" y2="128"/>
+    <rect x="8"   y="96" width="142" height="52" rx="6" opacity=".55"/>
+    <rect x="186" y="52" width="142" height="42" rx="6" opacity=".55"/>
+    <rect x="186" y="150" width="142" height="42" rx="6" opacity=".55"/>
+    <rect x="364" y="96" width="142" height="52" rx="6" opacity=".55"/>
+    <rect x="542" y="96" width="142" height="52" rx="6" opacity=".55"/>
+    <rect x="720" y="96" width="172" height="52" rx="6" stroke-width="2"/>
+
+    <polyline points="150,112 168,112 168,73 180,73" marker-end="url(#ar2)"/>
+    <polyline points="150,132 168,132 168,171 180,171" marker-end="url(#ar2)"/>
+    <polyline points="328,73 346,73 346,112 358,112" marker-end="url(#ar2)"/>
+    <polyline points="328,171 346,171 346,132 358,132" marker-end="url(#ar2)"/>
+    <line x1="506" y1="122" x2="536" y2="122" marker-end="url(#ar2)"/>
+    <line x1="684" y1="122" x2="714" y2="122" marker-end="url(#ar2)"/>
+    <line x1="806" y1="148" x2="806" y2="176"/>
   </g>
   <g font-family="Public Sans, sans-serif" fill="currentColor" text-anchor="middle">
-    <text x="83"  y="70" font-size="13" font-weight="600">Submitted</text>
-    <text x="83"  y="88" font-size="11" opacity=".6">claimed</text>
-    <text x="261" y="70" font-size="13" font-weight="600">Approved</text>
-    <text x="261" y="88" font-size="11" opacity=".6">earned</text>
-    <text x="439" y="70" font-size="13" font-weight="600">Draft invoice</text>
-    <text x="439" y="88" font-size="11" opacity=".6">prepared</text>
-    <text x="617" y="70" font-size="13" font-weight="600">Issued</text>
-    <text x="617" y="88" font-size="11" opacity=".6">billed</text>
-    <text x="795" y="70" font-size="13" font-weight="600">Paid</text>
-    <text x="795" y="88" font-size="11" opacity=".6">collected</text>
-    <text x="617" y="146" font-size="12" font-weight="600">this is what burns the PO</text>
-    <text x="617" y="164" font-size="11" opacity=".6">nothing to its left does</text>
-  </g>
-  <g font-family="Public Sans, sans-serif" font-size="11" fill="currentColor"
-     opacity=".55" text-anchor="middle">
-    <text x="83"  y="28">not earned</text>
-    <text x="261" y="28">earned, not billed</text>
-    <text x="439" y="28">still ours</text>
-    <text x="617" y="28">the client owes it</text>
+    <text x="79"  y="118" font-size="13" font-weight="600">Allocated week</text>
+    <text x="79"  y="136" font-size="11" opacity=".6">split by day</text>
+    <text x="257" y="70" font-size="12.5" font-weight="600">Dana approves</text>
+    <text x="257" y="84" font-size="10.5" opacity=".6">the platform part</text>
+    <text x="257" y="168" font-size="12.5" font-weight="600">Priya approves</text>
+    <text x="257" y="182" font-size="10.5" opacity=".6">the line 4 part</text>
+    <text x="435" y="118" font-size="13" font-weight="600">Approved</text>
+    <text x="435" y="136" font-size="11" opacity=".6">earned, priced</text>
+    <text x="613" y="118" font-size="13" font-weight="600">Draft invoice</text>
+    <text x="613" y="136" font-size="11" opacity=".6">prepared</text>
+    <text x="806" y="118" font-size="13" font-weight="600">Issued</text>
+    <text x="806" y="136" font-size="11" opacity=".6">billed</text>
+    <text x="806" y="196" font-size="12" font-weight="600">this is what burns the PO</text>
+    <text x="806" y="214" font-size="11" opacity=".6">nothing to its left does</text>
+    <text x="257" y="122" font-size="11" opacity=".55">one packet</text>
+    <text x="257" y="138" font-size="11" opacity=".55">per project</text>
   </g>
 </svg>
-<figcaption>The first version of this shipped with the burn measured against
-  approved timecards. That is the internal view — what we earned — not the
-  money. Only an issued invoice burns a purchase order.</figcaption>
+<figcaption>A consultant allocates the week day by day, so one Tuesday can be
+  split between two projects. Submitting creates one approval packet per project,
+  each routed to that project's client manager, and they decide independently —
+  a week can be half approved. Only an issued invoice burns the purchase
+  order.</figcaption>
   </figure>
 </div>
 
@@ -642,21 +650,36 @@ on the pay side.</pre>
     risk returns exactly those, not the ones that merely look full.
   </div>
 
-  <h3>Five guards, all in the database</h3>
+  <h3>What the database will not let you do</h3>
+
+  <p>Entering time:</p>
 
   <ul class="plain">
-    <li><strong>Approval freezes the value.</strong> A week is priced at the bill
-      rate in force on its week ending date, read from the effective-dated rate
-      history. A July week still prices at July's rate in December.</li>
-    <li><strong>Only approved time can be invoiced.</strong> A line pointing at a
-      timecard in any other state is refused.</li>
-    <li><strong>A week cannot be billed twice.</strong> A second line for the same
-      week on any live invoice is refused.</li>
-    <li><strong>A sent invoice is frozen.</strong> Lines change only while it is a
-      draft.</li>
-    <li><strong>An invoice cannot overrun its PO.</strong> Sending one that would
-      take it past the committed amount is refused, and the error names the
-      remedy.</li>
+    <li>Put more than 24 hours on a day, however it is split across projects.</li>
+    <li>Charge a day that falls outside the week the sheet is for.</li>
+    <li>Charge to a purchase order that belongs to a different project, or to a
+      project the consultant is not placed on — the project is derived from the
+      placement, not taken from whoever is asking.</li>
+    <li>Change or delete a week that has been submitted. The lock is on the
+      allocation; approving still writes the frozen value onto the same rows.</li>
+    <li>Decide the same packet twice. The second attempt names who already
+      decided it.</li>
+  </ul>
+
+  <p>Billing it:</p>
+
+  <ul class="plain">
+    <li><strong>Approval freezes the value</strong> at the bill rate in force on
+      each day, read from the effective-dated rate history. A Tuesday worked in
+      March still prices at March's rate in June. Rejection releases it.</li>
+    <li><strong>Only approved days can be invoiced.</strong></li>
+    <li><strong>A day cannot be billed twice</strong> on any live invoice.</li>
+    <li><strong>An invoice bills one PO.</strong> A day allocated elsewhere is
+      refused, so an invoice for one purchase order can never pick up hours
+      charged to another.</li>
+    <li><strong>A sent invoice is frozen.</strong> Lines change only in draft.</li>
+    <li><strong>An invoice cannot overrun its PO.</strong> The error names the
+      remedy rather than just failing:</li>
   </ul>
 
 <pre><b>update</b> invoice <b>set</b> status = 'sent' <b>where</b> id = ...;
@@ -734,17 +757,20 @@ npm start</pre>
     <h2>What is proven and what is not</h2>
   </div>
 
-  <p><strong>Proven.</strong> Seventy-one tests run against a real Postgres database
+  <p><strong>Proven.</strong> Seventy-eight tests run against a real Postgres database
     built from the same schema the application uses — a mock would not catch the
     constraints, and the constraints are where most of the design lives. Every
     rule in the table above is asserted. So is the read-only role, including a
     direct write attempt that Postgres refuses. So is the revision history, the
     role-aware activity logging, the deduplication when you create someone who
     already exists, the tool loop's iteration cap, and the stability of the
-    cached system prompt. The money path gets the most attention: double-billing,
-    invoicing unapproved time, changing a sent invoice, overrunning a purchase
-    order, the rate in force on a given week, and every column of the burn-down
-    at each stage.</p>
+    cached system prompt. The time and money path gets the most
+    attention: a day split across two projects, the day and week limits, a
+    purchase order from the wrong project, a locked week, partial approval,
+    rejection releasing value, a week reopening for correction, a project with no
+    approver on file, double-billing, invoicing unapproved time, changing a sent
+    invoice, overrunning a purchase order, the rate in force on a given day, and
+    every column of the burn-down at each stage.</p>
 
   <p><strong>Not proven.</strong> No live call to the Claude API was made. There
     was no credential in the environment this was built in, so the agent loop was
@@ -758,9 +784,11 @@ npm start</pre>
     Engagements with a team lead over several resources. The bench knowledge base
     and redeployment. Change orders exist as a table but have no workflow around
     them yet — which matters, because the PO overrun guard tells you to raise one
-    and then leaves you to do it by hand. Timecards are approved in the product
-    but not yet entered in it: consultants still submit their week somewhere
-    else.</p>
+    and then leaves you to do it by hand. And nobody signs in yet: the timesheet
+    screen picks a consultant from a list rather than knowing who you are, and
+    an approver's decision is recorded against a typed name rather than an
+    authenticated one. That is the next thing to close before this touches a
+    real client manager.</p>
 </section>
 
 </div>
