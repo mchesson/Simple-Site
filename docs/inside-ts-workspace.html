@@ -856,15 +856,37 @@ on the pay side.</pre>
     message. If it answers, the loop is good; if it does not, the error will be in
     the trace.</p>
 
-  <p><strong>Still to build.</strong> Managed-service deliverables and milestones.
-    Engagements with a team lead over several resources. The bench knowledge base
-    and redeployment. Change orders exist as a table but have no workflow around
-    them yet — which matters, because the PO overrun guard tells you to raise one
-    and then leaves you to do it by hand. And nobody signs in yet: the timesheet
-    screen picks a consultant from a list rather than knowing who you are, and
-    an approver's decision is recorded against a typed name rather than an
-    authenticated one. That is the next thing to close before this touches a
-    real client manager.</p>
+  <p><strong>Who it is for.</strong> Six audiences want different things from
+    this data, and several of them should not see all of it: recruiting, sales,
+    back office, management, the customer, and the consultant. Two of those are
+    the active focus — <strong>recruiting and sales</strong>. The back office is
+    built to a working baseline and parked. Management, customer and consultant
+    views are not started, and no screen is half-built for them.</p>
+
+  <div class="note">
+    <b>Nobody signs in yet.</b> The workspace picks an acting user from a list,
+    and a client manager's approval is recorded against a typed name rather than
+    an authenticated identity. That is fine while the only users are us. It is
+    the gate for the customer and consultant viewpoints, because a client
+    approving time and a consultant entering their week are people outside the
+    company touching the same database — that needs authentication and a narrowed
+    surface, not a filter over the internal app. Internal role visibility is the
+    cheap half and can be layered on later: the model already carries ownership
+    on accounts, candidates and projects, and every write is attributed.
+  </div>
+
+  <p><strong>Still to build in the two active areas.</strong> Submissions and
+    pipeline stages have a schema but little product around them. There is no
+    resume parsing into a contact record, no search worth the name across
+    contacts and documents, and activity is a single note type where recruiters
+    need call outcomes and follow-up dates.</p>
+
+  <p><strong>Parked in the back office.</strong> Managed-service deliverables and
+    milestones. Engagements with a team lead over several resources. The bench
+    knowledge base and redeployment. Change orders exist as a table with no
+    workflow around them — which matters, because the PO overrun guard tells you
+    to raise one and then leaves you to do it by hand.</p>
+
 </section>
 
 </div>
