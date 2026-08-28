@@ -9,6 +9,7 @@ import { resetTestDatabase, scriptedClient, textBlock, toolBlock } from "./helpe
 resetTestDatabase();
 
 const { pool, readOnlyPool, rows, one, close } = await import("../src/db.js");
+const { withContext } = await import("../src/context.js");
 const repo = await import("../src/repo.js");
 const { buildTools, runReadOnlySql, describeSchema } = await import("../src/tools.js");
 const agent = await import("../src/agent.js");
@@ -20,9 +21,13 @@ before(async () => {
   await pool.query(`truncate app_user, account, account_owner, location, contact, project,
     project_approver, submission, submission_event, placement, placement_rate, agreement,
     rate_verification, sow, change_order, purchase_order, timesheet, timesheet_entry,
-    timesheet_approval, invoice, invoice_line, payment, document, activity, pipeline,
-    pipeline_member, record_revision, domain_event, conversation, chat_message, trace
+    timesheet_approval, unlock_request, invoice, invoice_line, payment, document,
+    activity, pipeline, pipeline_member, domain_event, conversation, chat_message, trace
     restart identity cascade`);
+  // audit_log is append-only and refuses DELETE, so it is emptied directly.
+  await pool.query(`alter table audit_log disable trigger audit_no_update`);
+  await pool.query(`delete from audit_log`);
+  await pool.query(`alter table audit_log enable trigger audit_no_update`);
 
   mark = await one(`insert into app_user (email, full_name, role)
     values ('mark@ts.com','Mark Chesson','admin') returning *`);
@@ -138,8 +143,10 @@ describe("changing data never destroys it", () => {
 
     const history = await repo.revisionsFor("contact", marcus.id);
     assert.ok(history.length >= 2, "the insert and the update are both recorded");
+    assert.equal(history[0].action, "update");
     assert.equal(history[0].before.headline, null);
     assert.equal(history[0].after.headline, "Senior data engineer");
+    assert.ok(history.some((h) => h.action === "insert"));
   });
 
   test("archiving hides a record without removing the row", async () => {
@@ -443,17 +450,33 @@ describe("a week is allocated across projects, and approved a project at a time"
     assert.equal(Number(b.submitted_pending), 0);
   });
 
-  test("a rejected week reopens for correction and has to be submitted again",
+  test("a rejection reopens only the rejected part, never the approved part",
   async () => {
+    // This is the case that matters: Priya rejected line 4, so the week came
+    // back - but Dana already approved the platform days, and those are frozen
+    // and possibly already billed. Resending the whole week must be refused.
+    await assert.rejects(
+      () => repo.saveTimesheet(ts.id, [
+        { placement_id: pl1.id, purchase_order_id: poA.id, work_date: day(0), hours: 9 },
+        { placement_id: pl2.id, purchase_order_id: poB.id, work_date: day(2), hours: 8 },
+      ], mark.id),
+      /approved and is locked/);
+
+    // Correcting only the rejected side is accepted, and leaves the approved
+    // days exactly as they were.
     await repo.saveTimesheet(ts.id, [
-      { placement_id: pl1.id, purchase_order_id: poA.id, work_date: day(0), hours: 8 },
-      { placement_id: pl1.id, purchase_order_id: poA.id, work_date: day(1), hours: 8 },
-      { placement_id: pl2.id, purchase_order_id: poB.id, work_date: day(2), hours: 8 },
+      { placement_id: pl2.id, purchase_order_id: poB.id, work_date: day(2), hours: 6 },
     ], mark.id);
     const full = await repo.getTimesheet(ts.id);
     assert.equal(full.status, "draft", "corrections go back to draft, not straight out");
-    assert.equal(full.approvals.length, 0, "the old decisions are cleared");
-    assert.equal(full.total_hours, 24);
+    const approved = full.entries.filter((e) => e.approval_status === "approved");
+    assert.equal(approved.length, 4, "Dana's days survived untouched");
+    assert.equal(approved.reduce((a, e) => a + Number(e.hours), 0), 27);
+    const corrected = full.entries.filter((e) => e.po_number === "PO-B");
+    assert.equal(corrected.length, 1);
+    assert.equal(Number(corrected[0].hours), 6);
+    assert.equal(full.approvals.length, 1, "the approved packet is still on file");
+    assert.equal(full.approvals[0].status, "approved");
   });
 
   test("submitting a project with no approver on file still records the gap",
@@ -604,6 +627,247 @@ describe("invoices and payments", () => {
     const row = (await repo.invoiceAging()).find((a) => a.invoice_number === "TS-AGE-1");
     assert.equal(row.bucket, "61-90");
     assert.equal(row.days_overdue, 70);
+  });
+});
+
+// ------------------------------------------------------------- audit trail
+
+describe("nothing changes without leaving a trace", () => {
+  test("a write made outside the application is still audited", async () => {
+    // The point of a trigger rather than a helper: this bypasses every line of
+    // repo.js and is recorded anyway.
+    const row = await one(
+      `insert into account (name, status) values ('Backdoor Co','prospect') returning *`);
+    const trail = await repo.revisionsFor("account", row.id);
+    assert.equal(trail.length, 1);
+    assert.equal(trail[0].action, "insert");
+    assert.equal(trail[0].after.name, "Backdoor Co");
+  });
+
+  test("the acting user and a reason travel with the change", async () => {
+    const acct = await one(`select id from account where name = 'Backdoor Co'`);
+    await withContext(
+      { actorId: rae.id, actorLabel: "Rae Lambert", reason: "client renamed" },
+      () => repo.updateRecord("account", acct.id, { name: "Front Door Co" }));
+    const trail = await repo.revisionsFor("account", acct.id);
+    assert.equal(trail[0].changed_by, "Rae Lambert");
+    assert.equal(trail[0].reason, "client renamed");
+    assert.ok(trail[0].changed.includes("name"));
+  });
+
+  test("an update that changes nothing is not recorded as history", async () => {
+    const acct = await one(`select id, name from account where name = 'Front Door Co'`);
+    const before = (await repo.revisionsFor("account", acct.id)).length;
+    await pool.query(`update account set name = $2 where id = $1`, [acct.id, acct.name]);
+    assert.equal((await repo.revisionsFor("account", acct.id)).length, before,
+      "a no-op update is noise, not history");
+  });
+
+  test("a delete is recorded with what was there", async () => {
+    const doomed = await one(
+      `insert into account (name) values ('Vanishing Ltd') returning *`);
+    await pool.query(`delete from account where id = $1`, [doomed.id]);
+    const trail = await repo.revisionsFor("account", doomed.id);
+    assert.equal(trail[0].action, "delete");
+    assert.equal(trail[0].before.name, "Vanishing Ltd");
+  });
+
+  test("the audit log cannot be edited or deleted", async () => {
+    await assert.rejects(
+      () => pool.query(`update audit_log set reason = 'nothing to see' where id =
+        (select max(id) from audit_log)`),
+      /audit log cannot be changed/);
+    await assert.rejects(
+      () => pool.query(`delete from audit_log where id = (select max(id) from audit_log)`),
+      /audit log cannot be changed/);
+  });
+
+  test("one user action is one transaction across every table it touched",
+  async () => {
+    const acct = await withContext({ actorId: mark.id, actorLabel: "Mark Chesson" },
+      () => repo.insertRecord("account", { name: "Txn Test Co" }));
+    const trail = await repo.revisionsFor("account", acct.id);
+    const together = await repo.auditTransaction(Number(trail[0].txid ?? 0)) || [];
+    assert.ok(together.length >= 1);
+    assert.ok(together.every((r) => String(r.txid) === String(trail[0].txid)));
+  });
+
+  test("the trail can be searched across the whole system", async () => {
+    const all = await repo.auditTrail({ table: "account", action: "insert", limit: 50 });
+    assert.ok(all.some((r) => r.label === "Txn Test Co"));
+    const byActor = await repo.auditTrail({ actorId: rae.id });
+    assert.ok(byActor.length >= 1);
+    assert.ok(byActor.every((r) => r.actor === "Rae Lambert"));
+  });
+});
+
+// ------------------------------------------------------------- locked time
+
+describe("approved time is locked until an admin unlocks it", () => {
+  let approver, proj, pl, ts, approvalId;
+  const week = "2026-10-04";
+
+  test("a week is entered, submitted and approved", async () => {
+    approver = await repo.insertRecord("contact", {
+      full_name: "Lock Approver", email: "lock@globex.com", is_manager: true,
+      account_id: globex.id }, mark.id);
+    proj = await repo.insertRecord("project",
+      { account_id: globex.id, name: "Locked work" }, mark.id);
+    await repo.setProjectApprovers(proj.id, [approver.id], mark.id);
+    pl = await repo.insertRecord("placement",
+      { project_id: proj.id, contact_id: marcus.id, start_date: "2026-06-01" }, mark.id);
+    await pool.query(
+      `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct,
+         effective_from) values ($1,60,100,22,'2026-06-01')`, [pl.id]);
+
+    ts = await repo.getOrCreateTimesheet(marcus.id, week, mark.id);
+    await repo.saveTimesheet(ts.id, [
+      { placement_id: pl.id, work_date: "2026-09-28", hours: 8 },
+      { placement_id: pl.id, work_date: "2026-09-29", hours: 8 },
+    ], mark.id);
+    await repo.submitTimesheet(ts.id, mark.id);
+    const q = await repo.approvalQueue({ approverContactId: approver.id });
+    approvalId = q[0].approval_id;
+    await repo.decideApproval(approvalId, "approved", "Lock Approver", null, mark.id);
+    const full = await repo.getTimesheet(ts.id);
+    assert.equal(full.status, "approved");
+  });
+
+  test("nobody can change an approved day, not even the consultant", async () => {
+    await assert.rejects(
+      () => repo.saveTimesheet(ts.id, [
+        { placement_id: pl.id, work_date: "2026-09-28", hours: 12 }], mark.id),
+      /reopen it before changing it|approved and is locked/);
+    // Not through the back door either.
+    await assert.rejects(
+      () => pool.query(
+        `update timesheet_entry set hours = 12 where timesheet_id = $1`, [ts.id]),
+      /approved and is locked/);
+    await assert.rejects(
+      () => pool.query(`delete from timesheet_entry where timesheet_id = $1`, [ts.id]),
+      /approved and is locked/);
+  });
+
+  test("un-approving without a granted unlock is refused", async () => {
+    await assert.rejects(
+      () => pool.query(
+        `update timesheet_approval set status = 'pending' where id = $1`, [approvalId]),
+      /locked.*unlock request/s);
+    await assert.rejects(
+      () => repo.reopenApproval(approvalId, mark.id),
+      /locked.*unlock request/s);
+  });
+
+  test("an unlock request needs a real reason", async () => {
+    await assert.rejects(
+      () => repo.requestUnlock({ approvalId, reason: "oops" }, dev.id),
+      /say why/);
+  });
+
+  let request;
+  test("a request is raised and waits for an admin", async () => {
+    request = await withContext({ actorId: dev.id },
+      () => repo.requestUnlock(
+        { approvalId, reason: "Client says Monday was booked to the wrong project" },
+        dev.id));
+    assert.equal(request.status, "pending");
+    const queue = await repo.listUnlockRequests({ status: "pending" });
+    assert.ok(queue.some((r) => r.id === request.id));
+    assert.equal(queue.find((r) => r.id === request.id).consultant, "Marcus Bell");
+  });
+
+  test("only one request can be open on a week at a time", async () => {
+    await assert.rejects(
+      () => repo.requestUnlock({ approvalId, reason: "asking again just in case" },
+                               dev.id),
+      /already an unlock request waiting/);
+  });
+
+  test("a non-admin cannot grant it", async () => {
+    await assert.rejects(
+      () => repo.decideUnlock(request.id, "granted", dev.id, null),
+      /only an admin/);
+  });
+
+  test("an admin cannot grant their own request", async () => {
+    const mine = await repo.requestUnlock(
+      { approvalId, reason: "a second week that I am asking about myself" }, mark.id)
+      .catch(() => null);
+    // The one-open-request rule blocks a second, so test the rule directly.
+    await pool.query(`update unlock_request set requested_by = $2 where id = $1`,
+                     [request.id, mark.id]);
+    await assert.rejects(
+      () => repo.decideUnlock(request.id, "granted", mark.id, null),
+      /somebody other than the requester/);
+    await pool.query(`update unlock_request set requested_by = $2 where id = $1`,
+                     [request.id, dev.id]);
+    assert.equal(mine, null);
+  });
+
+  test("an admin grants it, and the grant opens the week once", async () => {
+    const granted = await repo.decideUnlock(request.id, "granted", mark.id,
+                                            "agreed, correct it");
+    assert.equal(granted.status, "granted");
+    assert.ok(granted.expires_at, "a grant is a key with a life, not a permanent door");
+
+    await repo.reopenApproval(approvalId, mark.id);
+    const full = await repo.getTimesheet(ts.id);
+    assert.equal(full.status, "draft");
+    assert.ok(full.entries.every((e) => e.billable_amount === null),
+      "reopening releases the frozen values");
+
+    const spent = await one(`select status, used_at from unlock_request where id = $1`,
+                            [request.id]);
+    assert.equal(spent.status, "used");
+    assert.ok(spent.used_at);
+  });
+
+  test("now unlocked, the week can be corrected", async () => {
+    await repo.saveTimesheet(ts.id, [
+      { placement_id: pl.id, work_date: "2026-09-28", hours: 6 },
+      { placement_id: pl.id, work_date: "2026-09-29", hours: 8 },
+    ], mark.id);
+    const full = await repo.getTimesheet(ts.id);
+    assert.equal(full.total_hours, 14);
+  });
+
+  test("the key is spent - relocking and reopening needs a fresh grant", async () => {
+    await repo.submitTimesheet(ts.id, mark.id);
+    const q = await repo.approvalQueue({ approverContactId: approver.id });
+    await repo.decideApproval(q[0].approval_id, "approved", "Lock Approver",
+                              null, mark.id);
+    await assert.rejects(
+      () => repo.reopenApproval(q[0].approval_id, mark.id),
+      /locked.*unlock request/s);
+  });
+
+  test("time that has already been invoiced cannot be unlocked at all", async () => {
+    const poX = await repo.insertRecord("purchase_order",
+      { project_id: proj.id, po_number: "PO-LOCK", amount: 50000,
+        end_date: "2026-12-31" }, mark.id);
+    // Put the approved days on that PO by correcting and re-approving is not
+    // possible now, so bill them straight from the project instead.
+    const inv = await repo.draftInvoiceFromApproved({ projectId: proj.id }, mark.id);
+    await repo.sendInvoice(inv.id, "2026-10-05", mark.id);
+
+    const q = await repo.approvalQueue({ approverContactId: approver.id,
+                                         status: "approved" });
+    const req = await repo.requestUnlock(
+      { approvalId: q[0].approval_id,
+        reason: "client disputes the hours after we billed them" }, dev.id);
+    await assert.rejects(
+      () => repo.decideUnlock(req.id, "granted", mark.id, null),
+      /already on invoice.*Void or credit/s);
+    assert.ok(poX);
+  });
+
+  test("every step of that left an audit entry", async () => {
+    const trail = await repo.auditTrail({ table: "unlock_request", limit: 50 });
+    assert.ok(trail.some((r) => r.action === "insert"));
+    assert.ok(trail.some((r) => r.action === "update"));
+    const onApproval = await repo.revisionsFor("timesheet_approval", approvalId);
+    assert.ok(onApproval.length >= 3,
+      "submitted, approved, reopened and approved again are all on the record");
   });
 });
 

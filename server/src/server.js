@@ -8,6 +8,7 @@ import http from "node:http";
 import fs from "node:fs";
 import path from "node:path";
 import { config, hasApiKey } from "./config.js";
+import { withContext } from "./context.js";
 import * as repo from "./repo.js";
 import { rows, one, query, close as closeDb } from "./db.js";
 import * as trace from "./trace.js";
@@ -237,6 +238,24 @@ route("POST", "/api/invoices/:id/void", async (p, _q, body) =>
 route("GET", "/api/invoice-aging", async (_p, q) =>
   repo.invoiceAging({ accountName: q.get("account") }));
 
+route("GET", "/api/audit", async (_p, q) =>
+  repo.auditTrail({
+    table: q.get("table"), recordId: q.get("record_id"), actorId: q.get("actor_id"),
+    action: q.get("action"), since: q.get("since"), q: q.get("q"),
+    limit: Number(q.get("limit") || 100),
+  }));
+route("GET", "/api/audit/tx/:txid", async (p) => repo.auditTransaction(Number(p.txid)));
+
+route("GET", "/api/unlock-requests", async (_p, q) =>
+  repo.listUnlockRequests({ status: q.get("status") || "pending" }));
+route("POST", "/api/unlock-requests", async (_p, _q, body) =>
+  repo.requestUnlock({ approvalId: body.approval_id, reason: body.reason },
+                     await actorId()));
+route("POST", "/api/unlock-requests/:id/decide", async (p, _q, body) =>
+  repo.decideUnlock(p.id, body.decision, await actorId(), body.note || null));
+route("POST", "/api/approvals/:id/reopen", async (p) =>
+  repo.reopenApproval(p.id, await actorId()));
+
 route("GET", "/api/history/:table/:id", async (p) => repo.revisionsFor(p.table, p.id));
 route("GET", "/api/events", async (_p, q) =>
   repo.recentEvents(Number(q.get("limit") || 50)));
@@ -340,7 +359,11 @@ const server = http.createServer(async (req, res) => {
     const params = Object.fromEntries(r.keys.map((k, i) => [k, decodeURIComponent(m[i + 1])]));
     try {
       const body = ["POST", "PATCH", "PUT"].includes(req.method) ? await readBody(req) : null;
-      const out = await r.handler(params, url.searchParams, body);
+      const me = await actor();
+      const out = await withContext(
+        { actorId: me?.id ?? null, actorLabel: me?.full_name ?? null,
+          reason: body?.reason ?? null },
+        () => r.handler(params, url.searchParams, body));
       return json(res, out && out.error === "not_found" ? 404 : 200, out);
     } catch (e) {
       console.error(`[api] ${req.method} ${pathname}:`, e.message);
@@ -373,7 +396,8 @@ async function handleChat(req, res) {
   catch (e) { return json(res, 400, { error: e.message }); }
 
   const send = sse(res);
-  const meId = await actorId();
+  const me = await actor();
+  const meId = me?.id ?? null;
   const conv = await ensureConversation(
     body.conversation_id, meId,
     (body.prompt || "New chat").slice(0, 60));
@@ -381,13 +405,16 @@ async function handleChat(req, res) {
 
   const history = await loadHistory(conv.id);
   try {
-    const { text, messages } = await runTurn({
-      prompt: body.prompt,
-      history,
-      userId: meId,
-      conversationId: conv.id,
-      onEvent: (e) => send(e.type, e),
-    });
+    const { text, messages } = await withContext(
+      { actorId: meId, actorLabel: me?.full_name ?? null,
+        reason: "asked the assistant" },
+      () => runTurn({
+        prompt: body.prompt,
+        history,
+        userId: meId,
+        conversationId: conv.id,
+        onEvent: (e) => send(e.type, e),
+      }));
     // Persist only what this turn added, in full content-block form so the
     // conversation can be replayed exactly as the model saw it.
     await saveMessages(conv.id, messages.slice(history.length));

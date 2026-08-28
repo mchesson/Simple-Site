@@ -414,6 +414,17 @@ begin
      (old.hours, old.ot_hours, old.work_date, old.placement_id,
       old.purchase_order_id, old.notes)
   then
+    -- The lock follows the approval packet, not the week. One manager rejecting
+    -- their project must not reopen days a different manager already approved -
+    -- that time is frozen, may already be invoiced, and is not the consultant's
+    -- to change any more.
+    if exists (select 1 from timesheet_approval a
+                where a.timesheet_id = new.timesheet_id
+                  and a.project_id = coalesce(new.project_id, old.project_id)
+                  and a.status = 'approved') then
+      raise exception
+        'that time was approved and is locked - an admin has to unlock it first';
+    end if;
     if ts.status not in ('draft','rejected') then
       raise exception 'that week has already been submitted - it cannot be edited';
     end if;
@@ -455,6 +466,13 @@ create trigger timesheet_entry_guard_t before insert or update on timesheet_entr
 create or replace function timesheet_entry_delete_guard() returns trigger as $$
 declare st text;
 begin
+  if exists (select 1 from timesheet_approval a
+              where a.timesheet_id = old.timesheet_id
+                and a.project_id = old.project_id
+                and a.status = 'approved') then
+    raise exception
+      'that time was approved and is locked - an admin has to unlock it first';
+  end if;
   select status into st from timesheet where id = old.timesheet_id;
   if st is not null and st not in ('draft','rejected') then
     raise exception 'that week has already been submitted - days cannot be removed';
@@ -688,6 +706,72 @@ end $$ language plpgsql;
 create trigger invoice_po_guard_t before update on invoice
   for each row execute function invoice_po_guard();
 
+-- Approved time is locked. Getting it back open is a deliberate, recorded act by
+-- somebody with the authority to do it, not a status change anyone can make.
+create table unlock_request (
+  id            uuid primary key default gen_random_uuid(),
+  approval_id   uuid not null references timesheet_approval(id) on delete cascade,
+  requested_by  uuid references app_user(id),
+  reason        text not null check (length(btrim(reason)) > 5),
+  status        text not null default 'pending'
+                check (status in ('pending','granted','denied','used','withdrawn')),
+  decided_by    uuid references app_user(id),
+  decided_at    timestamptz,
+  decision_note text,
+  -- A grant is a key, not a permanent door. It opens one week, once.
+  expires_at    timestamptz,
+  used_at       timestamptz,
+  created_at    timestamptz not null default now()
+);
+create index unlock_pending_idx on unlock_request (status, created_at desc);
+create index unlock_approval_idx on unlock_request (approval_id);
+
+-- Only an admin may grant one, and nobody may grant their own.
+create or replace function unlock_request_guard() returns trigger as $$
+declare r text;
+begin
+  if new.status in ('granted','denied') and old.status = 'pending' then
+    if new.decided_by is null then
+      raise exception 'record which admin decided this';
+    end if;
+    select role into r from app_user where id = new.decided_by and active;
+    if r is distinct from 'admin' then
+      raise exception 'only an admin can unlock approved time';
+    end if;
+    if new.decided_by = new.requested_by then
+      raise exception 'somebody other than the requester has to grant it';
+    end if;
+    new.decided_at := now();
+    if new.status = 'granted' and new.expires_at is null then
+      new.expires_at := now() + interval '24 hours';
+    end if;
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger unlock_request_guard_t before update on unlock_request
+  for each row execute function unlock_request_guard();
+
+-- Moving an approval out of approved is what the lock actually protects. It
+-- takes a granted, unexpired, unused unlock, and spends it.
+create or replace function approval_unlock_guard() returns trigger as $$
+declare u unlock_request;
+begin
+  if old.status = 'approved' and new.status is distinct from 'approved' then
+    select * into u from unlock_request
+     where approval_id = new.id and status = 'granted'
+       and (expires_at is null or expires_at > now())
+     order by decided_at desc limit 1;
+    if u.id is null then
+      raise exception
+        'that time is locked. Raise an unlock request and have an admin grant it.';
+    end if;
+    update unlock_request set status = 'used', used_at = now() where id = u.id;
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger approval_unlock_guard_t before update on timesheet_approval
+  for each row execute function approval_unlock_guard();
+
 -- 3. Approving a packet freezes what its days are worth, at the rate in force
 --    on each day. Rejecting it releases them again.
 create or replace function timesheet_approval_effects() returns trigger as $$
@@ -912,18 +996,93 @@ create table pipeline_member (
 
 -- ----------------------------------------------------- history & observability
 
--- Every update writes the previous version here first. This is what makes
--- "change data without deleting data" true rather than a claim.
-create table record_revision (
+-- Every write to every table lands here, put there by a trigger rather than by
+-- application code. That distinction is the whole point: a script, a psql
+-- session, a bug or a future code path that forgets to call the right helper all
+-- leave the same trace, because the database writes the record, not the caller.
+--
+-- The acting user travels in a transaction-local setting the application sets on
+-- every connection it writes through. A write with nobody set is still recorded -
+-- as an unattributed one, which is a thing you want to be able to find.
+create table audit_log (
   id          bigserial primary key,
   table_name  text not null,
-  record_id   uuid not null,
+  record_id   uuid,
+  action      text not null check (action in ('insert','update','delete')),
   before      jsonb,
   after       jsonb,
-  changed_by  uuid references app_user(id),
-  changed_at  timestamptz not null default now()
+  changed     text[],
+  actor_id    uuid references app_user(id),
+  actor_label text,
+  reason      text,
+  trace_id    text,
+  txid        bigint not null default txid_current(),
+  occurred_at timestamptz not null default now()
 );
-create index record_revision_rec_idx on record_revision (table_name, record_id, changed_at desc);
+create index audit_record_idx on audit_log (table_name, record_id, occurred_at desc);
+create index audit_time_idx   on audit_log (occurred_at desc);
+create index audit_actor_idx  on audit_log (actor_id, occurred_at desc);
+create index audit_txid_idx   on audit_log (txid);
+
+create or replace function audit_actor_id() returns uuid language plpgsql stable as $$
+begin
+  return nullif(current_setting('ts.actor_id', true), '')::uuid;
+exception when others then return null;
+end $$;
+
+create or replace function audit_capture() returns trigger as $$
+declare
+  b jsonb; a jsonb; ch text[]; rid uuid;
+begin
+  if tg_op = 'INSERT' then
+    a := to_jsonb(new); b := null;
+  elsif tg_op = 'UPDATE' then
+    b := to_jsonb(old); a := to_jsonb(new);
+    select coalesce(array_agg(key), '{}') into ch
+      from jsonb_each(a) where a -> key is distinct from b -> key;
+    -- An update that changed nothing is noise, not history.
+    if ch = '{}' then return coalesce(new, old); end if;
+  else
+    b := to_jsonb(old); a := null;
+  end if;
+
+  begin
+    rid := coalesce(a ->> 'id', b ->> 'id')::uuid;
+  exception when others then rid := null;   -- tables keyed by something else
+  end;
+
+  insert into audit_log (table_name, record_id, action, before, after, changed,
+                         actor_id, actor_label, reason, trace_id)
+  values (tg_table_name, rid, lower(tg_op), b, a, ch,
+          audit_actor_id(),
+          nullif(current_setting('ts.actor_label', true), ''),
+          nullif(current_setting('ts.reason', true), ''),
+          nullif(current_setting('ts.trace_id', true), ''));
+  return coalesce(new, old);
+end $$ language plpgsql;
+
+-- Attach it to every table that holds business data. audit_log itself is
+-- excluded, and so is the trace table, which is observability rather than record.
+do $$ declare t text; begin
+  for t in
+    select tablename from pg_tables
+     where schemaname = 'public'
+       and tablename not in ('audit_log','trace','domain_event','chat_message')
+  loop
+    execute format(
+      'create trigger zz_audit after insert or update or delete on public.%I
+         for each row execute function audit_capture()', t);
+  end loop;
+end $$;
+
+-- audit_log is append only. Nothing in the application may edit or remove a row,
+-- and the grant below means nothing outside it can either.
+create or replace function audit_is_append_only() returns trigger as $$
+begin
+  raise exception 'the audit log cannot be changed';
+end $$ language plpgsql;
+create trigger audit_no_update before update or delete on audit_log
+  for each row execute function audit_is_append_only();
 
 -- Append-only business event log. The inspector reads this to show what the
 -- system actually did, as opposed to what the UI says it did.

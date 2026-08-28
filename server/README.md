@@ -10,30 +10,38 @@ server/
                        (the canonical DDL - db:reset rebuilds from it)
   src/bootstrap.sql    one-time role setup (run as a superuser)
   src/seed.js          demo data shaped like the real business
+  setup.sh             one command from a clean machine to a running workspace
   src/db.js            two connection pools: one read/write, one SELECT-only
-  src/repo.js          business operations - every write keeps the old version
-  src/tools.js         the 23 tools the model is given
+  src/context.js       who is acting, carried to Postgres for the audit trigger
+  src/repo.js          business operations, each one a single transaction
+  src/tools.js         the 42 tools the model is given
   src/agent.js         the Claude API loop, instrumented end to end
   src/trace.js         the observability spine
   src/server.js        REST API, streaming chat, inspector endpoints
   public/              the workspace UI and the inspector
-  test/                78 tests against a real Postgres database
+  test/                100 tests against a real Postgres database
 ```
 
 ## Running it
 
-You need PostgreSQL 16 and Node 22.
+You need PostgreSQL 16 and Node 22. Then one command:
 
 ```bash
-createdb ts_workspace
-psql -d ts_workspace -f src/bootstrap.sql     # as a superuser: creates the two roles
-npm install
-cp .env.example .env                          # then put your API key in it
-npm run db:reset                              # builds the schema and seeds demo data
-npm start
+./setup.sh
 ```
 
-Then open <http://localhost:4000>. The inspector is at `/inspect.html`.
+It installs dependencies, creates the database, creates the two roles, builds
+the schema, seeds demo data and starts the server. Open
+<http://localhost:4000>; the inspector is at `/inspect.html`.
+
+If `psql` on your machine is not a superuser, point the script at one:
+
+```bash
+TS_SUPERUSER_PSQL="sudo -u postgres psql" ./setup.sh
+```
+
+The individual steps are still there as `npm run db:reset`, `npm start` and
+`npm test`.
 
 ### The API key
 
@@ -51,10 +59,15 @@ manager-side timeline and a candidate-side one without forking into two people.
 `create_contact` on someone who already exists adds the role to the record they
 have.
 
-**Nothing is destroyed.** Every update writes the previous version to
-`record_revision` before the row changes, inside the same transaction. Deletes
-are an `archived_at` stamp. `record_history` answers "what did this look like
-before" for any record, and the assistant can call it.
+**Nothing is destroyed, and nothing is unrecorded.** Every insert, update and
+delete on every table is written to `audit_log` by a database trigger - not by
+application code - so a change made by the app, the assistant, a migration
+script or a person at a psql prompt all land there the same way. Each row keeps
+the before, the after, the fields that changed, the acting user, a reason where
+one was given, and the transaction id that ties one user action together across
+tables. The log itself refuses UPDATE and DELETE: once a line is written it
+stays. Deletes of business records are still an `archived_at` stamp on top of
+that.
 
 **The database enforces the rules, not the application.** A manager without an
 account, a document scoped to two things at once, a project borrowing another
@@ -138,6 +151,27 @@ What the database enforces:
   effective-dated rate history. A Tuesday worked in March still prices at
   March's rate in June. **Rejection releases it** and sends the week back.
 - **A decision is made once.** Re-deciding tells you who already decided.
+- **Approved days are locked.** Nobody can change or delete them - not the
+  consultant, not the app, not a direct SQL statement. The lock is per approval
+  packet, so one manager rejecting their project cannot reopen days another
+  manager already signed off.
+
+## Unlocking approved time
+
+Locked means locked, so the way out is deliberate:
+
+1. Anyone raises an **unlock request** against the approved packet, with a
+   reason. Only one can be open on a packet at a time.
+2. An **admin** grants or denies it. The database checks the role and refuses a
+   self-grant - whoever asked cannot be the one who approves it.
+3. Granting is refused outright if the time is **already on a live invoice**. The
+   error says to void or credit the invoice first, because unlocking would
+   otherwise leave an invoice standing against time that no longer exists.
+4. A grant is a key with a life: it expires in 24 hours and is **spent on first
+   use**. Reopening the packet releases the frozen values and puts the week back
+   to draft. Re-approving and reopening again needs a fresh grant.
+
+Every step of that is in the audit trail.
 
 ## Billing
 
@@ -166,8 +200,9 @@ until an invoice is issued.
 `agent.js` rather than the SDK tool runner — because the point of this build is
 that every step is observable, and the loop is where the instrumentation hangs.
 
-Thirty-seven tools cover accounts, sites, contacts, projects, activity,
-documents, pipelines, timesheets, approvals, invoices and PO burn-down. Two of them matter more than the rest:
+Forty-two tools cover accounts, sites, contacts, projects, activity, documents,
+pipelines, timesheets, approvals, unlocks, invoices, PO burn-down and the audit
+trail. Two of them matter more than the rest:
 
 - `sql_query` runs a SELECT when no purpose-built tool fits. The connection
   holds a `ts_readonly` role with `SELECT` and nothing else, so a write is
@@ -209,7 +244,7 @@ it, because that would invalidate the cache every day.
 npm test
 ```
 
-78 tests against a real Postgres database built from the same `schema.sql` the
+100 tests against a real Postgres database built from the same `schema.sql` the
 application uses — the constraints are where most of the design lives, and a
 mock would not catch them. The agent loop is exercised with a scripted stand-in
 for the Anthropic client, so tool dispatch, trace capture, the iteration cap,
@@ -220,7 +255,10 @@ projects, the 24-hour and in-week limits, a PO from the wrong project, a locked
 week, partial approval, rejection releasing value, a week reopening for
 correction, a project with no approver on file, double-billing, invoicing
 unapproved time, changing a sent invoice, overrunning a purchase order, the rate
-in force on a given day, and every column of the burn-down at each stage.
+in force on a given day, and every column of the burn-down at each stage. The
+audit trail is tested by writing straight past the application - a raw insert is
+recorded the same as one through the API - and the lock from both sides, through
+the repo and by direct SQL.
 
 **What is not covered:** no test in this suite makes a live Claude API call.
 The request shape is asserted against the documented parameters, but the round

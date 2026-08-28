@@ -37,7 +37,11 @@ export const config = {
 };
 
 export function hasApiKey() {
-  return Boolean(process.env.ANTHROPIC_API_KEY || process.env.ANTHROPIC_AUTH_TOKEN);
+  // An unedited placeholder is worse than nothing: the server would claim a
+  // credential and then fail at the first call with an authentication error
+  // that reads like a bug.
+  const real = (v) => Boolean(v) && !v.includes("...") && v.trim().length > 12;
+  return real(process.env.ANTHROPIC_API_KEY) || real(process.env.ANTHROPIC_AUTH_TOKEN);
 }
 
 // Cost of one API response, in dollars, from its usage block.

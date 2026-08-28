@@ -1046,20 +1046,132 @@ export function buildTools(ctx) {
     {
       name: "record_history",
       description:
-        "Every past version of one record, newest first, with who changed it and when. " +
-        "Nothing in this workspace is overwritten, so this always answers 'what did this " +
-        "look like before'.",
+        "Every version of one record, newest first, with what changed, who changed it, " +
+        "when, and why if a reason was given. Written by a database trigger, so it " +
+        "covers every write however it was made.",
       input_schema: {
         type: "object",
         properties: {
           table: { type: "string",
             enum: ["account", "location", "contact", "project", "submission", "placement",
-                   "purchase_order", "timesheet", "timesheet_entry", "document"] },
+                   "purchase_order", "timesheet", "timesheet_entry", "timesheet_approval",
+                   "invoice", "invoice_line", "payment", "unlock_request", "document"] },
           id: { type: "string" },
         },
         required: ["table", "id"],
       },
       run: async (i) => repo.revisionsFor(i.table, i.id),
+    },
+    {
+      name: "audit_trail",
+      description:
+        "The audit trail across the whole system: every insert, update and delete on " +
+        "every table, with the acting user, what fields changed, and the transaction " +
+        "that did it. Use this for 'who changed X', 'what did someone do today', or " +
+        "'show me everything that happened to this account'. Written by database " +
+        "triggers, so nothing can write without appearing here.",
+      input_schema: {
+        type: "object",
+        properties: {
+          table: { type: "string" },
+          record_id: { type: "string" },
+          actor_name: { type: "string", description: "One workspace user's activity." },
+          action: { type: "string", enum: ["insert", "update", "delete"] },
+          since: { type: "string", description: "ISO timestamp or date." },
+          query: { type: "string", description: "Free text against the changed data." },
+          limit: { type: "integer", default: 100 },
+        },
+      },
+      run: async (i) => {
+        let actorId = null;
+        if (i.actor_name) {
+          const u = await one(
+            `select id from app_user where full_name ilike '%'||$1||'%' limit 1`,
+            [i.actor_name]);
+          if (!u) return { error: "not_found",
+                           message: `No workspace user matching ${i.actor_name}.` };
+          actorId = u.id;
+        }
+        return repo.auditTrail({
+          table: i.table || null, recordId: i.record_id || null, actorId,
+          action: i.action || null, since: i.since || null, q: i.query || null,
+          limit: i.limit || 100 });
+      },
+    },
+    {
+      name: "request_unlock",
+      description:
+        "Ask for approved time to be unlocked so it can be corrected. Approved days are " +
+        "locked and cannot be changed by anyone, including the consultant who entered " +
+        "them. An admin has to grant this, and cannot grant their own request. Give a " +
+        "real reason - the admin deciding will read it.",
+      input_schema: {
+        type: "object",
+        properties: {
+          approval_id: { type: "string", description: "From approval_queue." },
+          reason: { type: "string" },
+        },
+        required: ["approval_id", "reason"],
+      },
+      run: async (i) => {
+        const missing = [];
+        if (!i.approval_id) missing.push("which approved week and project");
+        if (!i.reason || i.reason.trim().length <= 5)
+          missing.push("why it needs to be unlocked");
+        if (missing.length) return need(...missing);
+        return repo.requestUnlock(
+          { approvalId: i.approval_id, reason: i.reason }, actor());
+      },
+    },
+    {
+      name: "list_unlock_requests",
+      description:
+        "Requests to unlock approved time. Each shows what is at stake: the value of " +
+        "the week and whether any of it has already gone out on an invoice.",
+      input_schema: {
+        type: "object",
+        properties: {
+          status: { type: "string",
+                    enum: ["pending", "granted", "denied", "used", "withdrawn"] },
+        },
+      },
+      run: async (i) => repo.listUnlockRequests({ status: i.status || "pending" }),
+    },
+    {
+      name: "decide_unlock",
+      description:
+        "Grant or deny an unlock request. Only an admin can, and not their own request - " +
+        "the database enforces both. Granting is refused outright if the time has " +
+        "already been invoiced; void or credit the invoice first.",
+      input_schema: {
+        type: "object",
+        properties: {
+          request_id: { type: "string" },
+          decision: { type: "string", enum: ["granted", "denied"] },
+          note: { type: "string" },
+        },
+        required: ["request_id", "decision"],
+      },
+      run: async (i) => {
+        if (!i.request_id || !i.decision) return need("which request, and the decision");
+        return repo.decideUnlock(i.request_id, i.decision, actor(), i.note || null);
+      },
+    },
+    {
+      name: "reopen_approved_time",
+      description:
+        "Spend a granted unlock: put an approved week back to pending so it can be " +
+        "corrected. This releases the frozen values on those days. Refused unless an " +
+        "admin has granted an unlock for it, and the grant is used up afterwards.",
+      input_schema: {
+        type: "object",
+        properties: { approval_id: { type: "string" } },
+        required: ["approval_id"],
+      },
+      run: async (i) => {
+        if (!i.approval_id) return need("which approved week and project");
+        return repo.reopenApproval(i.approval_id, actor());
+      },
     },
     {
       name: "describe_schema",

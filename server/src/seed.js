@@ -13,6 +13,11 @@ import { config, ROOT } from "./config.js";
 const reset = process.argv.includes("--reset");
 const client = new pg.Client({ connectionString: config.databaseUrl });
 await client.connect();
+// Mark everything this script writes, so seeded rows are distinguishable from
+// real ones in the audit trail rather than showing as unattributed.
+await client.query(
+  `select set_config('ts.actor_label','seed script',false),
+          set_config('ts.reason','demo data',false)`);
 
 if (reset) {
   await client.query(`drop schema public cascade; create schema public;`);

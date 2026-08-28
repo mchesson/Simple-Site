@@ -87,7 +87,8 @@ describe("the HTTP surface", () => {
 
   test("the billing endpoints answer", async () => {
     for (const p of ["/api/timesheets", "/api/entries", "/api/approvals",
-                     "/api/invoices", "/api/invoice-aging",
+                     "/api/invoices", "/api/invoice-aging", "/api/audit",
+                     "/api/unlock-requests",
                      "/api/po-burndown", "/api/po-burndown?at_risk=1"]) {
       const { status, body } = await get(p);
       assert.equal(status, 200, p);
@@ -118,6 +119,31 @@ describe("the HTTP surface", () => {
     const { status, body } = await get("/api/allocation-targets");
     assert.equal(status, 400);
     assert.ok(body.error);
+  });
+
+  test("a write through the API is attributed in the audit trail", async () => {
+    const r = await fetch(base + "/api/accounts", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: "Audit Attribution Co",
+                             reason: "checking the trail" }),
+    });
+    assert.equal(r.status, 200);
+    const acct = await r.json();
+    const { body } = await get(`/api/audit?record_id=${acct.id}`);
+    assert.equal(body.length, 1);
+    assert.equal(body[0].action, "insert");
+    assert.equal(body[0].actor, "HTTP Test");
+    assert.equal(body[0].reason, "checking the trail");
+  });
+
+  test("an unlock request needs a reason", async () => {
+    const r = await fetch(base + "/api/unlock-requests", {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ approval_id: "00000000-0000-0000-0000-000000000000",
+                             reason: "x" }),
+    });
+    assert.equal(r.status, 400);
+    assert.match((await r.json()).error, /say why/);
   });
 
   test("a missing record answers 404 rather than an empty 200", async () => {

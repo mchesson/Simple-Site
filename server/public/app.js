@@ -858,8 +858,21 @@ async function approvalsView() {
               "Approve " + money(a.value)),
             el("button", { class: "ghost", onclick: () => decide("rejected") },
               "Send back"))
-        : el("div", { class: "meta", style: "margin-top:8px" },
-            `${a.status} by ${a.decided_by || "—"}` + (a.note ? " — " + a.note : "")));
+        : el("div", { style: "margin-top:10px;display:flex;gap:10px;align-items:center" },
+          el("span", { class: "meta" },
+            `${a.status} by ${a.decided_by || "—"}` + (a.note ? " — " + a.note : "")),
+          a.status === "approved"
+            ? el("button", { class: "ghost", onclick: async () => {
+                const reason = prompt(
+                  "This time is locked. Why does it need to be reopened?");
+                if (!reason) return;
+                const r = await api("/api/unlock-requests", {
+                  method: "POST",
+                  body: JSON.stringify({ approval_id: a.approval_id, reason }) });
+                if (r.error) return alert(r.error);
+                go("unlocks");
+              } }, "Request an unlock")
+            : null));
   };
 
   const owed = pending.reduce((a, x) => a + Number(x.value), 0);
@@ -986,10 +999,145 @@ async function invoiceView(id) {
         el("td", { class: "num" }, money(p.amount))))))]));
 }
 
+// -------------------------------------------------------------- audit trail
+
+const AUDIT_ACTION = { insert: "created", update: "changed", delete: "removed" };
+
+async function auditView(filters = {}) {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(filters)) if (v) qs.set(k, v);
+  qs.set("limit", "200");
+  const rows = await api("/api/audit?" + qs.toString());
+
+  const search = el("input", {
+    placeholder: "Search the trail…", value: filters.q || "",
+    style: "flex:1;max-width:22rem;padding:7px 11px;border:1px solid var(--line);" +
+           "border-radius:8px;background:var(--panel);color:var(--ink);font:inherit",
+    onkeydown: (e) => { if (e.key === "Enter") go("audit", null, { q: e.target.value }); },
+  });
+
+  return el("div", { class: "pane" },
+    el("div", { class: "wkbar" },
+      search,
+      el("select", { class: "ghost",
+        onchange: (e) => go("audit", null, { ...filters, action: e.target.value }) },
+        ...[["", "Everything"], ["insert", "Created"], ["update", "Changed"],
+            ["delete", "Removed"]].map(([v, t]) =>
+          el("option", { value: v, selected: filters.action === v ? "" : null }, t))),
+      el("span", { class: "grow" }),
+      el("span", { class: "muted" },
+        `${rows.length} entr${rows.length === 1 ? "y" : "ies"}`)),
+
+    el("p", { class: "muted", style: "margin:0 0 14px" },
+      "Written by database triggers on every table, so a change made by the app, " +
+      "the assistant, a script or a person at a terminal all land here the same way. " +
+      "Nothing can edit or remove a line once it is written."),
+
+    el("table", { class: "grid" },
+      el("thead", {}, el("tr", {}, ...["When", "Who", "What", "Record", "Fields", "Why"]
+        .map((h) => el("th", {}, h)))),
+      el("tbody", {}, ...rows.map((r) => el("tr", {},
+        el("td", { class: "muted", style: "white-space:nowrap" },
+          new Date(r.occurred_at).toLocaleString(undefined,
+            { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })),
+        el("td", {}, r.actor === "unattributed"
+          ? el("span", { class: "muted" }, "unattributed") : r.actor),
+        el("td", {}, AUDIT_ACTION[r.action] || r.action, " ",
+          el("strong", {}, r.table_name.replace(/_/g, " "))),
+        el("td", { class: "muted" }, r.label || ""),
+        el("td", { class: "muted" }, (r.changed || []).filter((c) =>
+          c !== "updated_at").join(", ")),
+        el("td", { class: "muted" }, r.reason || ""))))));
+}
+
+// ------------------------------------------------------------------ unlocks
+
+async function unlocksView() {
+  const [pending, decided] = await Promise.all([
+    api("/api/unlock-requests?status=pending"),
+    api("/api/unlock-requests?status=granted"),
+  ]);
+  const me = await api("/api/me");
+  const isAdmin = me?.role === "admin";
+
+  const card = (u) => el("div", { class: "packet" },
+    el("div", { class: "hd" },
+      el("h3", {}, u.consultant),
+      el("span", { class: "muted" },
+        `week ending ${day(u.week_ending)} · ${u.project_name}`),
+      el("span", { class: "grow" }),
+      el("span", {}, money(u.value), " locked")),
+    el("div", { class: "meta", style: "margin-top:4px" },
+      `${u.account_name} · asked by ${u.requested_by_name || "—"} ` +
+      `on ${day(u.created_at)}`),
+    el("p", { style: "margin:10px 0 0" }, u.reason),
+    u.billed_lines > 0
+      ? el("p", { class: "pill bad", style: "margin-top:10px" },
+          "Already invoiced — this cannot be unlocked until the invoice is voided")
+      : null,
+    u.status === "pending"
+      ? el("div", { style: "margin-top:12px;display:flex;gap:8px;align-items:center" },
+          // An admin cannot grant their own request. The button is not offered
+          // rather than offered and then refused.
+          isAdmin && u.requested_by !== me?.id
+            ? el("button", { class: "send", onclick: () => decide(u, "granted") },
+                "Grant the unlock")
+            : null,
+          isAdmin && u.requested_by !== me?.id
+            ? el("button", { class: "ghost", onclick: () => decide(u, "denied") }, "Deny")
+            : null,
+          !isAdmin
+            ? el("span", { class: "muted" },
+                "Only an admin can decide this. You are signed in as " +
+                me.role.replace("_", " ") + ".")
+            : null,
+          isAdmin && u.requested_by === me?.id
+            ? el("span", { class: "muted" },
+                "You raised this one, so somebody else has to grant it.")
+            : null)
+      : el("div", { style: "margin-top:12px;display:flex;gap:8px;align-items:center" },
+          el("span", { class: "pill good" }, "granted by " + (u.decided_by_name || "—")),
+          el("button", { class: "ghost", onclick: async () => {
+            const r = await api(`/api/approvals/${u.approval_id}/reopen`,
+                                { method: "POST" });
+            if (r.error) return alert(r.error);
+            go("unlocks");
+          } }, "Reopen the week now"),
+          el("span", { class: "muted" }, "one use, expires " +
+            (u.expires_at ? day(u.expires_at) : "—"))));
+
+  async function decide(u, decision) {
+    const note = prompt(decision === "granted"
+      ? "Note for the record (optional)" : "Why is this being denied?");
+    if (decision === "denied" && !note) return;
+    const r = await api(`/api/unlock-requests/${u.id}/decide`, {
+      method: "POST", body: JSON.stringify({ decision, note }) });
+    if (r.error) return alert(r.error);
+    go("unlocks");
+  }
+
+  return el("div", { class: "pane" },
+    el("div", { class: "card" },
+      el("h3", {}, "Approved time is locked"),
+      el("div", { class: "meta" },
+        "Once a client manager approves a week, those days are frozen — nobody can " +
+        "change or delete them, including the consultant who entered them. Opening " +
+        "them again takes an admin, and the grant works once."),
+      !isAdmin
+        ? el("p", { class: "pill warn", style: "margin-top:10px" },
+            "You are not an admin, so you can raise a request but not grant one")
+        : null),
+    pending.length
+      ? section("Waiting on an admin", pending.map(card))
+      : el("p", { class: "muted" }, "No unlock requests are waiting."),
+    decided.length ? section("Granted, not yet used", decided.map(card)) : null);
+}
+
 // ------------------------------------------------------------------ routing
 const TITLES = { chat: "Project Assistant", accounts: "Accounts", projects: "Projects",
   contacts: "Contacts", documents: "Documents", pos: "Purchase orders",
-  timesheet: "My week", approvals: "Approvals", invoices: "Invoices" };
+  timesheet: "My week", approvals: "Approvals", invoices: "Invoices",
+  unlocks: "Unlock requests", audit: "Audit trail" };
 
 async function go(view, id = null, opts = {}) {
   state.view = view;
@@ -1013,6 +1161,8 @@ async function go(view, id = null, opts = {}) {
   else if (view === "pos") node = await poView();
   else if (view === "timesheet") node = await timesheetView(opts.week, opts.contact);
   else if (view === "approvals") node = await approvalsView();
+  else if (view === "unlocks") node = await unlocksView();
+  else if (view === "audit") node = await auditView(opts);
   else if (view === "invoices") node = await invoicesView();
   else if (view === "invoice") { node = await invoiceView(id); $("#title").textContent = "Invoice"; }
   body.replaceChildren(node);

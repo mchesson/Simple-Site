@@ -43,6 +43,8 @@ const WRITABLE = {
   document: ["kind","title","account_id","location_id","project_id","contact_id",
              "sharepoint_url","sharepoint_path","content_text","mime_type","byte_size","uploaded_by"],
   pipeline: ["owner_id","name","project_id","notes"],
+  unlock_request: ["approval_id","requested_by","reason","status","decided_by",
+                   "decision_note","expires_at"],
 };
 
 const HAS_UPDATED_AT = new Set(["account","location","contact","project","submission",
@@ -80,19 +82,14 @@ export async function insertRecord(table, data, actorId = null) {
       `insert into "${table}" (${names}) values (${holes}) returning *`,
       keys.map((k) => cols[k]),
     );
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ($1,$2,null,$3,$4)`,
-      [table, row.id, row, actorId],
-    );
     await recordEvent(t, `${table}.created`, table, row.id, { fields: keys }, actorId);
     return row;
   });
 }
 
-// The non-destructive update. The prior version is written to record_revision
-// before the row changes, so "make changes without deleting the data" is a
-// property of the write path, not a promise in a document.
+// The non-destructive update. The previous version is kept - by an audit
+// trigger on the table itself, not by this function - so "make changes without
+// deleting the data" holds no matter which code path did the writing.
 export async function updateRecord(table, id, changes, actorId = null) {
   const cols = pick(table, changes);
   const keys = Object.keys(cols);
@@ -105,11 +102,6 @@ export async function updateRecord(table, id, changes, actorId = null) {
     const after = await t.one(
       `update "${table}" set ${sets.join(", ")} where id = $1 returning *`,
       [id, ...keys.map((k) => cols[k])],
-    );
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ($1,$2,$3,$4,$5)`,
-      [table, id, before, after, actorId],
     );
     const changed = keys.filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]));
     await recordEvent(t, `${table}.updated`, table, id, { changed }, actorId);
@@ -124,9 +116,6 @@ export async function archiveRecord(table, id, actorId = null) {
     if (!before) throw new Error(`${table} ${id} not found`);
     const after = await t.one(
       `update "${table}" set archived_at = now() where id = $1 returning *`, [id]);
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ($1,$2,$3,$4,$5)`, [table, id, before, after, actorId]);
     await recordEvent(t, `${table}.archived`, table, id, {}, actorId);
     return after;
   });
@@ -134,9 +123,46 @@ export async function archiveRecord(table, id, actorId = null) {
 
 export async function revisionsFor(table, id, limit = 50) {
   return rows(
-    `select id, changed_at, changed_by, before, after
-       from record_revision where table_name = $1 and record_id = $2
-      order by changed_at desc limit $3`, [table, id, limit]);
+    `select a.id, a.action, a.changed, a.before, a.after, a.reason, a.trace_id,
+            a.txid, a.occurred_at, coalesce(u.full_name, a.actor_label) as changed_by
+       from audit_log a left join app_user u on u.id = a.actor_id
+      where a.table_name = $1 and a.record_id = $2
+      order by a.id desc limit $3`, [table, id, limit]);
+}
+
+// The audit trail across everything, for the times the question is "what
+// happened here" rather than "what happened to this record".
+export async function auditTrail({ table = null, recordId = null, actorId = null,
+                                   action = null, since = null, q = null,
+                                   limit = 100 } = {}) {
+  return rows(
+    `select a.id, a.table_name, a.record_id, a.action, a.changed, a.reason,
+            a.trace_id, a.txid, a.occurred_at,
+            coalesce(u.full_name, a.actor_label, 'unattributed') as actor,
+            -- A readable handle on the row, so a log line is not just a uuid.
+            coalesce(a.after ->> 'name', a.after ->> 'full_name',
+                     a.after ->> 'invoice_number', a.after ->> 'po_number',
+                     a.after ->> 'title', a.before ->> 'name',
+                     a.before ->> 'full_name') as label
+       from audit_log a left join app_user u on u.id = a.actor_id
+      where ($1::text is null or a.table_name = $1)
+        and ($2::uuid is null or a.record_id = $2)
+        and ($3::uuid is null or a.actor_id = $3)
+        and ($4::text is null or a.action = $4)
+        and ($5::timestamptz is null or a.occurred_at >= $5)
+        and ($6::text is null or a.table_name ilike '%'||$6||'%'
+             or a.after::text ilike '%'||$6||'%')
+      order by a.id desc limit $7`,
+    [table, recordId, actorId, action, since, q, limit]);
+}
+
+// Everything one transaction did, which is how a single user action reads when
+// it touched five tables.
+export async function auditTransaction(txid) {
+  return rows(
+    `select a.*, coalesce(u.full_name, a.actor_label) as actor
+       from audit_log a left join app_user u on u.id = a.actor_id
+      where a.txid = $1 order by a.id`, [txid]);
 }
 
 // ---------------------------------------------------------------- read models
@@ -217,10 +243,6 @@ export async function setAccountOwners(accountId, owners, actorId = null) {
          values ($1,$2,coalesce($3,'account_manager'),coalesce($4,100))`,
         [accountId, o.user_id, o.role || null, o.split_pct ?? null]);
     }
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ('account_owner',$1,$2,$3,$4)`,
-      [accountId, JSON.stringify(before), JSON.stringify(owners), actorId]);
     await recordEvent(t, "account.owners_changed", "account", accountId,
                       { owners: owners.map((o) => o.user_id) }, actorId);
     return t.rows(`select ao.user_id, u.full_name, ao.role, ao.split_pct
@@ -509,15 +531,52 @@ export async function saveTimesheet(timesheetId, entries, actorId = null) {
     if (!["draft", "rejected"].includes(ts.status)) {
       throw new Error(`that week is ${ts.status} - reopen it before changing it`);
     }
-    const before = await t.rows(
-      `select * from timesheet_entry where timesheet_id = $1`, [timesheetId]);
-    await t.query(`delete from timesheet_entry where timesheet_id = $1`, [timesheetId]);
+
+    // Days under an approved packet are locked. A week that came back because
+    // one manager rejected their part must not disturb what another manager
+    // already signed off - that time is frozen and may already be invoiced.
+    const locked = await t.rows(
+      `select e.* from timesheet_entry e
+         join timesheet_approval a
+           on a.timesheet_id = e.timesheet_id and a.project_id = e.project_id
+        where e.timesheet_id = $1 and a.status = 'approved'`, [timesheetId]);
+    const lockedProjects = new Set(locked.map((e) => e.project_id));
+
+    const rejected = entries.filter((e) => lockedProjects.size &&
+      locked.some((l) => l.placement_id === e.placement_id));
+    if (rejected.length && locked.length) {
+      // Only complain if the caller is actually trying to change locked ground.
+      const same = (a, b) =>
+        a.work_date && String(a.work_date).slice(0, 10) ===
+          b.work_date.toISOString().slice(0, 10) &&
+        Number(a.hours || 0) === Number(b.hours) &&
+        Number(a.ot_hours || 0) === Number(b.ot_hours);
+      const changesLocked = rejected.some((e) => !locked.some((l) => same(e, l)));
+      if (changesLocked) {
+        throw new Error(
+          "some of that time was approved and is locked. Request an unlock and " +
+          "have an admin grant it before changing those days.");
+      }
+    }
+
+    // Replace only the unlocked part of the week.
+    await t.query(
+      `delete from timesheet_entry e
+        where e.timesheet_id = $1
+          and not exists (select 1 from timesheet_approval a
+                           where a.timesheet_id = e.timesheet_id
+                             and a.project_id = e.project_id
+                             and a.status = 'approved')`, [timesheetId]);
 
     const kept = [];
     for (const e of entries) {
       const hours = Number(e.hours) || 0;
       const ot = Number(e.ot_hours) || 0;
       if (hours <= 0 && ot <= 0) continue;   // an empty cell is not a row
+      // Skip anything that belongs to a locked packet - it is already there.
+      const proj = await t.one(`select project_id from placement where id = $1`,
+                               [e.placement_id]);
+      if (proj && lockedProjects.has(proj.project_id)) continue;
       kept.push(await t.one(
         `insert into timesheet_entry (timesheet_id, placement_id, project_id,
                                       purchase_order_id, work_date, hours, ot_hours, notes)
@@ -527,18 +586,17 @@ export async function saveTimesheet(timesheetId, entries, actorId = null) {
          hours, ot, e.notes || null]));
     }
     // A rejected week that gets corrected goes back to draft, so the consultant
-    // has to submit it again rather than it silently re-entering the queue.
+    // has to submit it again rather than it silently re-entering the queue. The
+    // packets that were approved stay approved.
     if (ts.status === "rejected") {
       await t.query(`update timesheet set status = 'draft', updated_at = now()
                       where id = $1`, [timesheetId]);
-      await t.query(`delete from timesheet_approval where timesheet_id = $1`, [timesheetId]);
+      await t.query(
+        `delete from timesheet_approval
+          where timesheet_id = $1 and status <> 'approved'`, [timesheetId]);
     }
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ('timesheet',$1,$2,$3,$4)`,
-      [timesheetId, JSON.stringify(before), JSON.stringify(kept), actorId]);
     await recordEvent(t, "timesheet.saved", "timesheet", timesheetId,
-                      { entries: kept.length,
+                      { entries: kept.length, locked_kept: locked.length,
                         hours: kept.reduce((a, e) => a + Number(e.hours) + Number(e.ot_hours), 0) },
                       actorId);
     return kept;
@@ -569,9 +627,17 @@ export async function submitTimesheet(timesheetId, actorId = null) {
       [timesheetId]);
     if (!projects.length) throw new Error("there is no time on that week to submit");
 
-    await t.query(`delete from timesheet_approval where timesheet_id = $1`, [timesheetId]);
+    // Approved packets are locked; re-submitting a corrected week leaves them
+    // alone and only re-routes the parts that still need a decision.
+    await t.query(
+      `delete from timesheet_approval where timesheet_id = $1 and status <> 'approved'`,
+      [timesheetId]);
     const packets = [];
     for (const pr of projects) {
+      const existing = await t.one(
+        `select * from timesheet_approval where timesheet_id = $1 and project_id = $2`,
+        [timesheetId, pr.project_id]);
+      if (existing) { packets.push(existing); continue; }
       const approver = await t.one(
         `select contact_id from project_approver
           where project_id = $1 order by is_primary desc, added_at limit 1`,
@@ -673,9 +739,6 @@ export async function decideApproval(approvalId, decision, decidedBy, note = nul
       `update timesheet_approval set status = $2, decided_at = now(), decided_by = $3,
               note = $4 where id = $1 returning *`,
       [approvalId, decision, decidedBy, note]);
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ('timesheet_approval',$1,$2,$3,$4)`, [approvalId, before, after, actorId]);
     await recordEvent(t, `timesheet.${decision}`, "timesheet", before.timesheet_id,
                       { project_id: before.project_id, by: decidedBy, note }, actorId);
     return after;
@@ -751,6 +814,112 @@ export async function projectApprovers(projectId) {
       where pa.project_id = $1 order by pa.is_primary desc, c.full_name`, [projectId]);
 }
 
+// --------------------------------------------------------------- unlocking
+
+// Approved time is locked. Somebody asks for it back, an admin decides, and the
+// grant opens that one packet once.
+export async function requestUnlock({ approvalId, reason }, actorId = null) {
+  if (!reason || reason.trim().length <= 5) {
+    throw new Error("say why it needs unlocking - the admin deciding will read it");
+  }
+  const ap = await one(`select * from timesheet_approval where id = $1`, [approvalId]);
+  if (!ap) throw new Error("that approval is not on file");
+  if (ap.status !== "approved") {
+    throw new Error(`that time is ${ap.status}, not approved - it is not locked`);
+  }
+  const open = await one(
+    `select id from unlock_request where approval_id = $1 and status = 'pending'`,
+    [approvalId]);
+  if (open) throw new Error("there is already an unlock request waiting on that week");
+  return insertRecord("unlock_request",
+    { approval_id: approvalId, requested_by: actorId, reason: reason.trim() }, actorId);
+}
+
+export async function listUnlockRequests({ status = "pending", limit = 50 } = {}) {
+  return rows(
+    `select ur.*, t.week_ending, c.full_name as consultant,
+            p.name as project_name, a.name as account_name,
+            req.full_name as requested_by_name, dec.full_name as decided_by_name,
+            (select coalesce(sum(e.billable_amount),0) from timesheet_entry e
+              where e.timesheet_id = ap.timesheet_id
+                and e.project_id = ap.project_id) as value,
+            (select count(*)::int from invoice_line l
+               join invoice i on i.id = l.invoice_id
+               join timesheet_entry e on e.id = l.timesheet_entry_id
+              where e.timesheet_id = ap.timesheet_id
+                and e.project_id = ap.project_id and i.status <> 'void') as billed_lines
+       from unlock_request ur
+       join timesheet_approval ap on ap.id = ur.approval_id
+       join timesheet t on t.id = ap.timesheet_id
+       join contact c on c.id = t.contact_id
+       join project p on p.id = ap.project_id
+       join account a on a.id = p.account_id
+       left join app_user req on req.id = ur.requested_by
+       left join app_user dec on dec.id = ur.decided_by
+      where ($1::text is null or ur.status = $1)
+      order by ur.created_at desc limit $2`, [status, limit]);
+}
+
+// Granting is an admin act. The database checks the role and refuses a
+// self-grant; this adds the operational check that nobody unlocks time that has
+// already gone out on an invoice without seeing that first.
+export async function decideUnlock(requestId, decision, adminUserId, note = null) {
+  if (!["granted", "denied"].includes(decision)) {
+    throw new Error("an unlock is either granted or denied");
+  }
+  return tx(async (t) => {
+    const req = await t.one(`select * from unlock_request where id = $1 for update`,
+                            [requestId]);
+    if (!req) throw new Error("that request is not on file");
+    if (req.status !== "pending") throw new Error(`that request is already ${req.status}`);
+
+    if (decision === "granted") {
+      const billed = await t.one(
+        `select count(*)::int as n, min(i.invoice_number) as invoice
+           from invoice_line l join invoice i on i.id = l.invoice_id
+           join timesheet_entry e on e.id = l.timesheet_entry_id
+           join timesheet_approval ap on ap.timesheet_id = e.timesheet_id
+                                     and ap.project_id = e.project_id
+          where ap.id = $1 and i.status <> 'void'`, [req.approval_id]);
+      if (billed.n > 0) {
+        throw new Error(
+          `that time is already on invoice ${billed.invoice}. Void or credit the ` +
+          `invoice first - unlocking it here would leave the invoice standing ` +
+          `against time that no longer exists.`);
+      }
+    }
+
+    const after = await t.one(
+      `update unlock_request set status = $2, decided_by = $3, decision_note = $4
+        where id = $1 returning *`, [requestId, decision, adminUserId, note]);
+    await recordEvent(t, `unlock.${decision}`, "timesheet_approval", req.approval_id,
+                      { reason: req.reason, note }, adminUserId);
+    return after;
+  });
+}
+
+// Spend a granted unlock: put the packet back to pending, which releases the
+// frozen values and lets the week be corrected.
+export async function reopenApproval(approvalId, actorId = null) {
+  return tx(async (t) => {
+    const ap = await t.one(`select * from timesheet_approval where id = $1 for update`,
+                           [approvalId]);
+    if (!ap) throw new Error("that approval is not on file");
+    if (ap.status !== "approved") throw new Error("that packet is not approved");
+    // The database refuses this unless a granted, unexpired unlock exists, and
+    // spends it when it succeeds.
+    const after = await t.one(
+      `update timesheet_approval set status = 'pending', decided_at = null,
+              decided_by = null, note = null where id = $1 returning *`, [approvalId]);
+    await t.query(
+      `update timesheet set status = 'draft', updated_at = now() where id = $1`,
+      [ap.timesheet_id]);
+    await recordEvent(t, "timesheet.reopened", "timesheet", ap.timesheet_id,
+                      { project_id: ap.project_id }, actorId);
+    return after;
+  });
+}
+
 // ------------------------------------------------------------------- invoices
 
 // Invoice numbers are sequential within the year and gapless enough to satisfy
@@ -815,9 +984,6 @@ export async function draftInvoiceFromApproved({ purchaseOrderId = null, project
          (e.po_number ? ` (${e.po_number})` : ""),
          hours, hours ? Number(e.value) / hours : null, e.value, n++]);
     }
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ('invoice',$1,null,$2,$3)`, [inv.id, inv, actorId]);
     await recordEvent(t, "invoice.drafted", "invoice", inv.id,
                       { number, days: entries.length,
                         total: entries.reduce((a, e) => a + Number(e.value), 0) },
@@ -841,9 +1007,6 @@ export async function sendInvoice(id, issueDate = null, actorId = null) {
               due_date = $2::date + terms_days, sent_at = now(), updated_at = now()
         where id = $1 returning *`, [id, issue]);
     const totals = await t.one(`select * from invoice_totals where invoice_id = $1`, [id]);
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ('invoice',$1,$2,$3,$4)`, [id, before, after, actorId]);
     await recordEvent(t, "invoice.sent", "invoice", id,
                       { number: after.invoice_number, total: totals.total }, actorId);
     return { ...after, ...totals };
@@ -881,9 +1044,6 @@ export async function voidInvoice(id, reason, actorId = null) {
     const after = await t.one(
       `update invoice set status = 'void', voided_at = now(), void_reason = $2,
               updated_at = now() where id = $1 returning *`, [id, reason]);
-    await t.query(
-      `insert into record_revision (table_name, record_id, before, after, changed_by)
-       values ('invoice',$1,$2,$3,$4)`, [id, before, after, actorId]);
     await recordEvent(t, "invoice.voided", "invoice", id,
                       { number: before.invoice_number, reason }, actorId);
     return after;

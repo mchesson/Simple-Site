@@ -16,9 +16,14 @@ do $$ begin
   end if;
 end $$;
 
-grant connect on database ts_workspace to ts_app, ts_readonly;
--- ts_app owns its schema so migrations and resets do not need a superuser.
-grant create on database ts_workspace to ts_app;
+-- Grants naming a database cannot be written literally without pinning the
+-- database name, so they go through dynamic SQL and work wherever this is run.
+do $$ begin
+  execute format('grant connect on database %I to ts_app, ts_readonly',
+                 current_database());
+  -- ts_app owns its schema, so migrations and resets do not need a superuser.
+  execute format('grant create on database %I to ts_app', current_database());
+end $$;
 alter schema public owner to ts_app;
 grant usage on schema public to ts_readonly;
 

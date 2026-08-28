@@ -11,6 +11,8 @@
 import pg from "pg";
 import { config } from "./config.js";
 import { step, endStep } from "./trace.js";
+import { currentContext } from "./context.js";
+import { currentTrace } from "./trace.js";
 
 // Return numerics as numbers rather than strings. Money stays exact because
 // every amount we do arithmetic on is computed in SQL, not in JavaScript.
@@ -60,6 +62,18 @@ export async function tx(fn) {
   const s = step("transaction", { state: "begin" });
   try {
     await client.query("begin");
+    // Hand the acting user to Postgres for the length of this transaction. The
+    // audit trigger reads these, so attribution does not depend on the caller
+    // remembering to pass an actor into every helper.
+    const ctx = currentContext() || {};
+    const tr = currentTrace();
+    await client.query(
+      `select set_config('ts.actor_id', $1, true),
+              set_config('ts.actor_label', $2, true),
+              set_config('ts.reason', $3, true),
+              set_config('ts.trace_id', $4, true)`,
+      [ctx.actorId || "", ctx.actorLabel || "", ctx.reason || "", tr ? tr.id : ""]);
+
     const scoped = {
       query: async (text, params = []) => {
         const inner = step("sql", { sql: shorten(text), params, inTx: true });
