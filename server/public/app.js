@@ -635,7 +635,9 @@ async function timecardsView() {
       el("td", {}, el("strong", {}, t.full_name),
         el("div", { class: "meta" }, t.account_name + " · " + t.project_name)),
       el("td", {}, "Week ending " + day(t.week_ending)),
-      el("td", { class: "num" }, t.hours + (Number(t.ot_hours) ? ` + ${t.ot_hours} OT` : "")),
+      el("td", {}, el("span", { class: "num" }, t.hours),
+        Number(t.ot_hours)
+          ? [" + ", el("span", { class: "num" }, t.ot_hours), " overtime"] : []),
       el("td", { class: "num" }, money(t.value)),
       el("td", { class: "muted" }, t.po_number || "no PO"),
       el("td", {}, t.invoice_number

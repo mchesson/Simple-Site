@@ -41,7 +41,7 @@ function traceRow(t) {
     el("div", { class: "p" }, t.prompt || "(no prompt)"),
     el("div", { class: "m" },
       el("span", { class: "num" }, ms(t.durationMs ?? t.duration_ms)),
-      el("span", { class: "num" }, num(tokens) + " tok"),
+      el("span", {}, el("span", { class: "num" }, num(tokens)), " tokens"),
       el("span", { class: "num" }, usd(cost)),
       el("span", {}, `${(t.steps || []).length} steps`),
       t.model ? el("span", {}, t.model) : null,
@@ -55,9 +55,12 @@ function stepNode(s) {
       el("div", { class: "hd" },
         el("span", { class: "lbl" }, `Model call ${s.iteration + 1}`),
         el("span", { class: "sm num" }, ms(s.ms)),
-        el("span", { class: "sm num" },
-          `${num(u.input_tokens)} in · ${num(u.output_tokens)} out` +
-          (u.cache_read_input_tokens ? ` · ${num(u.cache_read_input_tokens)} cached` : "")),
+        el("span", { class: "sm" },
+          el("span", { class: "num" }, num(u.input_tokens)), " in · ",
+          el("span", { class: "num" }, num(u.output_tokens)), " out",
+          u.cache_read_input_tokens
+            ? [" · ", el("span", { class: "num" }, num(u.cache_read_input_tokens)),
+               " from cache"] : []),
         el("span", { class: "sm num" }, usd(s.costUsd)),
         el("span", { class: "sm" }, s.stopReason || "")),
       el("div", { class: "sm" },
@@ -87,9 +90,10 @@ function stepNode(s) {
       el("div", { class: "hd" },
         el("span", { class: "lbl" }, s.readOnly ? "SQL (read-only role)" : "SQL"),
         el("span", { class: "sm num" }, ms(s.ms)),
-        el("span", { class: "sm num" },
-          s.rowCount !== undefined
-            ? `${s.rowCount} row${s.rowCount === 1 ? "" : "s"}` : ""),
+        s.rowCount !== undefined
+          ? el("span", { class: "sm" }, el("span", { class: "num" }, s.rowCount),
+               s.rowCount === 1 ? " row" : " rows")
+          : null,
         s.error ? el("span", { class: "sm err" }, s.error) : null),
       el("pre", { class: "code" }, s.sql),
       s.params && s.params.length
@@ -193,9 +197,16 @@ async function renderData() {
       el("table", { class: "grid" },
         el("thead", {}, el("tr", {}, ...cols.map((c) => el("th", {}, c)))),
         el("tbody", {}, ...r.rows.map((row) => el("tr", {},
-          ...cols.map((c) => el("td", { class: "num" },
-            row[c] === null ? "—" :
-            typeof row[c] === "object" ? JSON.stringify(row[c]) : String(row[c]))))))));
+          ...cols.map((c) => {
+            const v = row[c];
+            // Numbers get the tabular face so columns line up. Text does not -
+            // words in a monospace face read like a 1980s terminal.
+            const numeric = typeof v === "number" ||
+              (typeof v === "string" && /^-?[\d,.$%\s]+$/.test(v) && /\d/.test(v));
+            return el("td", { class: numeric ? "num" : "" },
+              v === null || v === undefined ? "—" :
+              typeof v === "object" ? JSON.stringify(v) : String(v));
+          }))))));
   };
 
   $("#body").replaceChildren(el("div", { class: "detail" },
@@ -230,7 +241,7 @@ async function renderData() {
         el("table", { class: "grid", style: "margin-top:8px" },
           el("tbody", {}, ...t.columns.map((c) => el("tr", {},
             el("td", {}, c.name),
-            el("td", { class: "muted num" }, c.type),
+            el("td", { class: "muted" }, c.type),
             el("td", { class: "muted" }, c.nullable ? "" : "required"))))))),
     out));
 }
@@ -285,8 +296,9 @@ async function renderEvents() {
       el("thead", {}, el("tr", {}, ...["When", "Event", "Subject", "Detail", "By", "Turn"]
         .map((h) => el("th", {}, h)))),
       el("tbody", {}, ...events.map((e) => el("tr", {},
-        el("td", { class: "muted num" },
-          new Date(e.occurred_at).toLocaleString()),
+        el("td", { class: "muted", style: "white-space:nowrap" },
+          new Date(e.occurred_at).toLocaleString(undefined, {
+            month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })),
         el("td", {}, el("strong", {}, e.kind)),
         el("td", { class: "muted" }, e.subject_type || ""),
         el("td", { class: "muted" },
