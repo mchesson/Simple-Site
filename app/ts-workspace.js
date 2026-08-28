@@ -975,7 +975,8 @@ const TITLES = {
   unlocks: "Unlock requests", audit: "Audit trail",
 };
 
-const UI = { view: "home", sel: null, week: null, who: null, auditFilter: {} };
+const UI = { view: "home", sel: null, week: null, who: null,
+             auditFilter: {}, drawer: false };
 
 function section(title, kids) {
   const body = kids.flat().filter(Boolean).filter((n) => {
@@ -1457,6 +1458,7 @@ function timesheetView() {
   const shown = UI.shownRows;
 
   const table = el("table", { class: "wk" });
+  const dayCards = el("div", { class: "daycards" });
   const totalOut = el("span", { class: "muted" }, "");
 
   const totals = () => {
@@ -1474,12 +1476,15 @@ function timesheetView() {
     return { perDay, perRow, week: sum(Object.values(perDay), (x) => x) };
   };
 
-  /* Built once. A cell change updates only the totals, because rebuilding the
-   * table from inside an input's change handler tears out the element that is
-   * mid-blur - which the browser objects to, and which loses the caret. */
+  /* Two layouts over one set of numbers: a grid on a desktop, a card per day on
+   * a phone. Both are built once; a keystroke only updates the totals, because
+   * rebuilding from inside an input's handler tears out the element that is
+   * mid-edit and loses the caret. */
   const rowTotalCells = new Map();
   const dayTotalCells = new Map();
+  const dayCardTotals = new Map();
   let weekTotalCell = null;
+  let weekCardTotal = null;
 
   function refreshTotals() {
     const { perDay, perRow, week } = totals();
@@ -1488,11 +1493,38 @@ function timesheetView() {
       td.textContent = perDay[d] || "";
       td.classList.toggle("over", num(perDay[d]) > 24);
     }
+    for (const [d, node] of dayCardTotals) {
+      const t = perDay[d] || 0;
+      node.textContent = t || "";
+      node.classList.toggle("over", t > 24);
+      const card = node.closest(".daycard");
+      if (card) card.classList.toggle("blank", !t);
+    }
     if (weekTotalCell) weekTotalCell.textContent = week || "";
+    if (weekCardTotal) weekCardTotal.textContent = (week || 0) + " hours";
     totalOut.textContent = week ? `${week} hours this week` : "Nothing entered yet";
   }
 
-  function draw() {
+  const hourInput = (r, date, label) => {
+    const isLocked = locked.has(r.target.projectId);
+    const v = r.hours[date] || 0;
+    return el("input", {
+      class: "h" + (v ? "" : " zero"), type: "number", min: "0", max: "24",
+      step: "0.25", inputmode: "decimal", value: v || "",
+      "aria-label": label,
+      disabled: (!editable || isLocked) ? "" : null,
+      oninput: (e) => {
+        r.hours[date] = num(e.target.value);
+        e.target.classList.toggle("zero", !num(e.target.value));
+        refreshTotals();
+      },
+    });
+  };
+
+  const shownRows = () => [...shown].map((k) => ({ k, r: rows.get(k) }))
+    .filter((x) => x.r);
+
+  function drawGrid() {
     rowTotalCells.clear(); dayTotalCells.clear();
     table.replaceChildren(
       el("thead", {}, el("tr", {},
@@ -1502,9 +1534,7 @@ function timesheetView() {
             new Date(d.date + "T12:00:00").toLocaleDateString(undefined,
               { day: "numeric", month: "short" })))),
         el("th", {}, "Total"))),
-      el("tbody", {}, ...[...shown].map((k) => {
-        const r = rows.get(k);
-        if (!r) return null;
+      el("tbody", {}, ...shownRows().map(({ k, r }) => {
         const isLocked = locked.has(r.target.projectId);
         const rowTotal = el("td", { class: "rowtot" });
         rowTotalCells.set(k, rowTotal);
@@ -1515,21 +1545,10 @@ function timesheetView() {
               [r.target.accountName, r.target.poNumber || "no PO"]
                 .filter(Boolean).join(" · "),
               isLocked ? " · approved and locked" : "")),
-          ...dates.map((d) => {
-            const v = r.hours[d.date] || 0;
-            return el("td", {}, el("input", {
-              class: "h" + (v ? "" : " zero"), type: "number", min: "0", max: "24",
-              step: "0.25", value: v || "",
-              disabled: (!editable || isLocked) ? "" : null,
-              oninput: (e) => {
-                r.hours[d.date] = num(e.target.value);
-                e.target.classList.toggle("zero", !num(e.target.value));
-                refreshTotals();
-              },
-            }));
-          }),
+          ...dates.map((d) => el("td", {},
+            hourInput(r, d.date, `${r.target.projectName}, ${d.label}`))),
           rowTotal);
-      }).filter(Boolean)),
+      })),
       el("tfoot", {}, el("tr", {},
         el("td", { class: "tgt" }, "Total"),
         ...dates.map((d) => {
@@ -1541,7 +1560,39 @@ function timesheetView() {
     refreshTotals();
   }
 
-  draw();
+  /* On a phone a week reads as one card per day. Eight columns of number inputs
+   * is a spreadsheet, not something you fill in on a train. */
+  function drawDayCards() {
+    dayCardTotals.clear();
+    dayCards.replaceChildren(
+      ...dates.map((d) => {
+        const dt = el("span", { class: "dt" });
+        dayCardTotals.set(d.date, dt);
+        return el("div", { class: "daycard" },
+          el("div", { class: "dh" },
+            el("b", {}, d.label),
+            el("span", { class: "dd" },
+              new Date(d.date + "T12:00:00").toLocaleDateString(undefined,
+                { day: "numeric", month: "short" })),
+            dt),
+          ...shownRows().map(({ r }) => {
+            const isLocked = locked.has(r.target.projectId);
+            return el("div", { class: "alloc" },
+              el("div", { class: "what" },
+                el("strong", {}, r.target.projectName),
+                el("span", {}, [r.target.poNumber || "no PO",
+                  isLocked ? "approved and locked" : null]
+                  .filter(Boolean).join(" · "))),
+              hourInput(r, d.date, `${r.target.projectName}, ${d.label}`));
+          }));
+      }),
+      el("div", { class: "weektot" }, "Week total",
+        weekCardTotal = el("span", { class: "n" })));
+    refreshTotals();
+  }
+
+  const narrow = isNarrow();
+  if (narrow) drawDayCards(); else drawGrid();
 
   const unused = targets.filter((t) => !shown.has(key(t)));
   const addRow = el("select", { class: "ghost", onchange: (e) => {
@@ -1605,7 +1656,7 @@ function timesheetView() {
       el("span", { class: "pill" }, ts.status.replace(/_/g, " ")),
       el("span", { class: "grow" }), totalOut),
 
-    table,
+    narrow ? dayCards : table,
 
     el("div", { class: "wkbar", style: "margin-top:16px" },
       editable && unused.length ? addRow : null,
@@ -2055,10 +2106,19 @@ async function flush() {
 
 /* ---------------------------------------------------------------- routing */
 
+/* Narrow enough that the sidebar has to get out of the way. Matches the CSS
+ * breakpoint, and the page re-renders when it changes so the week view can swap
+ * between a grid and day cards. */
+const narrowQuery = window.matchMedia("(max-width: 860px)");
+const isNarrow = () => narrowQuery.matches;
+if (narrowQuery.addEventListener) {
+  narrowQuery.addEventListener("change", () => { UI.drawer = false; render(); });
+}
+
 function go(view, sel) {
   UI.view = view;
   if (sel !== undefined) UI.sel = sel;
-  if (view !== "timesheet") { /* keep week and who between visits */ }
+  UI.drawer = false;          // navigating closes the drawer
   render();
 }
 
@@ -2077,7 +2137,7 @@ function render() {
   const pendingApprovals = where("approvals", (a) => a.status === "pending").length;
   const pendingUnlocks = where("unlocks", (u) => u.status === "pending").length;
 
-  const nav = el("aside", { class: "nav" },
+  const nav = el("aside", { class: "nav" + (UI.drawer ? " open" : "") },
     el("div", { class: "brand" },
       el("div", { class: "mark" }, "TS"),
       el("h1", {}, "TS Workspace")),
@@ -2135,15 +2195,37 @@ function render() {
         el("button", { class: "ghost", onclick: () => go("home") }, "Back to start")));
   }
 
+  const menu = el("button", {
+    class: "menubtn", "aria-label": "Menu", "aria-expanded": UI.drawer ? "true" : "false",
+    onclick: () => { UI.drawer = !UI.drawer; render(); },
+    html: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" ' +
+          'stroke-width="1.7" stroke-linecap="round" aria-hidden="true">' +
+          '<path d="M3 5h14M3 10h14M3 15h14"/></svg>',
+  });
+
   const main = el("main", {},
     el("div", { class: "topbar" },
+      menu,
       el("h2", {}, TITLES[UI.view] || ""),
       el("span", { class: "grow" }),
       el("span", { class: "rolechip" }, "acting as " + me.role.replace(/_/g, " "))),
     body);
 
+  const scrim = el("button", {
+    class: "scrim" + (UI.drawer ? " on" : ""), "aria-label": "Close menu",
+    onclick: () => { UI.drawer = false; render(); },
+  });
+
+  // Wide content gets its own scroller so the page body never scrolls sideways.
+  for (const t of body.querySelectorAll ? body.querySelectorAll("table") : []) {
+    if (t.parentElement && t.parentElement.classList.contains("scrollx")) continue;
+    const wrap = el("div", { class: "scrollx" });
+    t.replaceWith(wrap);
+    wrap.append(t);
+  }
+
   const root = document.getElementById("root");
-  root.replaceChildren(el("div", { class: "shell" }, nav, main));
+  root.replaceChildren(el("div", { class: "shell" }, nav, main), scrim);
 }
 
 /* ------------------------------------------------------------------- start */
@@ -2155,6 +2237,7 @@ async function start() {
   S = loaded && loaded.users && loaded.users.length ? loaded : seedState();
   if (!S.audit) S.audit = [];
   UI.week = iso(weekEndingOf());
+  UI.drawer = false;
   render();
 
   // Capabilities resolve later, never on the first run. The page works without.
