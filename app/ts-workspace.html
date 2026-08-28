@@ -384,6 +384,64 @@ details > summary:hover{color:var(--ink)}
 }
 .weektot .n{margin-left:auto; font-family:var(--mono);
   font-variant-numeric:tabular-nums; font-size:17px}
+
+/* ================================================================== the desk */
+.deskhead{
+  display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:0 0 20px;
+}
+.dtitle{font-size:23px; font-weight:620; letter-spacing:-.02em; margin:0}
+.dsub{color:var(--ink-2); margin:3px 0 0; font-size:14.5px}
+.deskswitch{display:flex; gap:2px; margin-left:auto; border:1px solid var(--line);
+  border-radius:10px; padding:2px; background:var(--panel)}
+.seg{
+  border:0; background:none; padding:6px 14px; border-radius:8px; cursor:pointer;
+  font-size:13.5px; color:var(--ink-2); font-weight:520;
+}
+.seg.on{background:var(--accent-soft); color:var(--accent); font-weight:600}
+
+.desksec{margin:0 0 26px}
+.secblurb{color:var(--ink-3); font-size:13.5px; margin:0 0 10px; max-width:56ch}
+
+.kpi.alarm{border-color:var(--bad)}
+.kpi.alarm .v{color:var(--bad)}
+
+/* A row that needs somebody today gets a marker, not a shout. */
+table.grid tr.urgent td:first-child{box-shadow:inset 2px 0 0 var(--bad)}
+table.grid tr.urgent td:first-child{padding-left:10px}
+
+.linkbtn{
+  background:none; border:0; padding:2px 0; cursor:pointer; font-size:13px;
+  color:var(--accent); font-weight:550; text-align:left;
+}
+.linkbtn:hover{text-decoration:underline; text-underline-offset:3px}
+
+.pipegrid{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))}
+.pipemembers{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.chip{
+  border:1px solid var(--line); background:var(--bg); border-radius:999px;
+  padding:5px 11px; font-size:13px; cursor:pointer; color:var(--ink);
+}
+.chip span{color:var(--ink-3)}
+.chip:hover{border-color:var(--accent)}
+
+.tourbox{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  padding:13px 16px; margin:26px 0 0;
+}
+.tourbox > summary{font-weight:560; color:var(--ink-2); font-size:14.5px; cursor:pointer}
+.tourbox > summary:hover{color:var(--ink)}
+
+@media (max-width:860px){
+  .deskhead{gap:12px; margin-bottom:16px}
+  .dtitle{font-size:20px}
+  .deskswitch{margin-left:0; width:100%}
+  .seg{flex:1; text-align:center; padding:9px 10px; min-height:40px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .pipegrid{grid-template-columns:1fr}
+  .secblurb{font-size:13px}
+}
+.segs{display:flex; gap:8px; margin-left:auto; flex-wrap:wrap}
+@media (max-width:860px){ .segs{margin-left:0; width:100%} .segs .deskswitch{flex:1} }
 </script>
 <script type="application/json" id="app-state">null</script>
 <script type="text/plain" id="app-src">/* TS Workspace, hosted as a single page.
@@ -437,6 +495,7 @@ const TABLE_LABEL = {
   accounts: "account", locations: "location", contacts: "contact",
   projects: "project", placements: "placement", rates: "rate", pos: "purchase order",
   timesheets: "timesheet", entries: "time entry", approvals: "approval",
+  submissions: "submission", pipelines: "pipeline", pipelineMembers: "pipeline member",
   unlocks: "unlock request", invoices: "invoice", invoiceLines: "invoice line",
   payments: "payment", documents: "document", activity: "activity",
   agreements: "agreement", accountOwners: "account owner",
@@ -490,6 +549,171 @@ function remove(table, id, reason) {
   audit(table, "delete", before, null, reason);
   return before;
 }
+
+/* --------------------------------------------------------- the front office */
+
+const DAY = 864e5;
+const daysSince = (when) => when
+  ? Math.floor((Date.now() - new Date(when).getTime()) / DAY) : null;
+const daysUntil = (when) => when
+  ? Math.round((new Date(when + "T12:00:00").getTime() - Date.now()) / DAY) : null;
+
+const OPEN_STAGES = ["submitted", "client_review", "interview", "offer"];
+const STAGE_LABEL = {
+  submitted: "Submitted", client_review: "With the client", interview: "Interviewing",
+  offer: "Offer out", placed: "Placed", rejected: "Rejected", withdrawn: "Withdrawn",
+};
+
+/* Log an interaction. Which hat the person was wearing follows from the context,
+ * the same way the server works it out: a note against a project is
+ * candidate-side, a note about the company they work for is manager-side. */
+function logActivity({ contactId, accountId = null, projectId = null, asRole = null,
+                       kind = "note", body }) {
+  const c = byId("contacts", contactId);
+  if (!c) throw new Error("that person is not on file");
+  if (!body || !body.trim()) throw new Error("there is nothing to record");
+  let role = asRole;
+  if (!role) {
+    if (projectId) role = "candidate";
+    else if (accountId && c.isManager && c.accountId === accountId) role = "manager";
+    else if (c.isManager && !c.isCandidate) role = "manager";
+    else if (c.isCandidate && !c.isManager) role = "candidate";
+    else role = "manager";
+  }
+  return insert("activity", {
+    contactId, accountId: accountId || (role === "manager" ? c.accountId : null),
+    projectId, asRole: role, kind, body: body.trim(),
+    actorId: actingUser().id, occurredAt: new Date().toISOString(),
+  }, "logged an interaction");
+}
+
+const lastTouch = (contactId) => where("activity", (a) => a.contactId === contactId)
+  .map((a) => a.occurredAt).sort().pop() || null;
+
+/* When did anyone last touch this account - through its managers, its projects,
+ * or the account itself. Sales lives off this number. */
+function accountLastTouch(accountId) {
+  const projectIds = new Set(projectsOf(accountId).map((p) => p.id));
+  const dates = where("activity", (a) =>
+    a.accountId === accountId ||
+    (a.projectId && projectIds.has(a.projectId)) ||
+    (a.contactId && (byId("contacts", a.contactId) || {}).accountId === accountId))
+    .map((a) => a.occurredAt);
+  return dates.sort().pop() || null;
+}
+const ownedBy = (userId) => where("accountOwners", (o) => o.userId === userId)
+  .map((o) => byId("accounts", o.accountId)).filter((a) => a && !a.archivedAt);
+
+const submissionsFor = (projectId) => where("submissions",
+  (x) => x.projectId === projectId);
+const openSubmissions = (projectId) => submissionsFor(projectId)
+  .filter((x) => OPEN_STAGES.includes(x.stage));
+
+const activePlacements = (projectId) => where("placements",
+  (pl) => pl.projectId === projectId && pl.status === "active");
+
+/* A seat is open when the project wants more people than it has working. This is
+ * the number a recruiter starts the day with. */
+function seatsToFill(ownerId = null) {
+  return where("projects", (p) => !p.archivedAt && p.status === "open")
+    .map((p) => {
+      const filled = activePlacements(p.id).length;
+      const open = Math.max(0, num(p.openings) - filled);
+      const out = openSubmissions(p.id);
+      const account = byId("accounts", p.accountId);
+      return { project: p, account, open, filled, submitted: out.length,
+               daysOpen: daysSince(p.createdAt || null),
+               owner: p.ownerId };
+    })
+    .filter((r) => r.open > 0 && (!ownerId || r.owner === ownerId ||
+      where("accountOwners", (o) => o.accountId === r.project.accountId &&
+        o.userId === ownerId).length > 0))
+    .sort((a, b) => (a.submitted - b.submitted) || (b.open - a.open));
+}
+
+/* Submissions sitting with the client, oldest first. The ones nobody has chased. */
+function waitingOnClient(ownerId = null) {
+  return where("submissions", (x) => ["client_review", "interview", "offer"]
+    .includes(x.stage))
+    .map((x) => {
+      const project = byId("projects", x.projectId);
+      const contact = byId("contacts", x.contactId);
+      const account = project ? byId("accounts", project.accountId) : null;
+      return { ...x, project, contact, account,
+               waiting: daysSince(x.stageSince) ?? 0,
+               lastTouch: lastTouch(x.contactId) };
+    })
+    .filter((r) => r.project && r.contact &&
+      (!ownerId || r.submittedBy === ownerId || r.project.ownerId === ownerId))
+    .sort((a, b) => b.waiting - a.waiting);
+}
+
+/* Candidates we are working who have gone quiet. In the pipeline or submitted,
+ * and nobody has spoken to them for a while. */
+function goingCold(days = 14, ownerId = null) {
+  const inPlay = new Set([
+    ...where("submissions", (x) => OPEN_STAGES.includes(x.stage)).map((x) => x.contactId),
+    ...where("pipelineMembers", () => true).map((m) => m.contactId),
+  ]);
+  return [...inPlay].map((id) => byId("contacts", id)).filter(Boolean)
+    .map((c) => ({ contact: c, quiet: daysSince(lastTouch(c.id)),
+                   recruiterId: c.recruiterId }))
+    .filter((r) => (r.quiet === null || r.quiet >= days) &&
+      (!ownerId || !r.recruiterId || r.recruiterId === ownerId))
+    .sort((a, b) => (b.quiet ?? 9999) - (a.quiet ?? 9999));
+}
+
+/* Consultants whose assignment ends soon. Every one is a redeployment
+ * conversation, and an extension conversation for whoever owns the account. */
+function rollingOff(days = 45) {
+  return where("placements", (pl) => pl.status === "active" && pl.endDate)
+    .map((pl) => {
+      const project = byId("projects", pl.projectId);
+      return { placement: pl, contact: byId("contacts", pl.contactId), project,
+               account: project ? byId("accounts", project.accountId) : null,
+               left: daysUntil(pl.endDate) };
+    })
+    .filter((r) => r.contact && r.left !== null && r.left <= days)
+    .sort((a, b) => a.left - b.left);
+}
+
+/* An account we cannot legally staff, or one whose paperwork has lapsed. */
+function agreementGaps() {
+  return activeAccounts().map((a) => {
+    const msa = where("agreements", (g) => g.accountId === a.id && g.kind === "MSA"
+      && g.status === "executed")[0];
+    const expired = msa && msa.effectiveTo && msa.effectiveTo < iso(new Date());
+    const openProjects = projectsOf(a.id).filter((p) => p.status === "open").length;
+    return { account: a, msa, expired, openProjects };
+  }).filter((r) => !r.msa || r.expired)
+    .sort((a, b) => b.openProjects - a.openProjects);
+}
+
+function quietAccounts(days = 21, ownerId = null) {
+  const mine = ownerId ? ownedBy(ownerId) : activeAccounts();
+  return mine.map((a) => ({ account: a, quiet: daysSince(accountLastTouch(a.id)),
+                            openProjects: projectsOf(a.id)
+                              .filter((p) => p.status === "open").length }))
+    .filter((r) => r.quiet === null || r.quiet >= days)
+    .sort((a, b) => (b.quiet ?? 9999) - (a.quiet ?? 9999));
+}
+
+/* What an account is worth a week right now, at the rate in force today. */
+function runRate(accountId) {
+  const today = iso(new Date());
+  return sum(projectsOf(accountId).flatMap((p) => activePlacements(p.id)), (pl) => {
+    const r = rateInForce(pl.id, today);
+    if (!r) return 0;
+    const m = grossMargin(r.payRate, r.billRate, r.burdenPct);
+    return m.gm * 40;
+  });
+}
+
+const myPipelines = (ownerId) => where("pipelines", (pl) => pl.ownerId === ownerId)
+  .map((pl) => ({ ...pl,
+    members: where("pipelineMembers", (m) => m.pipelineId === pl.id)
+      .map((m) => ({ ...m, contact: byId("contacts", m.contactId) }))
+      .filter((m) => m.contact) }));
 
 /* ------------------------------------------------------------- money & rates */
 
@@ -1055,6 +1279,7 @@ function seedState() {
     v: 5, seeded: true, actingUserId: null,
     users: [], accounts: [], accountOwners: [], locations: [], contacts: [],
     projects: [], projectApprovers: [], placements: [], rates: [], pos: [],
+    submissions: [], pipelines: [], pipelineMembers: [],
     timesheets: [], entries: [], approvals: [], unlocks: [],
     invoices: [], invoiceLines: [], payments: [],
     agreements: [], documents: [], activity: [], audit: [],
@@ -1123,7 +1348,7 @@ function seedState() {
     accountId: globex.id, locationId: reno.id, phone: null, headline: null, skills: [],
     locationText: null, onPayroll: false, recruiterId: null, source: null, notes: null,
     archivedAt: null }, "seeded");
-  insert("contacts", { fullName: "Walter Nkemdirim", email: "w.nk@initech.com",
+  const walter = insert("contacts", { fullName: "Walter Nkemdirim", email: "w.nk@initech.com",
     title: "VP Technology", isManager: true, isCandidate: false, accountId: initech.id,
     locationId: nyc.id, phone: null, headline: null, skills: [], locationText: null,
     onPayroll: false, recruiterId: null, source: null, notes: null,
@@ -1141,11 +1366,30 @@ function seedState() {
     skills: ["PLC", "Allen-Bradley", "SCADA", "Ignition"], locationText: "Reno, NV",
     recruiterId: dev.id, source: "Job board", accountId: null, locationId: null,
     phone: null, title: null, onPayroll: false, notes: null, archivedAt: null }, "seeded");
-  insert("contacts", { fullName: "Tess Alvarez", email: "tess.a@example.com",
+  const tess = insert("contacts", { fullName: "Tess Alvarez", email: "tess.a@example.com",
     isManager: false, isCandidate: true, headline: "Project manager, PMP, ERP rollouts",
     skills: ["PMP", "ERP", "Change management"], locationText: "Remote",
     recruiterId: sam.id, accountId: null, locationId: null, phone: null, title: null,
     onPayroll: false, source: null, notes: null, archivedAt: null }, "seeded");
+  const ravi = insert("contacts", { fullName: "Ravi Shah", email: "ravi.shah@example.com",
+    isManager: false, isCandidate: true,
+    headline: "Data engineer, 6 years, dbt and Snowflake",
+    skills: ["Python", "dbt", "Snowflake", "SQL"], locationText: "Austin, TX",
+    recruiterId: dev.id, source: "Referral", accountId: null, locationId: null,
+    phone: "512-555-0188", title: null, onPayroll: false, notes: null,
+    archivedAt: null }, "seeded");
+  const nia = insert("contacts", { fullName: "Nia Boateng", email: "nia.b@example.com",
+    isManager: false, isCandidate: true, headline: "Controls technician, PLC and HMI",
+    skills: ["PLC", "HMI", "Allen-Bradley"], locationText: "Sparks, NV",
+    recruiterId: dev.id, source: "Job board", accountId: null, locationId: null,
+    phone: null, title: null, onPayroll: false, notes: null,
+    archivedAt: null }, "seeded");
+  const ben = insert("contacts", { fullName: "Ben Ortiz", email: "b.ortiz@example.com",
+    isManager: false, isCandidate: true, headline: "ERP programme manager, finance",
+    skills: ["PMP", "ERP", "SAP"], locationText: "Jersey City, NJ",
+    recruiterId: sam.id, source: "LinkedIn", accountId: null, locationId: null,
+    phone: null, title: null, onPayroll: false, notes: null,
+    archivedAt: null }, "seeded");
 
   const platform = insert("projects", { accountId: globex.id, locationId: austin.id,
     name: "Plant data platform build", deliveryType: "managed_project", status: "open",
@@ -1179,10 +1423,12 @@ function seedState() {
     isPrimary: true }, "seeded");
 
   const plPlatform = insert("placements", { projectId: platform.id, contactId: marcus.id,
-    status: "active", startDate: "2026-06-01", endDate: null,
+    status: "active", startDate: "2026-06-01", endDate: "2026-12-31",
     recruiterId: dev.id }, "seeded");
+  // Ends in six weeks: a redeployment conversation for Devon and an extension
+  // conversation for whoever owns Globex.
   const plLine4 = insert("placements", { projectId: line4.id, contactId: marcus.id,
-    status: "active", startDate: "2026-07-06", endDate: null,
+    status: "active", startDate: "2026-07-06", endDate: "2026-10-16",
     recruiterId: dev.id }, "seeded");
 
   // A correction that supersedes rather than overwrites.
@@ -1213,6 +1459,11 @@ function seedState() {
   insert("agreements", { accountId: globex.id, locationId: null, kind: "rate_sheet",
     status: "executed", effectiveFrom: "2026-01-01",
     termsNotes: "Rates hold through 2026." }, "seeded");
+  // Initech's master agreement lapsed at the end of July and nobody noticed.
+  insert("agreements", { accountId: initech.id, locationId: null, kind: "MSA",
+    status: "executed", effectiveFrom: "2023-08-01", effectiveTo: "2026-07-31",
+    termsNotes: "Net 30. Expired - needs renewing before the ERP work starts." },
+    "seeded");
   insert("agreements", { accountId: globex.id, locationId: reno.id, kind: "addendum",
     status: "executed", effectiveFrom: "2025-07-01",
     termsNotes: "Reno-specific: 60-day notice on any rate change, overrides the " +
@@ -1257,6 +1508,54 @@ function seedState() {
     asRole: "candidate", kind: "call",
     body: "Jo is on a contract through October. Available after. Wants to stay in Reno.",
     actorId: dev.id, occurredAt: "2026-08-27T16:00:00.000Z" }, "seeded");
+  insert("activity", { contactId: nia.id, accountId: null, projectId: line4.id,
+    asRole: "candidate", kind: "note",
+    body: "Sent Nia's details to Priya for the line 4 opening. Day shift only.",
+    actorId: dev.id, occurredAt: "2026-08-24T13:00:00.000Z" }, "seeded");
+  insert("activity", { contactId: ben.id, accountId: null, projectId: erp.id,
+    asRole: "candidate", kind: "interview",
+    body: "Ben screened well on the finance side. Walter wants to meet both him " +
+      "and Tess before deciding.",
+    actorId: sam.id, occurredAt: "2026-08-26T11:00:00.000Z" }, "seeded");
+  // Initech has gone quiet: last contact was six weeks ago.
+  insert("activity", { contactId: walter.id, accountId: initech.id, projectId: null,
+    asRole: "manager", kind: "meeting",
+    body: "Walter confirmed the ERP cutover is funded for October. Wants a PMO " +
+      "lead named by mid-September.",
+    actorId: mark.id, occurredAt: "2026-07-16T15:00:00.000Z" }, "seeded");
+
+  // -------- submissions: what the recruiters are actually working
+  const ago = (days) => new Date(Date.now() - days * 864e5).toISOString();
+  const sub = (projectId, contactId, stage, submittedBy, days, rates) =>
+    insert("submissions", { projectId, contactId, stage, submittedBy,
+      payRate: rates ? rates[0] : null, billRate: rates ? rates[1] : null,
+      createdAt: ago(days + 6), stageSince: ago(days) }, "seeded");
+
+  sub(platform.id, marcus.id, "placed", dev.id, 74, [68, 108]);
+  // With the client for eleven days and nobody has chased it.
+  sub(line4.id, jo.id, "interview", dev.id, 11, [56, 90]);
+  sub(line4.id, nia.id, "client_review", dev.id, 4, [52, 86]);
+  sub(erp.id, tess.id, "offer", sam.id, 6, [null, 140]);
+  sub(erp.id, ben.id, "client_review", sam.id, 2, [null, 140]);
+  sub(platform.id, ravi.id, "submitted", dev.id, 1, [62, 100]);
+  sub(platform.id, ben.id, "rejected", dev.id, 30, null);
+
+  // -------- named pipelines: how a recruiter remembers people
+  const bench = insert("pipelines", { ownerId: dev.id, name: "Reno controls bench",
+    projectId: null,
+    notes: "People I can move on short notice in northern Nevada" }, "seeded");
+  insert("pipelineMembers", { pipelineId: bench.id, contactId: jo.id,
+    note: "Free after October", addedAt: ago(20) }, "seeded");
+  insert("pipelineMembers", { pipelineId: bench.id, contactId: nia.id,
+    note: "Wants day shift only", addedAt: ago(9) }, "seeded");
+  insert("pipelineMembers", { pipelineId: bench.id, contactId: marcus.id,
+    note: "On payroll, redeployable in October", addedAt: ago(4) }, "seeded");
+  const erpBench = insert("pipelines", { ownerId: sam.id, name: "ERP programme leads",
+    projectId: erp.id, notes: "Shortlist for the Initech cutover" }, "seeded");
+  insert("pipelineMembers", { pipelineId: erpBench.id, contactId: tess.id,
+    note: "First choice", addedAt: ago(12) }, "seeded");
+  insert("pipelineMembers", { pipelineId: erpBench.id, contactId: ben.id,
+    note: "Stronger on finance, weaker on change", addedAt: ago(7) }, "seeded");
 
   // -------- weeks of time, ending in every state a screen needs to show
   const weekEnd = (offset) => {
@@ -1356,7 +1655,7 @@ function seedState() {
 /* ------------------------------------------------------------------- views */
 
 const TITLES = {
-  home: "Start here", accounts: "Accounts", account: "Account", location: "Site",
+  home: "Desk", accounts: "Accounts", account: "Account", location: "Site",
   contacts: "Contacts", contact: "Contact", projects: "Projects", project: "Project",
   documents: "Documents", pos: "Purchase orders", timesheet: "My week",
   approvals: "Approvals", invoices: "Invoices", invoice: "Invoice",
@@ -1364,7 +1663,7 @@ const TITLES = {
 };
 
 const UI = { view: "home", sel: null, week: null, who: null,
-             auditFilter: {}, drawer: false };
+             auditFilter: {}, drawer: false, desk: null };
 
 function section(title, kids) {
   const body = kids.flat().filter(Boolean).filter((n) => {
@@ -1382,75 +1681,402 @@ const cell = (k, v, sub, neg) => el("div", {},
   el("div", { class: "v" + (neg ? " neg" : "") }, v),
   sub ? el("div", { class: "meta", style: "font-size:11.5px" }, sub) : null);
 
-/* -------------------------------------------------------------------- home */
+/* -------------------------------------------------------------------- home
+ *
+ * The desk. Sales and recruiting are the two jobs that bring work in and find
+ * the people to do it, so this page is written for them: not a dashboard of
+ * totals, but a short list of things that need a human today, each one a click
+ * from the record and from logging what you did about it.
+ */
+
+const SALES_ROLES = ["account_manager", "admin"];
 
 function homeView() {
-  const pending = approvalQueue("pending");
-  const unlocks = unlockQueue("pending");
-  const bd = poBurndown();
-  const aging = invoiceAging();
-  const atRisk = bd.filter((p) => p.projectedRemaining < 0);
-  const owed = sum(aging, (i) => i.outstanding);
+  const me = actingUser();
+  const desk = UI.desk || (SALES_ROLES.includes(me.role) ? "sales" : "recruiting");
+  // An admin runs the whole business, so they see everything by default. Everyone
+  // else starts with their own and can widen.
+  const mineOnly = UI.scope === undefined || UI.scope === null
+    ? me.role !== "admin" : UI.scope === "mine";
 
+  const seg = (items, current, set) => el("div", { class: "deskswitch" },
+    ...items.map(([k, label]) => el("button",
+      { class: "seg" + (current === k ? " on" : ""), onclick: () => { set(k); render(); } },
+      label)));
+
+  return el("div", { class: "pane" },
+    el("div", { class: "deskhead" },
+      el("div", {},
+        el("h2", { class: "dtitle" },
+          desk === "sales" ? "Accounts" : "Your desk"),
+        el("p", { class: "dsub" },
+          `${me.name} · ` + (desk === "sales"
+            ? "what needs a call, and what is at risk"
+            : "seats to fill, people to chase, and who is coming free"))),
+      el("div", { class: "segs" },
+        seg([["mine", "Mine"], ["all", "Everyone"]], mineOnly ? "mine" : "all",
+            (k) => { UI.scope = k; }),
+        seg([["recruiting", "Recruiting"], ["sales", "Sales"]], desk,
+            (k) => { UI.desk = k; }))),
+    desk === "sales" ? salesDesk(me, mineOnly) : recruitingDesk(me, mineOnly),
+    el("details", { class: "tourbox" },
+      el("summary", {}, "How the whole cycle works, end to end"),
+      tourSteps()));
+}
+
+/* A row that a person can act on: what it is, why it matters now, and a way to
+ * record what you did. */
+function actionRow(cells, opts = {}) {
+  return el("tr", { class: opts.urgent ? "urgent" : null,
+                    style: opts.onclick ? "cursor:pointer" : null,
+                    onclick: opts.onclick || null }, ...cells);
+}
+
+function logButton(label, { contactId, accountId = null, projectId = null,
+                            kind = "call", prompt: question }) {
+  return el("button", { class: "linkbtn", onclick: (e) => {
+    e.stopPropagation();
+    const body = prompt(question || "What happened?");
+    if (!body) return;
+    try { logActivity({ contactId, accountId, projectId, kind, body }); commit(); render(); }
+    catch (err) { alert(err.message); }
+  } }, label);
+}
+
+const ageChip = (n, warnAt, unit = "d") => {
+  if (n === null || n === undefined) return el("span", { class: "pill bad" }, "never");
+  return el("span", { class: "pill" + (n >= warnAt ? " bad" : n >= warnAt / 2 ? " warn" : "") },
+    n + unit);
+};
+
+/* ------------------------------------------------------------- recruiting */
+
+function recruitingDesk(me, mineOnly) {
+  const who = mineOnly ? me.id : null;
+  const seats = seatsToFill(who);
+  const waiting = waitingOnClient(who);
+  const cold = goingCold(14, who);
+  const off = rollingOff(60).filter((r) => !mineOnly ||
+    r.placement.recruiterId === me.id);
+  const pipes = mineOnly ? myPipelines(me.id)
+    : S.pipelines.map((pl) => myPipelines(pl.ownerId)).flat()
+        .filter((pl, i, a) => a.findIndex((x) => x.id === pl.id) === i);
+  const noSubs = seats.filter((r) => r.submitted === 0);
+  const nothing = !seats.length && !waiting.length && !cold.length && !off.length;
+
+  const kpi = (k, v, sub, tone) => el("div", { class: "kpi" + (tone ? " " + tone : "") },
+    el("div", { class: "k" }, k), el("div", { class: "v" }, v),
+    sub ? el("div", { class: "meta", style: "font-size:11.5px" }, sub) : null);
+
+  return el("div", {},
+    el("div", { class: "kpis" },
+      kpi("Seats to fill", sum(seats, (r) => r.open),
+          `${seats.length} project${seats.length === 1 ? "" : "s"}`),
+      kpi("Nobody submitted", noSubs.length, "no candidate out yet",
+          noSubs.length ? "alarm" : null),
+      kpi("With the client", waiting.length,
+          waiting.length ? `oldest ${waiting[0].waiting} days` : "nothing out"),
+      kpi("Going quiet", cold.length, "no contact in 14 days",
+          cold.length ? "alarm" : null),
+      kpi("Coming free", off.length, "within 60 days")),
+
+    nothing && mineOnly
+      ? el("div", { class: "banner" },
+          el("b", {}, "Nothing on your desk. "),
+          "That may be because these records are owned by somebody else — " +
+          "switch to Everyone above to see the whole business.")
+      : null,
+
+    deskSection("Seats to fill", "Least covered first — no submissions is the " +
+      "one that loses the req.", seats.length
+      ? el("table", { class: "grid" },
+          el("thead", {}, el("tr", {}, ...["Project", "Account", "Open", "Out",
+            "Delivery", ""].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...seats.map((r) => actionRow([
+            el("td", {}, el("strong", {}, r.project.name)),
+            el("td", { class: "muted" }, r.account ? r.account.name : "—"),
+            el("td", { class: "num" }, r.open),
+            el("td", {}, r.submitted
+              ? el("span", { class: "num" }, r.submitted)
+              : el("span", { class: "pill bad" }, "none")),
+            el("td", { class: "muted" }, r.project.deliveryType.replace(/_/g, " ")),
+            el("td", { class: "muted" }, (r.project.skills || []).slice(0, 3).join(", ")),
+          ], { urgent: r.submitted === 0,
+               onclick: () => go("project", r.project.id) })))
+        )
+      : el("p", { class: "muted" }, "Every open seat has somebody working on it.")),
+
+    deskSection("Waiting on the client",
+      "Days since the stage last moved. The old ones need a phone call, not an email.",
+      waiting.length
+      ? el("table", { class: "grid" },
+          el("thead", {}, el("tr", {}, ...["Candidate", "Project", "Stage", "Waiting",
+            "Rate", ""].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...waiting.map((r) => actionRow([
+            el("td", {}, el("strong", {}, r.contact.fullName)),
+            el("td", { class: "muted" },
+              `${r.account ? r.account.name : ""} · ${r.project.name}`),
+            el("td", {}, el("span", { class: "pill" }, STAGE_LABEL[r.stage] || r.stage)),
+            el("td", {}, ageChip(r.waiting, 7)),
+            el("td", { class: "num" }, r.billRate ? money2(r.billRate) : "—"),
+            el("td", {}, logButton("Log a chase", { contactId: r.contact.id,
+              projectId: r.project.id,
+              prompt: `What did ${r.account ? r.account.name : "the client"} say about ` +
+                      `${r.contact.fullName}?` })),
+          ], { urgent: r.waiting >= 7,
+               onclick: () => go("contact", r.contact.id) })))
+        )
+      : el("p", { class: "muted" }, "Nothing is sitting with a client.")),
+
+    deskSection("Going quiet",
+      "In play — submitted or on a shortlist — and nobody has spoken to them.",
+      cold.length
+      ? el("table", { class: "grid" },
+          el("thead", {}, el("tr", {}, ...["Candidate", "Headline", "Last contact",
+            "Recruiter", ""].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...cold.map((r) => actionRow([
+            el("td", {}, el("strong", {}, r.contact.fullName),
+              r.contact.onPayroll
+                ? el("span", { class: "pill good", style: "margin-left:6px" },
+                    "on payroll") : null),
+            el("td", { class: "muted" }, r.contact.headline || ""),
+            el("td", {}, ageChip(r.quiet, 21)),
+            el("td", { class: "muted" },
+              (byId("users", r.contact.recruiterId) || {}).name || "house"),
+            el("td", {}, logButton("Log a call", { contactId: r.contact.id,
+              prompt: `What did ${r.contact.fullName} say?` })),
+          ], { urgent: (r.quiet ?? 999) >= 21,
+               onclick: () => go("contact", r.contact.id) })))
+        )
+      : el("p", { class: "muted" }, "Everyone in play has been spoken to recently.")),
+
+    deskSection("Coming free",
+      "Assignments ending. Each one is a redeployment now and a gap on the " +
+      "account if nobody moves.", off.length
+      ? el("table", { class: "grid" },
+          el("thead", {}, el("tr", {}, ...["Consultant", "Leaving", "Ends", "Days",
+            ""].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...off.map((r) => actionRow([
+            el("td", {}, el("strong", {}, r.contact.fullName)),
+            el("td", { class: "muted" },
+              `${r.account ? r.account.name : ""} · ${r.project.name}`),
+            el("td", { class: "muted" }, day(r.placement.endDate)),
+            el("td", {}, ageChip(r.left, 30)),
+            el("td", {}, logButton("Log a redeployment call",
+              { contactId: r.contact.id,
+                prompt: `What is ${r.contact.fullName} looking for next?` })),
+          ], { urgent: r.left <= 30, onclick: () => go("contact", r.contact.id) })))
+        )
+      : el("p", { class: "muted" }, "Nobody rolls off in the next two months.")),
+
+    deskSection("Your pipelines",
+      "People you have set aside, so you do not search for them twice.",
+      pipes.length
+      ? el("div", { class: "pipegrid" }, ...pipes.map((pl) =>
+          el("div", { class: "card" },
+            el("h3", {}, pl.name,
+              !mineOnly && pl.ownerId !== me.id
+                ? el("span", { class: "muted", style: "font-weight:400" },
+                    " · " + ((byId("users", pl.ownerId) || {}).name || ""))
+                : null),
+            pl.notes ? el("div", { class: "meta" }, pl.notes) : null,
+            el("div", { class: "pipemembers" }, ...pl.members.map((m) =>
+              el("button", { class: "chip",
+                onclick: () => go("contact", m.contact.id) },
+                m.contact.fullName,
+                m.note ? el("span", {}, " · " + m.note) : null))))))
+      : el("p", { class: "muted" },
+          "You have no pipelines yet. Tag people from a contact record.")));
+}
+
+/* ----------------------------------------------------------------- sales */
+
+function salesDesk(me, mineOnly) {
+  const scope = mineOnly ? ownedBy(me.id) : activeAccounts();
+  const scopeIds = new Set(scope.map((a) => a.id));
+  const inScope = (accountId) => scopeIds.has(accountId);
+
+  const quiet = quietAccounts(21).filter((q) => inScope(q.account.id));
+  const gaps = agreementGaps().filter((g) => inScope(g.account.id));
+  const expiringPos = poBurndown().filter((p) => {
+    const project = byId("projects", p.projectId);
+    return project && inScope(project.accountId) &&
+      p.daysRemaining !== null && p.daysRemaining <= 90;
+  });
+  const off = rollingOff(60).filter((r) => r.account && inScope(r.account.id));
+  const unstaffed = seatsToFill().filter((r) =>
+    r.submitted === 0 && r.account && inScope(r.account.id));
+  const prospects = activeAccounts().filter((a) => inScope(a.id) &&
+    (a.status === "prospect" || !where("accountOwners", (o) => o.accountId === a.id).length));
+
+  /* One merged list, because a salesperson does not think in categories - they
+   * think about who to ring and why. */
+  const calls = [
+    ...quiet.map((q) => ({
+      why: "Gone quiet", detail: `no contact for ${q.quiet ?? "ever"} days` +
+        (q.openProjects ? ` · ${q.openProjects} open project(s)` : ""),
+      account: q.account, urgency: (q.quiet ?? 999), urgent: (q.quiet ?? 999) >= 30 })),
+    ...gaps.map((g) => ({
+      why: g.expired ? "Agreement lapsed" : "No agreement",
+      detail: g.expired
+        ? `MSA ran out ${day(g.msa.effectiveTo)}` +
+          (g.openProjects ? ` and there ${g.openProjects === 1 ? "is" : "are"} ` +
+            `${g.openProjects} open project(s)` : "")
+        : "nothing signed, so we cannot staff it",
+      account: g.account, urgency: 500 + g.openProjects * 100, urgent: true })),
+    ...expiringPos.map((p) => ({
+      why: p.projectedRemaining < 0 ? "PO over-committed" : "PO expiring",
+      detail: `${p.poNumber} · ${money(p.remaining)} left · ` +
+        `${p.daysRemaining} days` +
+        (p.projectedRemaining < 0
+          ? ` · already ${money(Math.abs(p.projectedRemaining))} past it` : ""),
+      account: byId("accounts", (byId("projects", p.projectId) || {}).accountId),
+      projectId: p.projectId,
+      urgency: 400 - p.daysRemaining, urgent: p.daysRemaining <= 45 ||
+        p.projectedRemaining < 0 })),
+    ...off.map((r) => ({
+      why: "Assignment ending", detail: `${r.contact.fullName} on ${r.project.name} ` +
+        `ends ${day(r.placement.endDate)} · ${r.left} days`,
+      account: r.account, contactId: r.contact.id, projectId: r.project.id,
+      urgency: 300 - r.left, urgent: r.left <= 30 })),
+  ].filter((c) => c.account).sort((a, b) => b.urgency - a.urgency);
+
+  const weekly = sum(scope, (a) => runRate(a.id));
+  const kpi = (k, v, sub, tone) => el("div", { class: "kpi" + (tone ? " " + tone : "") },
+    el("div", { class: "k" }, k), el("div", { class: "v" }, v),
+    sub ? el("div", { class: "meta", style: "font-size:11.5px" }, sub) : null);
+
+  return el("div", {},
+    el("div", { class: "kpis" },
+      kpi(mineOnly ? "Your accounts" : "Accounts", scope.length,
+          `${scope.filter((a) => a.status === "active").length} active`),
+      kpi("Margin a week", money(weekly), "at today's rates"),
+      kpi("Reasons to call", calls.length,
+          calls.filter((c) => c.urgent).length + " urgent",
+          calls.some((c) => c.urgent) ? "alarm" : null),
+      kpi("Paperwork gaps", gaps.length, "cannot staff without it",
+          gaps.length ? "alarm" : null),
+      kpi("Unstaffed projects", unstaffed.length, "nobody submitted",
+          unstaffed.length ? "alarm" : null)),
+
+    !scope.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "You do not own any accounts. "),
+          "Switch to Everyone above to work the whole book.")
+      : null,
+
+    deskSection("Reasons to call", "Ranked by how much it costs to leave it.",
+      calls.length
+      ? el("table", { class: "grid" },
+          el("thead", {}, el("tr", {}, ...["Account", "Why now", "Detail", ""]
+            .map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...calls.map((c) => {
+            const manager = where("contacts", (x) => x.accountId === c.account.id &&
+              x.isManager && !x.archivedAt)[0];
+            return actionRow([
+              el("td", {}, el("strong", {}, c.account.name)),
+              el("td", {}, el("span", { class: "pill" + (c.urgent ? " bad" : " warn") },
+                c.why)),
+              el("td", { class: "muted" }, c.detail),
+              el("td", {}, manager
+                ? logButton("Log a call", { contactId: c.contactId || manager.id,
+                    accountId: c.account.id, projectId: c.projectId || null,
+                    prompt: `What did ${manager.fullName} at ${c.account.name} say?` })
+                : el("span", { class: "muted" }, "no contact on file")),
+            ], { urgent: c.urgent, onclick: () => go("account", c.account.id) });
+          }))
+        )
+      : el("p", { class: "muted" }, "Nothing needs chasing today.")),
+
+    deskSection("Projects nobody is working on",
+      "Open on your accounts with no candidate submitted. This is how an account " +
+      "quietly goes elsewhere.", unstaffed.length
+      ? el("table", { class: "grid" },
+          el("thead", {}, el("tr", {}, ...["Project", "Account", "Seats", "Delivery",
+            "Skills"].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...unstaffed.map((r) => actionRow([
+            el("td", {}, el("strong", {}, r.project.name)),
+            el("td", { class: "muted" }, r.account.name),
+            el("td", { class: "num" }, r.open),
+            el("td", { class: "muted" }, r.project.deliveryType.replace(/_/g, " ")),
+            el("td", { class: "muted" }, (r.project.skills || []).join(", ")),
+          ], { urgent: true, onclick: () => go("project", r.project.id) })))
+        )
+      : el("p", { class: "muted" }, "Every open project has somebody out for it.")),
+
+    deskSection("Where the money is",
+      "Live consultants and what each account is worth a week in gross margin.",
+      el("table", { class: "grid" },
+        el("thead", {}, el("tr", {}, ...["Account", "Status", "Open projects",
+          "Working", "Margin a week"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, ...scope.map((a) => {
+          const projects = projectsOf(a.id);
+          const working = sum(projects, (p) => activePlacements(p.id).length);
+          return actionRow([
+            el("td", {}, el("strong", {}, a.name)),
+            el("td", {}, el("span", { class: "pill" }, a.status.replace(/_/g, " "))),
+            el("td", { class: "num" },
+              projects.filter((p) => p.status === "open").length),
+            el("td", { class: "num" }, working),
+            el("td", { class: "num" }, money(runRate(a.id))),
+          ], { onclick: () => go("account", a.id) });
+        }))
+      )),
+
+    prospects.length
+      ? deskSection("Prospects to work",
+          "No owner, or no agreement yet.",
+          el("table", { class: "grid" }, el("tbody", {},
+            ...prospects.map((a) => actionRow([
+              el("td", {}, el("strong", {}, a.name)),
+              el("td", { class: "muted" }, a.industry || ""),
+              el("td", {}, where("accountOwners", (o) => o.accountId === a.id).length
+                ? el("span", { class: "muted" }, "owned")
+                : el("span", { class: "pill warn" }, "unassigned")),
+            ], { onclick: () => go("account", a.id) })))))
+      : null);
+}
+
+function deskSection(title, blurb, body) {
+  if (!body) return null;
+  return el("div", { class: "desksec" },
+    el("div", { class: "navsec", style: "padding-left:0" }, title),
+    blurb ? el("p", { class: "secblurb" }, blurb) : null,
+    body);
+}
+
+/* The cycle walkthrough, kept but folded away - it is for learning the product,
+ * not for running a desk. */
+function tourSteps() {
   const step = (title, body, label, go2) => el("li", {},
     el("b", {}, title), el("span", {}, body),
     label ? el("button", { onclick: go2 }, label) : null);
-
-  return el("div", { class: "pane" },
-    el("div", { class: "tour" },
-      el("h3", {}, "TS Workspace"),
-      el("p", {},
-        "Everything Technical Source does is project-based work. This is the whole " +
-        "cycle: a resource need, someone placed against it, their week allocated " +
-        "across projects, the client approving their part, and the invoice that " +
-        "burns a purchase order."),
-
-      el("div", { class: "banner" },
-        el("b", {}, "This is the hosted version. "),
-        "It works, and what you change is kept. Two differences from the server " +
-        "build: the rules are enforced in the page rather than by a database, and " +
-        "the Project Assistant is not here — a published page has no model behind " +
-        "it. The assistant runs against the real backend."),
-
-      el("div", { class: "kpis", style: "margin-bottom:20px" },
-        el("div", { class: "kpi" }, el("div", { class: "k" }, "Waiting on the client"),
-          el("div", { class: "v" }, money(sum(pending, (p) => p.value)))),
-        el("div", { class: "kpi" }, el("div", { class: "k" }, "Owed to us"),
-          el("div", { class: "v" }, money(owed))),
-        el("div", { class: "kpi" }, el("div", { class: "k" }, "Overrun risk"),
-          el("div", { class: "v" }, atRisk.length)),
-        el("div", { class: "kpi" }, el("div", { class: "k" }, "Unlocks pending"),
-          el("div", { class: "v" }, unlocks.length))),
-
-      el("div", { class: "navsec", style: "padding-left:0" }, "Try the whole cycle"),
-      el("ol", { class: "steps-list" },
-        step("Fill in a week and split a day",
-          "Marcus is on two Globex projects, so his Tuesday splits between them. " +
-          "Add hours, use “charge to another project”, and watch the day total.",
-          "Open my week", () => go("timesheet")),
-        step("Submit it, and see it fork",
-          "One approval packet per project, each routed to that project's " +
-          "manager — Dana for the platform, Priya for line 4.",
-          "Open approvals", () => go("approvals")),
-        step("Approve one part and send the other back",
-          "The week goes to partly approved. Approving freezes those days at the " +
-          "bill rate in force on each one; rejecting releases it.",
-          "Open approvals", () => go("approvals")),
-        step("Try to change an approved day",
-          "You can't. It is locked, for everyone. The rejected part is still " +
-          "editable — that is the point of locking per project rather than per week.",
-          "Open my week", () => go("timesheet")),
-        step("Unlock it properly",
-          "Request an unlock with a reason, then switch to an admin in the top " +
-          "left and grant it. You cannot grant your own, and the key works once.",
-          "Open unlock requests", () => go("unlocks")),
-        step("Bill it and watch the PO",
-          "Draft an invoice from approved time, then send it. A draft does not " +
-          "burn the purchase order — issuing it does.",
-          "Open purchase orders", () => go("pos")),
-        step("Check the trail",
-          "Every one of those steps is recorded, with who did it and what changed.",
-          "Open the audit trail", () => go("audit")))));
+  return el("div", {},
+    el("p", { class: "muted", style: "margin:10px 0 14px" },
+      "Everything Technical Source does is project-based work. Here is the whole " +
+      "chain, from a resource need to money in the bank."),
+    el("ol", { class: "steps-list" },
+      step("Fill in a week and split a day",
+        "Marcus is on two Globex projects, so his Tuesday splits between them.",
+        "Open my week", () => go("timesheet")),
+      step("Submit it, and see it fork",
+        "One approval packet per project, each routed to that project's manager.",
+        "Open approvals", () => go("approvals")),
+      step("Approve one part and send the other back",
+        "Approving freezes those days at the bill rate in force on each one.",
+        "Open approvals", () => go("approvals")),
+      step("Try to change an approved day",
+        "You can't — it is locked, for everyone. The rejected part still is not.",
+        "Open my week", () => go("timesheet")),
+      step("Unlock it properly",
+        "Request an unlock, then switch to an admin in the top left and grant it.",
+        "Open unlock requests", () => go("unlocks")),
+      step("Bill it and watch the PO",
+        "A draft does not burn the purchase order. Issuing it does.",
+        "Open purchase orders", () => go("pos")),
+      step("Check the trail",
+        "Every step you just took is recorded, with who did it.",
+        "Open the audit trail", () => go("audit"))));
 }
 
 /* ---------------------------------------------------------------- accounts */
@@ -2466,7 +3092,7 @@ function serialize() {
 /* Called after every change. Batches rapid edits into one publish. */
 let saveTimer = null;
 function commit() {
-  if (!ART) { noteSaving("Not saved — this view is read-only"); return; }
+  if (!ART) { noteSaving("Preview — changes are not kept"); return; }
   pendingSave = true;
   clearTimeout(saveTimer);
   saveTimer = setTimeout(flush, 700);
@@ -2511,7 +3137,7 @@ function go(view, sel) {
 }
 
 const NAV = [
-  ["Workspace", [["home", "Start here"]]],
+  ["Workspace", [["home", "My desk"]]],
   ["Records", [["accounts", "Accounts"], ["projects", "Projects"],
                ["contacts", "Contacts"], ["documents", "Documents"]]],
   ["Time and money", [["timesheet", "My week"], ["approvals", "Approvals"],
@@ -2532,6 +3158,9 @@ function render() {
     el("div", { class: "actbar" },
       el("select", { onchange: (e) => {
         S.actingUserId = e.target.value;
+        // Each person's desk defaults to their own view, not whoever was here
+        // before. Their week and their filters go with them too.
+        UI.desk = null; UI.scope = null; UI.who = null; UI.shownRows = null;
         audit("users", "update", null, me, "switched acting user");
         commit(); render();
       } }, ...S.users.map((u) => el("option",

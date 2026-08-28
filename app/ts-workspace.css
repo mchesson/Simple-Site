@@ -382,3 +382,61 @@ details > summary:hover{color:var(--ink)}
 }
 .weektot .n{margin-left:auto; font-family:var(--mono);
   font-variant-numeric:tabular-nums; font-size:17px}
+
+/* ================================================================== the desk */
+.deskhead{
+  display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap; margin:0 0 20px;
+}
+.dtitle{font-size:23px; font-weight:620; letter-spacing:-.02em; margin:0}
+.dsub{color:var(--ink-2); margin:3px 0 0; font-size:14.5px}
+.deskswitch{display:flex; gap:2px; margin-left:auto; border:1px solid var(--line);
+  border-radius:10px; padding:2px; background:var(--panel)}
+.seg{
+  border:0; background:none; padding:6px 14px; border-radius:8px; cursor:pointer;
+  font-size:13.5px; color:var(--ink-2); font-weight:520;
+}
+.seg.on{background:var(--accent-soft); color:var(--accent); font-weight:600}
+
+.desksec{margin:0 0 26px}
+.secblurb{color:var(--ink-3); font-size:13.5px; margin:0 0 10px; max-width:56ch}
+
+.kpi.alarm{border-color:var(--bad)}
+.kpi.alarm .v{color:var(--bad)}
+
+/* A row that needs somebody today gets a marker, not a shout. */
+table.grid tr.urgent td:first-child{box-shadow:inset 2px 0 0 var(--bad)}
+table.grid tr.urgent td:first-child{padding-left:10px}
+
+.linkbtn{
+  background:none; border:0; padding:2px 0; cursor:pointer; font-size:13px;
+  color:var(--accent); font-weight:550; text-align:left;
+}
+.linkbtn:hover{text-decoration:underline; text-underline-offset:3px}
+
+.pipegrid{display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(17rem,1fr))}
+.pipemembers{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px}
+.chip{
+  border:1px solid var(--line); background:var(--bg); border-radius:999px;
+  padding:5px 11px; font-size:13px; cursor:pointer; color:var(--ink);
+}
+.chip span{color:var(--ink-3)}
+.chip:hover{border-color:var(--accent)}
+
+.tourbox{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  padding:13px 16px; margin:26px 0 0;
+}
+.tourbox > summary{font-weight:560; color:var(--ink-2); font-size:14.5px; cursor:pointer}
+.tourbox > summary:hover{color:var(--ink)}
+
+@media (max-width:860px){
+  .deskhead{gap:12px; margin-bottom:16px}
+  .dtitle{font-size:20px}
+  .deskswitch{margin-left:0; width:100%}
+  .seg{flex:1; text-align:center; padding:9px 10px; min-height:40px}
+  .kpis{grid-template-columns:1fr 1fr}
+  .pipegrid{grid-template-columns:1fr}
+  .secblurb{font-size:13px}
+}
+.segs{display:flex; gap:8px; margin-left:auto; flex-wrap:wrap}
+@media (max-width:860px){ .segs{margin-left:0; width:100%} .segs .deskswitch{flex:1} }
