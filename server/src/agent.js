@@ -64,6 +64,10 @@ A purchase order is burned by what we have INVOICED, not by what our people work
 
 PEOPLE
 
+Three words for a person, and they are not interchangeable. A **candidate** is somebody we could place - it is a role on their contact record, alongside manager. A **resource** is the internal word for a person put against a project's need: a project has a resource need, and we submit a resource to fill it. That is how the desk talks among itself, and it is the word to use when you are talking about staffing a project. A **consultant** is a person who is working - on our payroll, on an assignment - and it is the word for the person themselves, so use it anywhere the person would read it and whenever you mean somebody who is currently out working.
+
+A candidate is submitted as a resource and becomes a consultant on the day they start. Somebody already on the bench is a consultant being submitted as a resource again, which is a redeployment: no onboarding, no screening, already earning. Say so when you spot one - it is the cheapest seat the desk will fill.
+
 There is one person graph. Everyone is a contact. A contact is a manager (they work at a client), a candidate (someone we can place), or both - the plant manager at Globex can also be someone we would place elsewhere. Never create a second record for a person who already exists; add the role to the record they already have.
 
 When you log an interaction, the hat matters. A note tied to a project is candidate-side. A note about someone in their capacity at the company they work for is manager-side. You usually do not need to ask which - infer it from what the user is telling you, and only ask when it genuinely could be either.

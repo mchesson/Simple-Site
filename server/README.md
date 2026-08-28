@@ -90,6 +90,22 @@ overstates it most where the pay rate is lowest.
 
 ## The pipeline
 
+Three words for a person, kept apart on purpose:
+
+| Word | Means | Where it is used |
+|---|---|---|
+| **candidate** | Somebody we could place. A role on a contact record, alongside manager — one human can be both. | Where the subject is the person being assessed: interviews, chasing, going quiet. |
+| **resource** | The internal word for a person put against a project's need. A project has a resource need; we submit a resource to fill it. | Where the subject is the project's need being filled: the submit action, a project's own pipeline. |
+| **consultant** | A person who is working — on our payroll, on an assignment. | The word for the person themselves, and anywhere they would read it: their week, their rates, rolling off. |
+
+A candidate is submitted as a resource and becomes a consultant on the day they
+start. Somebody already on the bench is a consultant being submitted as a
+resource again — a redeployment, with no onboarding and no screening, which is
+why the submit action says resource rather than consultant: it has to be true in
+both cases. The submit list sorts our own consultants to the top for that
+reason.
+
+
 A submission is one person put forward for one project. Which stages it may move
 between is **data, not code**: `submission_stage` holds the stages and
 `submission_stage_flow` holds the legal moves, one row per move, carrying the

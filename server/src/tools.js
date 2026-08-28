@@ -628,12 +628,14 @@ export function buildTools(ctx) {
       },
     },
     {
-      name: "submit_candidate",
+      name: "submit_resource",
       description:
-        "Put a candidate forward for a project. Returns the gross margin the rates leave " +
-        "and flags a rate outside the project's range. Refuses if another recruiter " +
-        "already has that person live at the same client - do not try to work around it, " +
-        "tell the user who has them.",
+        "Put a resource forward for a project - a resource is what the desk calls a " +
+        "person put against a project's need, whether they are new to us or one of our " +
+        "consultants being redeployed. Returns the gross margin the rates leave and " +
+        "flags a rate outside the project's range. Refuses if another recruiter already " +
+        "has that person live at the same client - do not try to work around it, tell " +
+        "the user who has them.",
       input_schema: {
         type: "object",
         properties: {
@@ -659,7 +661,7 @@ export function buildTools(ctx) {
           projectId = r.match.id;
         }
         const missing = [];
-        if (!contactId) missing.push("who to submit");
+        if (!contactId) missing.push("which resource to submit");
         if (!projectId) missing.push("which project");
         if (missing.length) return need(...missing);
         try {

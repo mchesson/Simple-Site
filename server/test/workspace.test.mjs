@@ -633,11 +633,11 @@ describe("the assistant works the pipeline through the same rules", () => {
     assert.match(out.message, /create the placement first/);
   });
 
-  test("submitting through a tool resolves names and reports the margin", async () => {
+  test("submitting a resource through a tool resolves names and reports the margin", async () => {
     const tools = buildTools({ userId: dev.id });
     await repo.insertRecord("contact", {
       full_name: "Tomas Vidal", email: "tomas@example.com", is_candidate: true }, dev.id);
-    const out = await tools.find((t) => t.name === "submit_candidate").run({
+    const out = await tools.find((t) => t.name === "submit_resource").run({
       contact_name: "Tomas Vidal", project_name: "Line 7 controls",
       pay_rate: 55, bill_rate: 92, burden_pct: 22 });
     assert.ok(out.id, JSON.stringify(out));
@@ -653,7 +653,7 @@ describe("the assistant works the pipeline through the same rules", () => {
 
   test("the duplicate refusal reaches the assistant as an explanation", async () => {
     const tools = buildTools({ userId: dev.id });
-    const out = await tools.find((t) => t.name === "submit_candidate").run({
+    const out = await tools.find((t) => t.name === "submit_resource").run({
       contact_name: "Bree Coleman", project_name: "Plant data platform" });
     assert.equal(out.error, "refused");
     assert.match(out.message, /already out to this client/);

@@ -660,6 +660,26 @@ const daysSince = (when) => when
 const daysUntil = (when) => when
   ? Math.round((new Date(when + "T12:00:00").getTime() - Date.now()) / DAY) : null;
 
+/* Three words for a person, and they are not interchangeable.
+ *
+ *   candidate   Somebody we could place. A role on a contact record, alongside
+ *               manager - the same human can be both.
+ *   resource    The internal word for a person put against a project's need.
+ *               A project has a resource need; we submit a resource to fill it.
+ *               This is how the desk talks among itself.
+ *   consultant  A person who is working: on our payroll, on an assignment.
+ *               This is the word for the person themselves, and the word to use
+ *               anywhere they would read it.
+ *
+ * So a candidate is submitted as a resource and becomes a consultant on the day
+ * they start. Somebody already on the bench is a consultant being submitted as
+ * a resource again, which is why the submit action says resource and not
+ * consultant - it has to be true in both cases.
+ *
+ * "Somebody" is still the right word when it means a colleague of ours, and is
+ * left alone in those places.
+ */
+
 /* The stage machine.
  *
  * On the server this is two tables and a trigger, so a stage cannot move the
@@ -2080,7 +2100,7 @@ function recruitingDesk(me, mineOnly) {
           ], { urgent: r.submitted === 0,
                onclick: () => go("project", r.project.id) })))
         )
-      : el("p", { class: "muted" }, "Every open seat has somebody working on it.")),
+      : el("p", { class: "muted" }, "Every open seat has a consultant on it.")),
 
     deskSection("Waiting on the client",
       "Days since the stage last moved. The old ones need a phone call, not an email.",
@@ -2278,7 +2298,7 @@ function salesDesk(me, mineOnly) {
             el("td", { class: "muted" }, (r.project.skills || []).join(", ")),
           ], { urgent: true, onclick: () => go("project", r.project.id) })))
         )
-      : el("p", { class: "muted" }, "Every open project has somebody out for it.")),
+      : el("p", { class: "muted" }, "Every open project has a resource out for it.")),
 
     deskSection("Where the money is",
       "Live consultants and what each account is worth a week in gross margin.",
@@ -2519,7 +2539,8 @@ function contactView(id) {
       c.isCandidate
         ? el("div", { class: "rowbtns" },
             el("button", { class: "send",
-              onclick: () => submitFlow({ contactId: id }) }, "Put them forward"))
+              onclick: () => submitFlow({ contactId: id }) },
+              "Submit as a resource"))
         : null),
 
     section("Where they are out", (() => {
@@ -2609,14 +2630,14 @@ function projectView(id) {
       const out = board({ projectId: id, openOnly: false });
       const head = el("div", { class: "rowbtns", style: "margin-bottom:10px" },
         el("button", { class: "send",
-          onclick: () => submitFlow({ projectId: id }) }, "Submit somebody"));
+          onclick: () => submitFlow({ projectId: id }) }, "Submit a resource"));
       if (!out.length) {
         return [head, el("p", { class: "muted" },
           "Nobody has been put forward yet. That is the thing that loses a project.")];
       }
       return [head, el("table", { class: "grid" },
         el("thead", {},
-          el("tr", {}, ...["Candidate", "Stage", "At this stage", "Pay", "Bill",
+          el("tr", {}, ...["Resource", "Stage", "At this stage", "Pay", "Bill",
             "Margin", "Next"].map((h) => el("th", {}, h)))),
         el("tbody", {}, ...out.map((r) => el("tr", {
             style: "cursor:pointer",
@@ -2697,7 +2718,7 @@ function documentsView() {
 }
 /* ---------------------------------------------------------------- pipeline
  *
- * Submissions: putting somebody forward, moving them through, booking the
+ * Submissions: putting a resource forward, moving them through, booking the
  * conversations, and the handover to payroll when it comes off.
  *
  * Every operation here refuses the same things the server refuses, and for the
@@ -2757,7 +2778,7 @@ function board({ ownerId = null, projectId = null, accountId = null,
 
 /* ------------------------------------------------------------- operations */
 
-/* Putting somebody forward. Refuses what the server refuses, in the same words,
+/* Putting a resource forward. Refuses what the server refuses, in the same words,
  * and hands back advisories rather than blocking on a thin margin - a rate
  * decision belongs to the person making it, they just should not make it blind. */
 function submitCandidate({ projectId, contactId, payRate = null, billRate = null,
@@ -2848,11 +2869,11 @@ function advanceSubmission(submissionId, toStage, reason = null, lossReasonCode 
     throw new Error("say why we lost this one — a loss nobody wrote down teaches " +
       "the desk nothing");
   }
-  /* "Placed" is a claim that somebody is starting work, and the placement is
+  /* "Placed" is a claim that a consultant is starting work, and the placement is
    * what payroll and billing hang off. The word cannot get ahead of the record. */
   if (target.won && !where("placements", (p) => p.submissionId === submissionId).length) {
     throw new Error("create the placement first — a submission is not placed until " +
-      "somebody has a start date");
+      "the consultant has a start date");
   }
 
   const me = actingUser();
@@ -3097,9 +3118,16 @@ function attempt(fn) {
   catch (e) { alert(e.message); return null; }
 }
 
+/* Our own consultants come first. Somebody already on the payroll being put
+ * against a new project is a redeployment: no onboarding, no screening, and
+ * they are already earning. It is the cheapest seat there is to fill, so the
+ * list should not bury them under a hundred strangers. */
 const candidateOptions = () => where("contacts", (c) => c.isCandidate && !c.archivedAt)
-  .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  .map((c) => ({ value: c.id, label: c.fullName + (c.headline ? ` — ${c.headline}` : "") }));
+  .sort((a, b) => (Number(!!b.onPayroll) - Number(!!a.onPayroll)) ||
+                  a.fullName.localeCompare(b.fullName))
+  .map((c) => ({ value: c.id,
+                 label: c.fullName + (c.onPayroll ? " (our consultant)" : "") +
+                        (c.headline ? ` — ${c.headline}` : "") }));
 
 const openProjectOptions = () => where("projects", (p) => !p.archivedAt &&
     ["open", "draft"].includes(p.status))
@@ -3113,8 +3141,10 @@ async function submitFlow({ projectId = null, contactId = null } = {}) {
   const contact = contactId ? byId("contacts", contactId) : null;
   const fields = [];
   if (!contactId) {
-    fields.push({ name: "contactId", label: "Who", type: "select",
-                  options: candidateOptions(), wide: true });
+    fields.push({ name: "contactId", label: "Resource", type: "select",
+                  options: candidateOptions(), wide: true,
+                  hint: "somebody already on our payroll is a redeployment, "
+                        + "which is the cheapest seat you will fill all month" });
   }
   if (!projectId) {
     fields.push({ name: "projectId", label: "For which project", type: "select",
@@ -3138,7 +3168,7 @@ async function submitFlow({ projectId = null, contactId = null } = {}) {
                    "three weeks." });
 
   const answer = await askFor(
-    contact ? `Put ${contact.fullName} forward` : "Submit a candidate", fields,
+    contact ? `Put ${contact.fullName} forward` : "Submit a resource", fields,
     { submitLabel: "Submit",
       note: project
         ? `${(byId("accounts", project.accountId) || {}).name} · ${project.name}`
@@ -3354,14 +3384,15 @@ function pipelineView() {
             (k) => { UI.pipeScope = k; }),
         seg([["open", "In play"], ["all", "Everything"]], showClosed ? "all" : "open",
             (k) => { UI.pipeClosed = k === "all"; }),
-        el("button", { class: "send", onclick: () => submitFlow() }, "Submit somebody"))),
+        el("button", { class: "send", onclick: () => submitFlow() },
+          "Submit a resource"))),
 
     !rows.length
       ? el("div", { class: "banner" },
           el("b", {}, "Nothing out. "),
           mineOnly
             ? "Nothing of yours is in play — switch to Everyone to see the whole desk, " +
-              "or put somebody forward."
+              "or put a resource forward."
             : "Nobody has been submitted anywhere yet.")
       : null,
 
@@ -3380,7 +3411,7 @@ function pipelineView() {
     section("The funnel", [
       el("div", { class: "card" },
         el("p", { class: "meta", style: "margin:0 0 10px" },
-          "Counted from the history, not from where things ended up — somebody " +
+          "Counted from the history, not from where things ended up — a resource " +
           "rejected after two interviews still counts as two interviews. Where the " +
           "number falls away is where the desk is losing."),
         el("table", { class: "grid" },

@@ -112,6 +112,26 @@ const daysSince = (when) => when
 const daysUntil = (when) => when
   ? Math.round((new Date(when + "T12:00:00").getTime() - Date.now()) / DAY) : null;
 
+/* Three words for a person, and they are not interchangeable.
+ *
+ *   candidate   Somebody we could place. A role on a contact record, alongside
+ *               manager - the same human can be both.
+ *   resource    The internal word for a person put against a project's need.
+ *               A project has a resource need; we submit a resource to fill it.
+ *               This is how the desk talks among itself.
+ *   consultant  A person who is working: on our payroll, on an assignment.
+ *               This is the word for the person themselves, and the word to use
+ *               anywhere they would read it.
+ *
+ * So a candidate is submitted as a resource and becomes a consultant on the day
+ * they start. Somebody already on the bench is a consultant being submitted as
+ * a resource again, which is why the submit action says resource and not
+ * consultant - it has to be true in both cases.
+ *
+ * "Somebody" is still the right word when it means a colleague of ours, and is
+ * left alone in those places.
+ */
+
 /* The stage machine.
  *
  * On the server this is two tables and a trigger, so a stage cannot move the

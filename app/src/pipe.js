@@ -1,6 +1,6 @@
 /* ---------------------------------------------------------------- pipeline
  *
- * Submissions: putting somebody forward, moving them through, booking the
+ * Submissions: putting a resource forward, moving them through, booking the
  * conversations, and the handover to payroll when it comes off.
  *
  * Every operation here refuses the same things the server refuses, and for the
@@ -60,7 +60,7 @@ function board({ ownerId = null, projectId = null, accountId = null,
 
 /* ------------------------------------------------------------- operations */
 
-/* Putting somebody forward. Refuses what the server refuses, in the same words,
+/* Putting a resource forward. Refuses what the server refuses, in the same words,
  * and hands back advisories rather than blocking on a thin margin - a rate
  * decision belongs to the person making it, they just should not make it blind. */
 function submitCandidate({ projectId, contactId, payRate = null, billRate = null,
@@ -151,11 +151,11 @@ function advanceSubmission(submissionId, toStage, reason = null, lossReasonCode 
     throw new Error("say why we lost this one — a loss nobody wrote down teaches " +
       "the desk nothing");
   }
-  /* "Placed" is a claim that somebody is starting work, and the placement is
+  /* "Placed" is a claim that a consultant is starting work, and the placement is
    * what payroll and billing hang off. The word cannot get ahead of the record. */
   if (target.won && !where("placements", (p) => p.submissionId === submissionId).length) {
     throw new Error("create the placement first — a submission is not placed until " +
-      "somebody has a start date");
+      "the consultant has a start date");
   }
 
   const me = actingUser();

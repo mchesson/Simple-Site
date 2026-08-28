@@ -73,9 +73,16 @@ function attempt(fn) {
   catch (e) { alert(e.message); return null; }
 }
 
+/* Our own consultants come first. Somebody already on the payroll being put
+ * against a new project is a redeployment: no onboarding, no screening, and
+ * they are already earning. It is the cheapest seat there is to fill, so the
+ * list should not bury them under a hundred strangers. */
 const candidateOptions = () => where("contacts", (c) => c.isCandidate && !c.archivedAt)
-  .sort((a, b) => a.fullName.localeCompare(b.fullName))
-  .map((c) => ({ value: c.id, label: c.fullName + (c.headline ? ` — ${c.headline}` : "") }));
+  .sort((a, b) => (Number(!!b.onPayroll) - Number(!!a.onPayroll)) ||
+                  a.fullName.localeCompare(b.fullName))
+  .map((c) => ({ value: c.id,
+                 label: c.fullName + (c.onPayroll ? " (our consultant)" : "") +
+                        (c.headline ? ` — ${c.headline}` : "") }));
 
 const openProjectOptions = () => where("projects", (p) => !p.archivedAt &&
     ["open", "draft"].includes(p.status))
@@ -89,8 +96,10 @@ async function submitFlow({ projectId = null, contactId = null } = {}) {
   const contact = contactId ? byId("contacts", contactId) : null;
   const fields = [];
   if (!contactId) {
-    fields.push({ name: "contactId", label: "Who", type: "select",
-                  options: candidateOptions(), wide: true });
+    fields.push({ name: "contactId", label: "Resource", type: "select",
+                  options: candidateOptions(), wide: true,
+                  hint: "somebody already on our payroll is a redeployment, "
+                        + "which is the cheapest seat you will fill all month" });
   }
   if (!projectId) {
     fields.push({ name: "projectId", label: "For which project", type: "select",
@@ -114,7 +123,7 @@ async function submitFlow({ projectId = null, contactId = null } = {}) {
                    "three weeks." });
 
   const answer = await askFor(
-    contact ? `Put ${contact.fullName} forward` : "Submit a candidate", fields,
+    contact ? `Put ${contact.fullName} forward` : "Submit a resource", fields,
     { submitLabel: "Submit",
       note: project
         ? `${(byId("accounts", project.accountId) || {}).name} · ${project.name}`
@@ -330,14 +339,15 @@ function pipelineView() {
             (k) => { UI.pipeScope = k; }),
         seg([["open", "In play"], ["all", "Everything"]], showClosed ? "all" : "open",
             (k) => { UI.pipeClosed = k === "all"; }),
-        el("button", { class: "send", onclick: () => submitFlow() }, "Submit somebody"))),
+        el("button", { class: "send", onclick: () => submitFlow() },
+          "Submit a resource"))),
 
     !rows.length
       ? el("div", { class: "banner" },
           el("b", {}, "Nothing out. "),
           mineOnly
             ? "Nothing of yours is in play — switch to Everyone to see the whole desk, " +
-              "or put somebody forward."
+              "or put a resource forward."
             : "Nobody has been submitted anywhere yet.")
       : null,
 
@@ -356,7 +366,7 @@ function pipelineView() {
     section("The funnel", [
       el("div", { class: "card" },
         el("p", { class: "meta", style: "margin:0 0 10px" },
-          "Counted from the history, not from where things ended up — somebody " +
+          "Counted from the history, not from where things ended up — a resource " +
           "rejected after two interviews still counts as two interviews. Where the " +
           "number falls away is where the desk is losing."),
         el("table", { class: "grid" },

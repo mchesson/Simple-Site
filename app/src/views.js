@@ -186,7 +186,7 @@ function recruitingDesk(me, mineOnly) {
           ], { urgent: r.submitted === 0,
                onclick: () => go("project", r.project.id) })))
         )
-      : el("p", { class: "muted" }, "Every open seat has somebody working on it.")),
+      : el("p", { class: "muted" }, "Every open seat has a consultant on it.")),
 
     deskSection("Waiting on the client",
       "Days since the stage last moved. The old ones need a phone call, not an email.",
@@ -384,7 +384,7 @@ function salesDesk(me, mineOnly) {
             el("td", { class: "muted" }, (r.project.skills || []).join(", ")),
           ], { urgent: true, onclick: () => go("project", r.project.id) })))
         )
-      : el("p", { class: "muted" }, "Every open project has somebody out for it.")),
+      : el("p", { class: "muted" }, "Every open project has a resource out for it.")),
 
     deskSection("Where the money is",
       "Live consultants and what each account is worth a week in gross margin.",
@@ -625,7 +625,8 @@ function contactView(id) {
       c.isCandidate
         ? el("div", { class: "rowbtns" },
             el("button", { class: "send",
-              onclick: () => submitFlow({ contactId: id }) }, "Put them forward"))
+              onclick: () => submitFlow({ contactId: id }) },
+              "Submit as a resource"))
         : null),
 
     section("Where they are out", (() => {
@@ -715,14 +716,14 @@ function projectView(id) {
       const out = board({ projectId: id, openOnly: false });
       const head = el("div", { class: "rowbtns", style: "margin-bottom:10px" },
         el("button", { class: "send",
-          onclick: () => submitFlow({ projectId: id }) }, "Submit somebody"));
+          onclick: () => submitFlow({ projectId: id }) }, "Submit a resource"));
       if (!out.length) {
         return [head, el("p", { class: "muted" },
           "Nobody has been put forward yet. That is the thing that loses a project.")];
       }
       return [head, el("table", { class: "grid" },
         el("thead", {},
-          el("tr", {}, ...["Candidate", "Stage", "At this stage", "Pay", "Bill",
+          el("tr", {}, ...["Resource", "Stage", "At this stage", "Pay", "Bill",
             "Margin", "Next"].map((h) => el("th", {}, h)))),
         el("tbody", {}, ...out.map((r) => el("tr", {
             style: "cursor:pointer",
