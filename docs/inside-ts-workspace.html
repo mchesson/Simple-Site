@@ -208,7 +208,7 @@ footer p{margin-bottom:.7rem}
       you what both of them actually did.</p>
     <div class="byline">
       <span>Postgres 16 · Node 22 · claude-opus-5</span>
-      <span>37 tools · 35 tables · 78 tests</span>
+      <span>42 tools · 37 tables · 100 tests</span>
     </div>
   </div>
 </header>
@@ -405,8 +405,9 @@ on the pay side.</pre>
     <h2>Why it can answer in plain English</h2>
   </div>
 
-  <p>Thirty-seven tools cover accounts, sites, contacts, projects, activity,
-    documents, pipelines, timesheets, approvals, invoices and PO burn-down. Most are ordinary: fetch this, list
+  <p>Forty-two tools cover accounts, sites, contacts, projects, activity,
+    documents, pipelines, timesheets, approvals, unlocks, invoices, PO burn-down
+    and the audit trail. Most are ordinary: fetch this, list
     those, write that. Three design choices do the heavy lifting.</p>
 
   <h3>A tool that cannot proceed says what it needs</h3>
@@ -498,11 +499,10 @@ on the pay side.</pre>
     was in force in March.</p>
 
   <div class="note">
-    <b>Nothing is destroyed anywhere.</b> Every update writes the previous
-    version to <code>record_revision</code> before the row changes, inside the
-    same transaction. Deletes are an <code>archived_at</code> stamp — the row
-    stays. Ask the assistant what a record looked like before and it can tell
-    you, because the answer is stored rather than reconstructed.
+    <b>Nothing is destroyed anywhere.</b> Deletes are an <code>archived_at</code>
+    stamp — the row stays. Ask the assistant what a record looked like before and
+    it can tell you, because the answer is stored rather than reconstructed. How
+    it is stored is the next section.
   </div>
 </section>
 
@@ -694,6 +694,78 @@ on the pay side.</pre>
 </section>
 
 <section>
+  <div class="sechead"><span class="layer">Governance</span>
+    <h2>Everything leaves a trace</h2>
+    <p class="kicker">Written by the database, not by the code</p>
+  </div>
+
+  <p>Every insert, update and delete on every table lands in one audit log, put
+    there by a trigger on the table itself. That distinction carries the whole
+    guarantee: an application can forget to call the helper that records
+    history, and eventually one code path does. A trigger cannot be forgotten,
+    so a change made by the app, by the assistant, by a migration script or by
+    somebody at a database prompt all leave the same record.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Kept on every change</th><th>Why it earns its place</th></tr></thead>
+    <tbody>
+      <tr><td>Before and after</td>
+          <td>The full row on both sides, so "what did this look like" always
+              has an answer.</td></tr>
+      <tr><td>Fields that changed</td>
+          <td>Reading a diff of two JSON blobs is not a review. The list is.</td></tr>
+      <tr><td>Acting user</td>
+          <td>Carried in a transaction-local setting the server puts on the
+              connection, so attribution does not depend on the caller
+              remembering to pass it.</td></tr>
+      <tr><td>Reason</td>
+          <td>Filled in where the action has one. Months later this is the
+              column people actually want.</td></tr>
+      <tr><td>Transaction id</td>
+          <td>One user action usually touches several tables. This ties them
+              back into a single event.</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The log refuses <code>UPDATE</code> and <code>DELETE</code> on itself. Once a
+    line is written it stays, including for whoever administers the database.</p>
+
+  <h3>Approved time is locked</h3>
+
+  <p>Once a client manager approves a week, those days are frozen. Not
+    "the screen does not offer it" — nobody can change or delete them, including
+    a direct SQL statement:</p>
+
+<pre><b>update</b> timesheet_entry <b>set</b> hours = 12 <b>where</b> ...;
+<span class="bad">ERROR:  that time was approved and is locked — an admin has to unlock it first</span></pre>
+
+  <p>The lock sits on the approval packet rather than the week, and that is not a
+    detail. Before it did, one manager rejecting their project reopened the whole
+    week — including days another manager had already approved, frozen, and
+    possibly invoiced. A corrected week now replaces only the part that came
+    back.</p>
+
+  <p>Getting locked time open again is deliberate, and every step is on the
+    record:</p>
+
+  <ol class="plain">
+    <li>Someone raises an <strong>unlock request</strong> with a reason. Only one
+      can be open on a week at a time.</li>
+    <li>An <strong>admin</strong> grants or denies it. The database checks the
+      role, and refuses a self-grant — whoever asked cannot be the one who
+      approves it.</li>
+    <li>Granting is <strong>refused outright</strong> if the time is already on a
+      live invoice. Void or credit the invoice first, rather than leave an
+      invoice standing against time that no longer exists.</li>
+    <li>A grant is a key with a life: it expires in a day, and is
+      <strong>spent on first use</strong>. Re-approving and reopening again needs
+      a fresh one.</li>
+  </ol>
+</section>
+
+<section>
   <div class="sechead"><span class="layer">Observability</span>
     <h2>The inspector</h2>
   </div>
@@ -738,14 +810,15 @@ on the pay side.</pre>
 
   <p>PostgreSQL 16 and Node 22. The code is on the
     <code>claude/applicant-tracking-crm-design-tkjh5b</code> branch, under
-    <code>server/</code>.</p>
+    <code>server/</code>. One command:</p>
 
-<pre>createdb ts_workspace
-psql -d ts_workspace -f src/bootstrap.sql   <span class="c"># as a superuser: creates the two roles</span>
-npm install
-cp .env.example .env                        <span class="c"># then put your API key in it</span>
-npm run db:reset                            <span class="c"># schema + demo data</span>
-npm start</pre>
+<pre>./setup.sh</pre>
+
+  <p>That installs dependencies, creates the database and its two roles, builds
+    the schema, seeds demo data and starts the server. If <code>psql</code> on
+    your machine is not a superuser, point it at one:</p>
+
+<pre>TS_SUPERUSER_PSQL="sudo -u postgres psql" ./setup.sh</pre>
 
   <p>Chat needs an <code>ANTHROPIC_API_KEY</code>. Everything else — the database,
     the record screens, the inspector, the query console — runs without one, and
@@ -757,7 +830,7 @@ npm start</pre>
     <h2>What is proven and what is not</h2>
   </div>
 
-  <p><strong>Proven.</strong> Seventy-eight tests run against a real Postgres database
+  <p><strong>Proven.</strong> One hundred tests run against a real Postgres database
     built from the same schema the application uses — a mock would not catch the
     constraints, and the constraints are where most of the design lives. Every
     rule in the table above is asserted. So is the read-only role, including a
@@ -770,7 +843,10 @@ npm start</pre>
     rejection releasing value, a week reopening for correction, a project with no
     approver on file, double-billing, invoicing unapproved time, changing a sent
     invoice, overrunning a purchase order, the rate in force on a given day, and
-    every column of the burn-down at each stage.</p>
+    every column of the burn-down at each stage. The audit trail is tested by
+    writing straight past the application — a raw insert is recorded exactly like
+    one made through the API — and the lock is tested from both sides, through
+    the application and by direct SQL.</p>
 
   <p><strong>Not proven.</strong> No live call to the Claude API was made. There
     was no credential in the environment this was built in, so the agent loop was
