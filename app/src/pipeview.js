@@ -1,83 +1,3 @@
-/* ------------------------------------------------------- forms and dialogs
- *
- * A browser prompt takes one line of text, which is fine for "what did they
- * say" and useless for a rate and a start date. This is the smallest thing that
- * is not that: a field list in, an object out, Escape closes it.
- */
-function askFor(title, fields, { submitLabel = "Save", note = null, onChange = null } = {}) {
-  return new Promise((resolve) => {
-    const inputs = {};
-    const readAll = () => Object.fromEntries(
-      Object.entries(inputs).map(([k, node]) => [k, node.value]));
-    const live = el("div", { class: "livenote" });
-
-    const refresh = () => {
-      if (!onChange) return;
-      const out = onChange(readAll());
-      live.replaceChildren(out ? (out.nodeType ? out : document.createTextNode(out)) : "");
-    };
-
-    const rows = fields.map((f) => {
-      let node;
-      if (f.type === "select") {
-        node = el("select", { class: "fi" }, ...(f.options || []).map((o) =>
-          el("option", { value: o.value,
-                         selected: String(o.value) === String(f.value ?? "") ? "" : null },
-             o.label)));
-      } else if (f.type === "textarea") {
-        node = el("textarea", { class: "fi", rows: f.rows || 3,
-                                placeholder: f.placeholder || "" }, f.value || "");
-      } else {
-        node = el("input", { class: "fi", type: f.type || "text",
-                             value: f.value ?? "", step: f.step || null,
-                             min: f.min ?? null, placeholder: f.placeholder || "" });
-      }
-      node.addEventListener("input", refresh);
-      node.addEventListener("change", refresh);
-      inputs[f.name] = node;
-      return el("label", { class: "field" + (f.wide ? " wide" : "") },
-        el("span", { class: "flab" }, f.label),
-        node,
-        f.hint ? el("span", { class: "fhint" }, f.hint) : null);
-    });
-
-    const dlg = el("dialog", { class: "ask" },
-      el("form", { method: "dialog", onsubmit: (e) => {
-        e.preventDefault();
-        dlg.close();
-        resolve(readAll());
-      } },
-        el("h3", {}, title),
-        note ? el("p", { class: "askmeta" }, note) : null,
-        el("div", { class: "fields" }, ...rows),
-        onChange ? live : null,
-        el("div", { class: "askbtns" },
-          el("button", { type: "button", class: "ghost",
-                         onclick: () => { dlg.close(); resolve(null); } }, "Cancel"),
-          el("button", { type: "submit", class: "send" }, submitLabel))));
-
-    dlg.addEventListener("close", () => { dlg.remove(); });
-    dlg.addEventListener("cancel", () => resolve(null));
-    document.body.append(dlg);
-    dlg.showModal();
-    refresh();
-    const first = Object.values(inputs)[0];
-    if (first) first.focus();
-  });
-}
-
-/* Every write from a screen funnels through here so a refusal always lands the
- * same way: the message the rule gave, in front of the person who tried. */
-function attempt(fn) {
-  try { const out = fn(); commit(); render(); return out; }
-  catch (e) { alert(e.message); return null; }
-}
-
-/* Ordered by how soon each person is actually free, because that is the question
- * the list is being asked. Somebody on our bench is a redeployment - no
- * onboarding, no screening, and they are already costing us - which makes them
- * the cheapest seat on the desk. Somebody with eight months left on an
- * assignment is a different conversation, and the label says which. */
 const candidateOptions = () => where("contacts", (c) => c.isCandidate && !c.archivedAt)
   .map((c) => ({ contact: c, status: workStatus(c.id) }))
   .sort((a, b) => {
@@ -217,7 +137,7 @@ async function interviewFlow(submissionId) {
   ], { submitLabel: "Book it",
        note: `${r.account ? r.account.name : ""} · ${r.project.name}` });
   if (!answer) return;
-  if (!answer.date) { alert("An interview needs a date."); return; }
+  if (!answer.date) { say("An interview needs a date.", "bad"); return; }
   attempt(() => scheduleInterview({
     submissionId, scheduledAt: `${answer.date}T${answer.time || "10:00"}:00`,
     durationMins: Number(answer.durationMins) || 60, mode: answer.mode,
@@ -606,7 +526,8 @@ async function addToPipelineFlow(pipelineId, contactId = null) {
 
   if (!pipelineId) {
     if (!mine.length) {
-      alert("You have no categories yet. Make one first, on the Pipelines screen.");
+      say("You have no categories yet. Make one on the Pipelines screen first.",
+        "bad");
       return;
     }
     fields.push({ name: "pipelineId", label: "Which category", type: "select", wide: true,
@@ -617,7 +538,7 @@ async function addToPipelineFlow(pipelineId, contactId = null) {
       (m) => m.pipelineId === pipelineId).map((m) => m.contactId));
     const options = candidateOptions().filter((o) => !already.has(o.value));
     if (!options.length) {
-      alert("Everybody on file is already in this one.");
+      say("Everybody on file is already in this one.", "bad");
       return;
     }
     fields.push({ name: "contactId", label: "Who", type: "select", wide: true,
@@ -732,9 +653,13 @@ function pipelinesView() {
                       onclick: () => submitFlow({ contactId: m.contact.id }) },
                       "Submit"),
                     pl.ownerId === me.id
-                      ? el("button", { class: "linkbtn danger", onclick: () => {
-                          if (!confirm(`Drop ${m.contact.fullName} out of ${pl.name}? ` +
-                              "Their record is untouched — this only removes the tag.")) return;
+                      ? el("button", { class: "linkbtn danger", onclick: async () => {
+                          const ok = await askConfirm(
+                            `Drop ${m.contact.fullName} out of ${pl.name}?`,
+                            "Their record is untouched - this only removes the tag, " +
+                            "and the removal is kept in the audit trail.",
+                            { confirmLabel: "Drop them", danger: true });
+                          if (!ok) return;
                           attempt(() => dropFromPipeline(pl.id, m.contact.id));
                         } }, "Drop")
                       : null)))))) 
@@ -830,4 +755,101 @@ function interviewsView() {
             el("button", { class: "linkbtn", onclick: () => outcomeFlow(r.id) },
               "It has happened"))))
       : [el("p", { class: "muted" }, "Nothing booked in the next three weeks.")]));
+}
+
+/* --------------------------------------------------------------- paperwork
+ *
+ * What sales lives on. An account with open projects and no master agreement is
+ * work we cannot invoice, and a lapsed one is worse than none because everybody
+ * assumes it is fine. Both were visible only as a widget on the desk, which is
+ * the wrong place for the thing somebody has to chase.
+ */
+function paperworkView() {
+  const me = actingUser();
+  const mineOnly = UI.bookScope === undefined || UI.bookScope === null
+    ? true : UI.bookScope === "mine";
+  const mine = (accountId) => !mineOnly ||
+    ownersOf(accountId).some((o) => o.userId === me.id);
+  const today = iso(new Date());
+
+  const accounts = activeAccounts().filter((a) => mine(a.id));
+  const rows = accounts.map((a) => {
+    const all = where("agreements", (g) => g.accountId === a.id);
+    const msa = all.filter((g) => g.kind === "MSA" && g.status === "executed")[0] || null;
+    const expired = !!(msa && msa.effectiveTo && msa.effectiveTo < today);
+    const expiringIn = msa && msa.effectiveTo ? daysUntil(msa.effectiveTo) : null;
+    const openProjects = projectsOf(a.id).filter((p) => p.status === "open").length;
+    const working = where("placements", (pl) => pl.status === "active" &&
+      (byId("projects", pl.projectId) || {}).accountId === a.id).length;
+    return { account: a, agreements: all, msa, expired, expiringIn,
+             openProjects, working };
+  });
+
+  const urgent = rows.filter((r) => (!r.msa || r.expired) &&
+    (r.openProjects > 0 || r.working > 0));
+  const soon = rows.filter((r) => r.msa && !r.expired &&
+    r.expiringIn !== null && r.expiringIn <= 90);
+
+  const agreementRow = (r) => el("tr", {
+      class: (!r.msa || r.expired) && (r.openProjects || r.working) ? "urgent" : null,
+      style: "cursor:pointer", onclick: () => go("account", r.account.id) },
+    el("td", {}, el("strong", {}, r.account.name),
+      el("div", { class: "meta" },
+        ownersOf(r.account.id).map((o) => o.name).join(", ") || "unassigned")),
+    el("td", {},
+      !r.msa ? el("span", { class: "pill bad" }, "no master agreement")
+        : r.expired ? el("span", { class: "pill bad" },
+            "lapsed " + day(r.msa.effectiveTo))
+        : r.expiringIn !== null && r.expiringIn <= 90
+          ? el("span", { class: "pill warn" }, `expires in ${r.expiringIn} days`)
+          : el("span", { class: "pill good" }, "in force")),
+    el("td", { class: "num" }, r.openProjects),
+    el("td", { class: "num" }, r.working),
+    el("td", { class: "muted" },
+      r.agreements.length
+        ? r.agreements.map((g) => g.kind.replace(/_/g, " ")).join(", ")
+        : "nothing on file"),
+    el("td", { class: "muted" }, r.msa && r.msa.termsNotes ? r.msa.termsNotes : ""));
+
+  return el("div", { class: "pane" },
+    el("div", { class: "deskhead" },
+      el("div", {},
+        el("h2", { class: "dtitle" }, "Paperwork"),
+        el("p", { class: "dsub" },
+          "Master agreements, and which accounts are working without one. " +
+          "An account with people on site and no agreement in force is revenue " +
+          "we cannot bill for.")),
+      el("div", { class: "segs" },
+        el("div", { class: "deskswitch" },
+          ...[["mine", "My accounts"], ["all", "Everyone's"]].map(([k, label]) =>
+            el("button", { class: "seg" + ((mineOnly ? "mine" : "all") === k ? " on" : ""),
+                           onclick: () => { UI.bookScope = k; render(); } }, label))))),
+
+    urgent.length
+      ? el("div", { class: "banner warn" },
+          el("b", {}, urgent.length === 1
+            ? "One account is working without an agreement in force. "
+            : `${urgent.length} accounts are working without an agreement in force. `),
+          "That is delivery we may not be able to invoice. It is the first call to make.")
+      : null,
+
+    soon.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "Renewals coming. "),
+          soon.map((r) => `${r.account.name} in ${r.expiringIn} days`).join(", ") + ".")
+      : null,
+
+    !rows.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "No accounts are yours. "),
+          "Switch to Everyone's above to see the whole book.")
+      : el("table", { class: "grid" },
+          el("thead", {},
+            el("tr", {}, ...["Account", "Master agreement", "Open projects",
+              "People on site", "On file", "Terms"].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...rows
+            .sort((a, b) =>
+              (Number(!b.msa || b.expired) - Number(!a.msa || a.expired)) ||
+              (b.openProjects + b.working) - (a.openProjects + a.working))
+            .map(agreementRow))));
 }

@@ -38,7 +38,7 @@ const q = (t, p) => client.query(t, p).then((r) => r.rows[0]);
 // -- users -------------------------------------------------------------------
 const mark = await q(
   `insert into app_user (email, full_name, role) values
-   ('mchesson@technicalsource.com','Mark Chesson','admin') returning *`);
+   ('mchesson@technicalsource.com','Matt Chesson','admin') returning *`);
 const rae = await q(
   `insert into app_user (email, full_name, role) values
    ('rae.lambert@technicalsource.com','Rae Lambert','account_manager') returning *`);

@@ -18,13 +18,13 @@ function seedState() {
   S = st;
 
   const U = (name, email, role) => insert("users", { name, email, role }, "seeded");
-  const mark = U("Mark Chesson", "mchesson@technicalsource.com", "admin");
+  const matt = U("Matt Chesson", "mchesson@technicalsource.com", "admin");
   const rae = U("Rae Lambert", "rae.lambert@technicalsource.com", "account_manager");
   const dev = U("Devon Okafor", "devon.ok@technicalsource.com", "recruiter");
   const sam = U("Sam Iyer", "sam.iyer@technicalsource.com", "delivery");
   // A second admin, so an unlock raised by one of them can still be granted.
   U("Nadia Frost", "nadia.frost@technicalsource.com", "admin");
-  st.actingUserId = mark.id;
+  st.actingUserId = matt.id;
 
   const globex = insert("accounts", {
     name: "Globex Manufacturing", status: "active", industry: "Industrial",
@@ -44,7 +44,7 @@ function seedState() {
     role: "account_manager", splitPct: 60 }, "seeded");
   insert("accountOwners", { accountId: globex.id, userId: dev.id,
     role: "recruiter", splitPct: 40 }, "seeded");
-  insert("accountOwners", { accountId: initech.id, userId: mark.id,
+  insert("accountOwners", { accountId: initech.id, userId: matt.id,
     role: "account_manager", splitPct: 100 }, "seeded");
 
   const austin = insert("locations", { accountId: globex.id,
@@ -148,10 +148,10 @@ function seedState() {
     name: "ERP cutover PMO", deliveryType: "managed_service", status: "open",
     openings: 1, billRateMin: 140, startDate: "2026-10-01", payRateMin: null,
     payRateMax: null, billRateMax: null, description: null, skills: ["PMP", "ERP"],
-    ownerId: mark.id, archivedAt: null }, "seeded");
+    ownerId: matt.id, archivedAt: null }, "seeded");
   insert("projects", { accountId: initech.id, locationId: null,
     name: "Director of Analytics (perm)", deliveryType: "direct_hire", status: "open",
-    openings: 1, ownerId: mark.id, payRateMin: null, payRateMax: null,
+    openings: 1, ownerId: matt.id, payRateMin: null, payRateMax: null,
     billRateMin: null, billRateMax: null, startDate: null, description: null,
     skills: [], archivedAt: null }, "seeded");
 
@@ -271,7 +271,7 @@ function seedState() {
     asRole: "manager", kind: "meeting",
     body: "Walter confirmed the ERP cutover is funded for October. Wants a PMO " +
       "lead named by mid-September.",
-    actorId: mark.id, occurredAt: "2026-07-16T15:00:00.000Z" }, "seeded");
+    actorId: matt.id, occurredAt: "2026-07-16T15:00:00.000Z" }, "seeded");
 
   // -------- submissions: what the recruiters are actually working
   //
@@ -473,7 +473,7 @@ function seedState() {
   bill(15, "sent", "2026-08-03");
   bill(4, "draft", null);
 
-  st.actingUserId = mark.id;
+  st.actingUserId = matt.id;
   st.audit = st.audit.map((a) => ({ ...a, actorLabel: "seed", reason: "demo data" }));
   return st;
 }

@@ -59,7 +59,7 @@ function poCard(po, opts = {}) {
           num(po.approvedUnbilled) > 0
             ? el("button", { class: "send", onclick: () => {
                 const r = draftInvoice({ purchaseOrderId: po.id });
-                if (r.nothingToBill) return alert(r.message);
+                if (r.nothingToBill) { say(r.message, "bad"); return; }
                 commit(); go("invoice", r.id);
               } }, `Draft an invoice for ${money(po.approvedUnbilled)}`)
             : null,
@@ -281,14 +281,14 @@ function timesheetView() {
         const packets = submitTimesheet(ts.id);
         const unrouted = packets.filter((p) => !p.approverContactId);
         if (unrouted.length) {
-          alert(`Submitted, but ${unrouted.length} project has no approving manager ` +
+          say(`Submitted, but ${unrouted.length} project has no approving manager ` +
                 `on file. Somebody has to name one before that part can be approved.`);
         }
       }
       commit();
       UI.shownRows = null;
       render();
-    } catch (e) { alert(e.message); }
+    } catch (e) { say(e.message, "bad"); }
   }
 
   const shift = (n) => {
@@ -373,21 +373,36 @@ function approvalsView() {
   const rejected = approvalQueue("rejected");
 
   const card = (a) => {
-    const decide = (decision) => {
-      const by = a.approverName ||
-        prompt("Which manager at the client is deciding?");
-      if (!by) return;
-      const note = decision === "rejected"
-        ? prompt("Why is it going back? The consultant will see this.") : null;
-      if (decision === "rejected" && !note) return;
-      try { decideApproval(a.id, decision, by, note); commit(); render(); }
-      catch (e) { alert(e.message); }
+    const decide = async (decision) => {
+      let by = a.approverName;
+      if (!by) {
+        by = await askText("Who is deciding?", {
+          label: "The approving manager at the client",
+          multiline: false,
+          hint: "Nobody is named as an approver on this project yet.",
+          submitLabel: "Continue" });
+        if (!by) return;
+      }
+      let note = null;
+      if (decision === "rejected") {
+        note = await askText(`Send ${a.consultant}'s week back`, {
+          label: "Why it is going back",
+          placeholder: "The consultant will read this, so say what to change.",
+          submitLabel: "Send it back" });
+        if (!note) return;
+      }
+      attempt(() => decideApproval(a.id, decision, by, note));
     };
-    const askUnlock = () => {
-      const reason = prompt("This time is locked. Why does it need to be reopened?");
+    const askUnlock = async () => {
+      const reason = await askText("This time is locked", {
+        label: "Why does it need reopening",
+        placeholder: "An admin will read this and decide.",
+        hint: "Approved time is frozen at the rate in force. Only an admin can " +
+              "unlock it.",
+        submitLabel: "Ask for an unlock" });
       if (!reason) return;
       try { requestUnlock(a.id, reason); commit(); go("unlocks"); }
-      catch (e) { alert(e.message); }
+      catch (e) { say(e.message, "bad"); }
     };
     return el("div", { class: "packet" },
       el("div", { class: "hd" },
@@ -451,12 +466,17 @@ function unlocksView() {
   const me = actingUser();
   const isAdmin = me.role === "admin";
 
-  const decide = (u, decision) => {
-    const note = prompt(decision === "granted"
-      ? "Note for the record (optional)" : "Why is this being denied?");
+  const decide = async (u, decision) => {
+    const note = await askText(
+      decision === "granted" ? `Unlock ${u.consultant}'s week` : "Deny this request",
+      { label: decision === "granted" ? "Note for the record" : "Why it is being denied",
+        placeholder: decision === "granted"
+          ? "Optional, but the audit trail keeps it either way."
+          : "The person who asked will read this.",
+        required: decision === "denied",
+        submitLabel: decision === "granted" ? "Grant it" : "Deny it" });
     if (decision === "denied" && !note) return;
-    try { decideUnlock(u.id, decision, note); commit(); render(); }
-    catch (e) { alert(e.message); }
+    attempt(() => decideUnlock(u.id, decision, note));
   };
 
   const card = (u) => el("div", { class: "packet" },
@@ -497,7 +517,7 @@ function unlocksView() {
             el("span", { class: "pill good" }, "granted by " + (u.decidedByName || "—")),
             el("button", { class: "ghost", onclick: () => {
               try { reopenApproval(u.approvalId); commit(); go("timesheet"); }
-              catch (e) { alert(e.message); }
+              catch (e) { say(e.message, "bad"); }
             } }, "Reopen the week now"),
             el("span", { class: "muted" }, "one use only"))
         : el("div", { class: "meta", style: "margin-top:10px" },
@@ -577,7 +597,7 @@ function invoiceView(id) {
     .sort((a, b) => num(a.sortOrder) - num(b.sortOrder));
   const payments = where("payments", (p) => p.invoiceId === id);
 
-  const act = (fn) => { try { fn(); commit(); render(); } catch (e) { alert(e.message); } };
+  const act = (fn) => { try { fn(); commit(); render(); } catch (e) { say(e.message, "bad"); } };
 
   return el("div", { class: "pane" },
     el("div", { class: "card" },
@@ -600,15 +620,21 @@ function invoiceView(id) {
               "Send it — this burns the PO")
           : null,
         ["sent", "part_paid"].includes(inv.status)
-          ? el("button", { class: "send", onclick: () => {
-              const a = prompt(`Payment amount (outstanding ${money(t.outstanding)})`,
-                               String(t.outstanding));
-              if (a) act(() => recordPayment(id, Number(a), "ACH"));
+          ? el("button", { class: "send", onclick: async () => {
+              const a = await askNumber("Record a payment", {
+                label: "Amount received", value: t.outstanding,
+                hint: `${money(t.outstanding)} is outstanding on this invoice.`,
+                submitLabel: "Record it" });
+              if (a) act(() => recordPayment(id, a, "ACH"));
             } }, "Record a payment")
           : null,
         !["void", "paid"].includes(inv.status)
-          ? el("button", { class: "ghost", onclick: () => {
-              const r = prompt("Why is this being voided?");
+          ? el("button", { class: "ghost danger", onclick: async () => {
+              const r = await askText("Void this invoice", {
+                label: "Why it is being voided",
+                hint: "The invoice stays on file and its days become billable " +
+                      "again. Nothing is deleted.",
+                submitLabel: "Void it" });
               if (r) act(() => voidInvoice(id, r));
             } }, "Void")
           : null),

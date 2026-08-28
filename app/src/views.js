@@ -8,7 +8,7 @@ const TITLES = {
   approvals: "Approvals", invoices: "Invoices", invoice: "Invoice",
   unlocks: "Unlock requests", audit: "Audit trail",
   submissions: "Submissions", submission: "Submission",
-  interviews: "Interviews", pipelines: "Pipelines",
+  interviews: "Interviews", pipelines: "Pipelines", paperwork: "Paperwork",
 };
 
 const UI = { view: "home", sel: null, week: null, who: null,
@@ -46,7 +46,7 @@ function homeView() {
   // An admin runs the whole business, so they see everything by default. Everyone
   // else starts with their own and can widen.
   const mineOnly = UI.scope === undefined || UI.scope === null
-    ? me.role !== "admin" : UI.scope === "mine";
+    ? true : UI.scope === "mine";
 
   const seg = (items, current, set) => el("div", { class: "deskswitch" },
     ...items.map(([k, label]) => el("button",
@@ -83,12 +83,14 @@ function actionRow(cells, opts = {}) {
 
 function logButton(label, { contactId, accountId = null, projectId = null,
                             kind = "call", prompt: question }) {
-  return el("button", { class: "linkbtn", onclick: (e) => {
+  return el("button", { class: "linkbtn", onclick: async (e) => {
     e.stopPropagation();
-    const body = prompt(question || "What happened?");
+    const body = await askText(question || "What happened?", {
+      label: "What was said",
+      placeholder: "Their words rather than your summary - it is worth more later.",
+      submitLabel: "Log it" });
     if (!body) return;
-    try { logActivity({ contactId, accountId, projectId, kind, body }); commit(); render(); }
-    catch (err) { alert(err.message); }
+    attempt(() => logActivity({ contactId, accountId, projectId, kind, body }));
   } }, label);
 }
 
@@ -467,9 +469,33 @@ function tourSteps() {
 
 /* ---------------------------------------------------------------- accounts */
 
+/* Mine or everyone, on any list that has an owner. A sales person opens their
+ * own book, which is what "my workspace" means, and widens when they want to. */
+function scopeBar(current, set, labels = ["Mine", "Everyone"]) {
+  return el("div", { class: "deskhead", style: "margin-bottom:14px" },
+    el("div", { class: "segs" },
+      el("div", { class: "deskswitch" },
+        ...[["mine", labels[0]], ["all", labels[1]]].map(([k, label]) =>
+          el("button", { class: "seg" + (current === k ? " on" : ""),
+                         onclick: () => { set(k); render(); } }, label)))));
+}
+
 function accountsView() {
-  const list = activeAccounts();
+  const me = actingUser();
+  const mineOnly = UI.bookScope === undefined || UI.bookScope === null
+    ? true : UI.bookScope === "mine";
+  const all = activeAccounts();
+  const list = mineOnly
+    ? all.filter((a) => ownersOf(a.id).some((o) => o.userId === me.id))
+    : all;
   return el("div", { class: "pane" },
+    scopeBar(mineOnly ? "mine" : "all", (k) => { UI.bookScope = k; },
+      ["My accounts", "Everyone's"]),
+    mineOnly && !list.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "No accounts are owned by you. "),
+          "Switch to Everyone's above to see the whole book.")
+      : null,
     el("table", { class: "grid" },
       el("thead", {}, el("tr", {},
         ...["Account", "Status", "Owners", "Sites", "Managers", "Open projects"]
@@ -705,12 +731,28 @@ function contactView(id) {
 /* ---------------------------------------------------------------- projects */
 
 function projectsView() {
+  const me = actingUser();
+  const mineOnly = UI.bookScope === undefined || UI.bookScope === null
+    ? true : UI.bookScope === "mine";
+  // Mine means the ones I run and the ones on accounts I own - a sales person
+  // owns the account, and the projects on it are theirs whoever is delivering.
+  const mine = (p) => p.ownerId === me.id ||
+    ownersOf(p.accountId).some((o) => o.userId === me.id);
+  const list = where("projects", (p) => !p.archivedAt && (!mineOnly || mine(p)));
   return el("div", { class: "pane" },
+    scopeBar(mineOnly ? "mine" : "all", (k) => { UI.bookScope = k; },
+      ["My projects", "Everyone's"]),
+    mineOnly && !list.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "No projects are yours. "),
+          "They belong to whoever owns the project or its account — switch to " +
+          "Everyone's above to see them all.")
+      : null,
     el("table", { class: "grid" },
       el("thead", {}, el("tr", {},
         ...["Project", "Account", "Delivery", "Status", "Seats", "Placed", "Approver"]
           .map((h) => el("th", {}, h)))),
-      el("tbody", {}, ...where("projects", (p) => !p.archivedAt).map((p) => {
+      el("tbody", {}, ...list.map((p) => {
         const s = projectSummary(p);
         return el("tr", { style: "cursor:pointer", onclick: () => go("project", p.id) },
           el("td", {}, el("strong", {}, p.name)),

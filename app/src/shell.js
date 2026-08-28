@@ -7,17 +7,6 @@
 let ART = null;
 let canWrite = null;          // null = unknown yet
 let pendingSave = false;
-let savingNote = null;
-
-function noteSaving(text, tone) {
-  if (savingNote) savingNote.remove();
-  if (!text) { savingNote = null; return; }
-  savingNote = el("div", { class: "saving" },
-    tone === "bad" ? el("span", { class: "err" }, text) : text);
-  document.body.append(savingNote);
-  if (tone !== "bad") setTimeout(() => { if (savingNote) noteSaving(null); }, 2200);
-}
-
 function serialize() {
   const css = document.getElementById("app-css").textContent;
   const src = document.getElementById("app-src").textContent;
@@ -83,10 +72,11 @@ function go(view, sel) {
 
 const NAV = [
   ["Workspace", [["home", "My desk"]]],
+  ["Sales", [["accounts", "Accounts"], ["projects", "Projects"],
+             ["paperwork", "Paperwork"]]],
   ["Recruiting", [["submissions", "Submissions"], ["interviews", "Interviews"],
                   ["pipelines", "Pipelines"]]],
-  ["Records", [["accounts", "Accounts"], ["projects", "Projects"],
-               ["contacts", "Contacts"], ["documents", "Documents"]]],
+  ["Records", [["contacts", "Contacts"], ["documents", "Documents"]]],
   ["Time and money", [["timesheet", "My week"], ["approvals", "Approvals"],
                       ["unlocks", "Unlock requests"], ["pos", "Purchase orders"],
                       ["invoices", "Invoices"]]],
@@ -114,6 +104,7 @@ function render() {
         // before. Their week and their filters go with them too.
         UI.desk = null; UI.scope = null; UI.who = null; UI.shownRows = null;
         UI.subScope = null; UI.subClosed = false; UI.pipeWho = null;
+        UI.bookScope = null;
         audit("users", "update", null, me, "switched acting user");
         commit(); render();
       } }, ...S.users.map((u) => el("option",
@@ -144,6 +135,7 @@ function render() {
   try {
     body =
       UI.view === "home" ? homeView() :
+      UI.view === "paperwork" ? paperworkView() :
       UI.view === "submissions" ? submissionsView() :
       UI.view === "pipelines" ? pipelinesView() :
       UI.view === "submission" ? submissionView(UI.sel) :

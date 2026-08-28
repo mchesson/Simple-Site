@@ -509,7 +509,7 @@ dialog.ask{
   max-height:calc(100dvh - 2rem); overflow:auto;
 }
 dialog.ask::backdrop{background:rgba(20,18,16,.45)}
-dialog.ask form{padding:18px 20px 16px}
+dialog.ask .askbody{padding:18px 20px 16px}
 dialog.ask h3{margin:0 0 4px; font-size:17px; font-weight:620; letter-spacing:-.01em}
 .askmeta{margin:0 0 14px; color:var(--ink-2); font-size:13.5px}
 .fields{display:grid; grid-template-columns:1fr 1fr; gap:12px}
@@ -554,3 +554,16 @@ input[type=number].fi{font-family:var(--mono); font-variant-numeric:tabular-nums
   .pipehead{gap:8px}
   .pipehead .rowbtns{width:100%}
 }
+
+/* A refusal is the most important thing the app says, so it stays on screen
+   until it is read rather than fading out on a timer. */
+.saving{display:flex; align-items:flex-start; gap:10px; max-width:min(26rem,calc(100vw - 2rem))}
+.saving.bad{border-left:3px solid var(--bad); color:var(--ink)}
+.notex{
+  background:none; border:0; cursor:pointer; color:var(--ink-3); font-size:18px;
+  line-height:1; padding:0 2px; margin-left:auto; flex:none;
+}
+.notex:hover{color:var(--ink)}
+.send.danger{background:var(--bad)}
+.ghost.danger{color:var(--bad)}
+.ghost.danger:hover{border-color:var(--bad)}

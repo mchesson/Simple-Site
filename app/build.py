@@ -17,6 +17,7 @@ SRC = os.path.join(HERE, "src")
 
 PARTS = [
     "core.js",       # state, the audit trail, the stage machine, shared helpers
+    "ui.js",         # asking a question, and saying a refusal out loud
     "bill.js",       # rates, margin, purchase order burn-down
     "seed.js",       # the demo workspace
     "views.js",      # the desk and the record screens

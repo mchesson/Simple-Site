@@ -511,7 +511,7 @@ dialog.ask{
   max-height:calc(100dvh - 2rem); overflow:auto;
 }
 dialog.ask::backdrop{background:rgba(20,18,16,.45)}
-dialog.ask form{padding:18px 20px 16px}
+dialog.ask .askbody{padding:18px 20px 16px}
 dialog.ask h3{margin:0 0 4px; font-size:17px; font-weight:620; letter-spacing:-.01em}
 .askmeta{margin:0 0 14px; color:var(--ink-2); font-size:13.5px}
 .fields{display:grid; grid-template-columns:1fr 1fr; gap:12px}
@@ -556,6 +556,19 @@ input[type=number].fi{font-family:var(--mono); font-variant-numeric:tabular-nums
   .pipehead{gap:8px}
   .pipehead .rowbtns{width:100%}
 }
+
+/* A refusal is the most important thing the app says, so it stays on screen
+   until it is read rather than fading out on a timer. */
+.saving{display:flex; align-items:flex-start; gap:10px; max-width:min(26rem,calc(100vw - 2rem))}
+.saving.bad{border-left:3px solid var(--bad); color:var(--ink)}
+.notex{
+  background:none; border:0; cursor:pointer; color:var(--ink-3); font-size:18px;
+  line-height:1; padding:0 2px; margin-left:auto; flex:none;
+}
+.notex:hover{color:var(--ink)}
+.send.danger{background:var(--bad)}
+.ghost.danger{color:var(--bad)}
+.ghost.danger:hover{border-color:var(--bad)}
 </script>
 <script type="application/json" id="app-state">null</script>
 <script type="text/plain" id="app-src">/* TS Workspace, hosted as a single page.
@@ -1279,6 +1292,194 @@ function reopenApproval(approvalId) {
   update("timesheets", ap.timesheetId, { status: "draft" }, "reopened for correction");
   return byId("approvals", approvalId);
 }
+/* ------------------------------------------------------------------- ui
+ *
+ * Asking a person a question, and telling them something went wrong.
+ *
+ * None of this uses window.prompt, window.confirm or window.alert, and none of
+ * it ever can: a published page runs inside a sandboxed frame, and a sandbox
+ * without allow-modals does not refuse those calls - it ignores them. prompt
+ * returns null, confirm returns false, alert does nothing at all. Every button
+ * built on one of them silently does nothing, and every error message built on
+ * alert is invisible, which is indistinguishable from the app being broken.
+ *
+ * So the page asks its own questions, in its own DOM, and says its own errors
+ * out loud on the screen.
+ */
+
+function askFor(title, fields, { submitLabel = "Save", note = null, onChange = null } = {}) {
+  return new Promise((resolve) => {
+    const inputs = {};
+    const readAll = () => Object.fromEntries(
+      Object.entries(inputs).map(([k, node]) => [k, node.value]));
+    const live = el("div", { class: "livenote" });
+
+    const refresh = () => {
+      if (!onChange) return;
+      const out = onChange(readAll());
+      live.replaceChildren(out ? (out.nodeType ? out : document.createTextNode(out)) : "");
+    };
+
+    const rows = fields.map((f) => {
+      let node;
+      if (f.type === "select") {
+        node = el("select", { class: "fi" }, ...(f.options || []).map((o) =>
+          el("option", { value: o.value,
+                         selected: String(o.value) === String(f.value ?? "") ? "" : null },
+             o.label)));
+      } else if (f.type === "textarea") {
+        node = el("textarea", { class: "fi", rows: f.rows || 3,
+                                placeholder: f.placeholder || "" }, f.value || "");
+      } else {
+        node = el("input", { class: "fi", type: f.type || "text",
+                             value: f.value ?? "", step: f.step || null,
+                             min: f.min ?? null, placeholder: f.placeholder || "" });
+      }
+      node.addEventListener("input", refresh);
+      node.addEventListener("change", refresh);
+      inputs[f.name] = node;
+      return el("label", { class: "field" + (f.wide ? " wide" : "") },
+        el("span", { class: "flab" }, f.label),
+        node,
+        f.hint ? el("span", { class: "fhint" }, f.hint) : null);
+    });
+
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      dlg.close();
+      resolve(value);
+    };
+
+    const dlg = el("dialog", { class: "ask" },
+      // Deliberately not a <form>. A published page runs in a sandboxed frame
+      // without allow-forms, where submitting a form is blocked outright: the
+      // submit event never fires, so a dialog built on one opens and then does
+      // nothing at all. The buttons are wired directly instead.
+      el("div", { class: "askbody" },
+        el("h3", {}, title),
+        note ? el("p", { class: "askmeta" }, note) : null,
+        el("div", { class: "fields" }, ...rows),
+        onChange ? live : null,
+        el("div", { class: "askbtns" },
+          el("button", { type: "button", class: "ghost",
+                         onclick: () => finish(null) }, "Cancel"),
+          el("button", { type: "button", class: "send",
+                         onclick: () => finish(readAll()) }, submitLabel))));
+
+    // Enter still submits, the way a form would have - except inside a textarea,
+    // where a newline is what the person meant.
+    dlg.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter" || e.shiftKey) return;
+      if (e.target && e.target.tagName === "TEXTAREA") return;
+      e.preventDefault();
+      finish(readAll());
+    });
+    dlg.addEventListener("close", () => { dlg.remove(); finish(null); });
+    dlg.addEventListener("cancel", () => finish(null));   // Escape
+    document.body.append(dlg);
+    dlg.showModal();
+    refresh();
+    const first = Object.values(inputs)[0];
+    if (first) first.focus();
+  });
+}
+
+/* Every write from a screen funnels through here so a refusal always lands the
+ * same way: the message the rule gave, in front of the person who tried. */
+function attempt(fn) {
+  try { const out = fn(); commit(); render(); return out; }
+  catch (e) { say(e.message, "bad"); return null; }
+}
+
+/* Ordered by how soon each person is actually free, because that is the question
+ * the list is being asked. Somebody on our bench is a redeployment - no
+ * onboarding, no screening, and they are already costing us - which makes them
+ * the cheapest seat on the desk. Somebody with eight months left on an
+ * assignment is a different conversation, and the label says which. */
+
+/* One text answer. The replacement for window.prompt, and unlike prompt it can
+ * carry a label, a hint and a longer field where the answer deserves one. */
+async function askText(title, opts = {}) {
+  const answer = await askFor(title, [{
+    name: "value",
+    label: opts.label || "Your answer",
+    type: opts.multiline === false ? "text" : "textarea",
+    value: opts.value ?? "",
+    rows: opts.rows || 3,
+    placeholder: opts.placeholder || "",
+    hint: opts.hint || null,
+    wide: true,
+  }], { submitLabel: opts.submitLabel || "Save", note: opts.note || null });
+  if (!answer) return null;
+  const v = (answer.value || "").trim();
+  if (!v && opts.required !== false) return null;
+  return v;
+}
+
+/* One number. Same idea, with the field typed so a phone shows a keypad. */
+async function askNumber(title, opts = {}) {
+  const answer = await askFor(title, [{
+    name: "value", label: opts.label || "Amount", type: "number",
+    step: opts.step || "0.01", min: opts.min ?? "0",
+    value: opts.value ?? "", hint: opts.hint || null, wide: true,
+  }], { submitLabel: opts.submitLabel || "Save", note: opts.note || null });
+  if (!answer || answer.value === "") return null;
+  const n = Number(answer.value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/* Yes or no. The replacement for window.confirm. */
+function askConfirm(title, body, opts = {}) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      dlg.close();
+      resolve(value);
+    };
+    const dlg = el("dialog", { class: "ask" },
+      el("div", { class: "askbody" },
+        el("h3", {}, title),
+        body ? el("p", { class: "askmeta" }, body) : null,
+        el("div", { class: "askbtns" },
+          el("button", { type: "button", class: "ghost",
+                         onclick: () => finish(false) },
+            opts.cancelLabel || "Cancel"),
+          el("button", { type: "button",
+                         class: opts.danger ? "send danger" : "send",
+                         onclick: () => finish(true) },
+            opts.confirmLabel || "Yes, do it"))));
+    dlg.addEventListener("close", () => { dlg.remove(); finish(false); });
+    dlg.addEventListener("cancel", () => finish(false));
+    document.body.append(dlg);
+    dlg.showModal();
+  });
+}
+
+/* Saying something to the person at the screen.
+ *
+ * A refusal is the most important thing this app ever says - the rules exist to
+ * be explained, not just enforced - so an error stays on screen until it is
+ * read and dismissed rather than fading out on a timer. */
+let savingNote = null;
+
+/* The older name for the same thing, kept because the save path calls it. */
+function noteSaving(text, tone) { return say(text, tone); }
+
+function say(text, tone) {
+  if (savingNote) { savingNote.remove(); savingNote = null; }
+  if (!text) return;
+  const bad = tone === "bad";
+  savingNote = el("div", { class: "saving" + (bad ? " bad" : tone ? " " + tone : "") },
+    el("span", {}, text),
+    bad ? el("button", { class: "notex", "aria-label": "Dismiss",
+                         onclick: () => say(null) }, "\u00d7") : null);
+  document.body.append(savingNote);
+  if (!bad) setTimeout(() => { if (savingNote) say(null); }, 2600);
+}
 
 /* ------------------------------------------------------------- invoicing */
 
@@ -1492,13 +1693,13 @@ function seedState() {
   S = st;
 
   const U = (name, email, role) => insert("users", { name, email, role }, "seeded");
-  const mark = U("Mark Chesson", "mchesson@technicalsource.com", "admin");
+  const matt = U("Matt Chesson", "mchesson@technicalsource.com", "admin");
   const rae = U("Rae Lambert", "rae.lambert@technicalsource.com", "account_manager");
   const dev = U("Devon Okafor", "devon.ok@technicalsource.com", "recruiter");
   const sam = U("Sam Iyer", "sam.iyer@technicalsource.com", "delivery");
   // A second admin, so an unlock raised by one of them can still be granted.
   U("Nadia Frost", "nadia.frost@technicalsource.com", "admin");
-  st.actingUserId = mark.id;
+  st.actingUserId = matt.id;
 
   const globex = insert("accounts", {
     name: "Globex Manufacturing", status: "active", industry: "Industrial",
@@ -1518,7 +1719,7 @@ function seedState() {
     role: "account_manager", splitPct: 60 }, "seeded");
   insert("accountOwners", { accountId: globex.id, userId: dev.id,
     role: "recruiter", splitPct: 40 }, "seeded");
-  insert("accountOwners", { accountId: initech.id, userId: mark.id,
+  insert("accountOwners", { accountId: initech.id, userId: matt.id,
     role: "account_manager", splitPct: 100 }, "seeded");
 
   const austin = insert("locations", { accountId: globex.id,
@@ -1622,10 +1823,10 @@ function seedState() {
     name: "ERP cutover PMO", deliveryType: "managed_service", status: "open",
     openings: 1, billRateMin: 140, startDate: "2026-10-01", payRateMin: null,
     payRateMax: null, billRateMax: null, description: null, skills: ["PMP", "ERP"],
-    ownerId: mark.id, archivedAt: null }, "seeded");
+    ownerId: matt.id, archivedAt: null }, "seeded");
   insert("projects", { accountId: initech.id, locationId: null,
     name: "Director of Analytics (perm)", deliveryType: "direct_hire", status: "open",
-    openings: 1, ownerId: mark.id, payRateMin: null, payRateMax: null,
+    openings: 1, ownerId: matt.id, payRateMin: null, payRateMax: null,
     billRateMin: null, billRateMax: null, startDate: null, description: null,
     skills: [], archivedAt: null }, "seeded");
 
@@ -1745,7 +1946,7 @@ function seedState() {
     asRole: "manager", kind: "meeting",
     body: "Walter confirmed the ERP cutover is funded for October. Wants a PMO " +
       "lead named by mid-September.",
-    actorId: mark.id, occurredAt: "2026-07-16T15:00:00.000Z" }, "seeded");
+    actorId: matt.id, occurredAt: "2026-07-16T15:00:00.000Z" }, "seeded");
 
   // -------- submissions: what the recruiters are actually working
   //
@@ -1947,7 +2148,7 @@ function seedState() {
   bill(15, "sent", "2026-08-03");
   bill(4, "draft", null);
 
-  st.actingUserId = mark.id;
+  st.actingUserId = matt.id;
   st.audit = st.audit.map((a) => ({ ...a, actorLabel: "seed", reason: "demo data" }));
   return st;
 }
@@ -1961,7 +2162,7 @@ const TITLES = {
   approvals: "Approvals", invoices: "Invoices", invoice: "Invoice",
   unlocks: "Unlock requests", audit: "Audit trail",
   submissions: "Submissions", submission: "Submission",
-  interviews: "Interviews", pipelines: "Pipelines",
+  interviews: "Interviews", pipelines: "Pipelines", paperwork: "Paperwork",
 };
 
 const UI = { view: "home", sel: null, week: null, who: null,
@@ -1999,7 +2200,7 @@ function homeView() {
   // An admin runs the whole business, so they see everything by default. Everyone
   // else starts with their own and can widen.
   const mineOnly = UI.scope === undefined || UI.scope === null
-    ? me.role !== "admin" : UI.scope === "mine";
+    ? true : UI.scope === "mine";
 
   const seg = (items, current, set) => el("div", { class: "deskswitch" },
     ...items.map(([k, label]) => el("button",
@@ -2036,12 +2237,14 @@ function actionRow(cells, opts = {}) {
 
 function logButton(label, { contactId, accountId = null, projectId = null,
                             kind = "call", prompt: question }) {
-  return el("button", { class: "linkbtn", onclick: (e) => {
+  return el("button", { class: "linkbtn", onclick: async (e) => {
     e.stopPropagation();
-    const body = prompt(question || "What happened?");
+    const body = await askText(question || "What happened?", {
+      label: "What was said",
+      placeholder: "Their words rather than your summary - it is worth more later.",
+      submitLabel: "Log it" });
     if (!body) return;
-    try { logActivity({ contactId, accountId, projectId, kind, body }); commit(); render(); }
-    catch (err) { alert(err.message); }
+    attempt(() => logActivity({ contactId, accountId, projectId, kind, body }));
   } }, label);
 }
 
@@ -2420,9 +2623,33 @@ function tourSteps() {
 
 /* ---------------------------------------------------------------- accounts */
 
+/* Mine or everyone, on any list that has an owner. A sales person opens their
+ * own book, which is what "my workspace" means, and widens when they want to. */
+function scopeBar(current, set, labels = ["Mine", "Everyone"]) {
+  return el("div", { class: "deskhead", style: "margin-bottom:14px" },
+    el("div", { class: "segs" },
+      el("div", { class: "deskswitch" },
+        ...[["mine", labels[0]], ["all", labels[1]]].map(([k, label]) =>
+          el("button", { class: "seg" + (current === k ? " on" : ""),
+                         onclick: () => { set(k); render(); } }, label)))));
+}
+
 function accountsView() {
-  const list = activeAccounts();
+  const me = actingUser();
+  const mineOnly = UI.bookScope === undefined || UI.bookScope === null
+    ? true : UI.bookScope === "mine";
+  const all = activeAccounts();
+  const list = mineOnly
+    ? all.filter((a) => ownersOf(a.id).some((o) => o.userId === me.id))
+    : all;
   return el("div", { class: "pane" },
+    scopeBar(mineOnly ? "mine" : "all", (k) => { UI.bookScope = k; },
+      ["My accounts", "Everyone's"]),
+    mineOnly && !list.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "No accounts are owned by you. "),
+          "Switch to Everyone's above to see the whole book.")
+      : null,
     el("table", { class: "grid" },
       el("thead", {}, el("tr", {},
         ...["Account", "Status", "Owners", "Sites", "Managers", "Open projects"]
@@ -2658,12 +2885,28 @@ function contactView(id) {
 /* ---------------------------------------------------------------- projects */
 
 function projectsView() {
+  const me = actingUser();
+  const mineOnly = UI.bookScope === undefined || UI.bookScope === null
+    ? true : UI.bookScope === "mine";
+  // Mine means the ones I run and the ones on accounts I own - a sales person
+  // owns the account, and the projects on it are theirs whoever is delivering.
+  const mine = (p) => p.ownerId === me.id ||
+    ownersOf(p.accountId).some((o) => o.userId === me.id);
+  const list = where("projects", (p) => !p.archivedAt && (!mineOnly || mine(p)));
   return el("div", { class: "pane" },
+    scopeBar(mineOnly ? "mine" : "all", (k) => { UI.bookScope = k; },
+      ["My projects", "Everyone's"]),
+    mineOnly && !list.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "No projects are yours. "),
+          "They belong to whoever owns the project or its account — switch to " +
+          "Everyone's above to see them all.")
+      : null,
     el("table", { class: "grid" },
       el("thead", {}, el("tr", {},
         ...["Project", "Account", "Delivery", "Status", "Seats", "Placed", "Approver"]
           .map((h) => el("th", {}, h)))),
-      el("tbody", {}, ...where("projects", (p) => !p.archivedAt).map((p) => {
+      el("tbody", {}, ...list.map((p) => {
         const s = projectSummary(p);
         return el("tr", { style: "cursor:pointer", onclick: () => go("project", p.id) },
           el("td", {}, el("strong", {}, p.name)),
@@ -3228,86 +3471,6 @@ function interviewsAwaitingFeedback(ownerId = null) {
         (r.sub.project && r.sub.project.ownerId === ownerId)))
     .sort((a, b) => b.daysAgo - a.daysAgo);
 }
-/* ------------------------------------------------------- forms and dialogs
- *
- * A browser prompt takes one line of text, which is fine for "what did they
- * say" and useless for a rate and a start date. This is the smallest thing that
- * is not that: a field list in, an object out, Escape closes it.
- */
-function askFor(title, fields, { submitLabel = "Save", note = null, onChange = null } = {}) {
-  return new Promise((resolve) => {
-    const inputs = {};
-    const readAll = () => Object.fromEntries(
-      Object.entries(inputs).map(([k, node]) => [k, node.value]));
-    const live = el("div", { class: "livenote" });
-
-    const refresh = () => {
-      if (!onChange) return;
-      const out = onChange(readAll());
-      live.replaceChildren(out ? (out.nodeType ? out : document.createTextNode(out)) : "");
-    };
-
-    const rows = fields.map((f) => {
-      let node;
-      if (f.type === "select") {
-        node = el("select", { class: "fi" }, ...(f.options || []).map((o) =>
-          el("option", { value: o.value,
-                         selected: String(o.value) === String(f.value ?? "") ? "" : null },
-             o.label)));
-      } else if (f.type === "textarea") {
-        node = el("textarea", { class: "fi", rows: f.rows || 3,
-                                placeholder: f.placeholder || "" }, f.value || "");
-      } else {
-        node = el("input", { class: "fi", type: f.type || "text",
-                             value: f.value ?? "", step: f.step || null,
-                             min: f.min ?? null, placeholder: f.placeholder || "" });
-      }
-      node.addEventListener("input", refresh);
-      node.addEventListener("change", refresh);
-      inputs[f.name] = node;
-      return el("label", { class: "field" + (f.wide ? " wide" : "") },
-        el("span", { class: "flab" }, f.label),
-        node,
-        f.hint ? el("span", { class: "fhint" }, f.hint) : null);
-    });
-
-    const dlg = el("dialog", { class: "ask" },
-      el("form", { method: "dialog", onsubmit: (e) => {
-        e.preventDefault();
-        dlg.close();
-        resolve(readAll());
-      } },
-        el("h3", {}, title),
-        note ? el("p", { class: "askmeta" }, note) : null,
-        el("div", { class: "fields" }, ...rows),
-        onChange ? live : null,
-        el("div", { class: "askbtns" },
-          el("button", { type: "button", class: "ghost",
-                         onclick: () => { dlg.close(); resolve(null); } }, "Cancel"),
-          el("button", { type: "submit", class: "send" }, submitLabel))));
-
-    dlg.addEventListener("close", () => { dlg.remove(); });
-    dlg.addEventListener("cancel", () => resolve(null));
-    document.body.append(dlg);
-    dlg.showModal();
-    refresh();
-    const first = Object.values(inputs)[0];
-    if (first) first.focus();
-  });
-}
-
-/* Every write from a screen funnels through here so a refusal always lands the
- * same way: the message the rule gave, in front of the person who tried. */
-function attempt(fn) {
-  try { const out = fn(); commit(); render(); return out; }
-  catch (e) { alert(e.message); return null; }
-}
-
-/* Ordered by how soon each person is actually free, because that is the question
- * the list is being asked. Somebody on our bench is a redeployment - no
- * onboarding, no screening, and they are already costing us - which makes them
- * the cheapest seat on the desk. Somebody with eight months left on an
- * assignment is a different conversation, and the label says which. */
 const candidateOptions = () => where("contacts", (c) => c.isCandidate && !c.archivedAt)
   .map((c) => ({ contact: c, status: workStatus(c.id) }))
   .sort((a, b) => {
@@ -3447,7 +3610,7 @@ async function interviewFlow(submissionId) {
   ], { submitLabel: "Book it",
        note: `${r.account ? r.account.name : ""} · ${r.project.name}` });
   if (!answer) return;
-  if (!answer.date) { alert("An interview needs a date."); return; }
+  if (!answer.date) { say("An interview needs a date.", "bad"); return; }
   attempt(() => scheduleInterview({
     submissionId, scheduledAt: `${answer.date}T${answer.time || "10:00"}:00`,
     durationMins: Number(answer.durationMins) || 60, mode: answer.mode,
@@ -3836,7 +3999,8 @@ async function addToPipelineFlow(pipelineId, contactId = null) {
 
   if (!pipelineId) {
     if (!mine.length) {
-      alert("You have no categories yet. Make one first, on the Pipelines screen.");
+      say("You have no categories yet. Make one on the Pipelines screen first.",
+        "bad");
       return;
     }
     fields.push({ name: "pipelineId", label: "Which category", type: "select", wide: true,
@@ -3847,7 +4011,7 @@ async function addToPipelineFlow(pipelineId, contactId = null) {
       (m) => m.pipelineId === pipelineId).map((m) => m.contactId));
     const options = candidateOptions().filter((o) => !already.has(o.value));
     if (!options.length) {
-      alert("Everybody on file is already in this one.");
+      say("Everybody on file is already in this one.", "bad");
       return;
     }
     fields.push({ name: "contactId", label: "Who", type: "select", wide: true,
@@ -3962,9 +4126,13 @@ function pipelinesView() {
                       onclick: () => submitFlow({ contactId: m.contact.id }) },
                       "Submit"),
                     pl.ownerId === me.id
-                      ? el("button", { class: "linkbtn danger", onclick: () => {
-                          if (!confirm(`Drop ${m.contact.fullName} out of ${pl.name}? ` +
-                              "Their record is untouched — this only removes the tag.")) return;
+                      ? el("button", { class: "linkbtn danger", onclick: async () => {
+                          const ok = await askConfirm(
+                            `Drop ${m.contact.fullName} out of ${pl.name}?`,
+                            "Their record is untouched - this only removes the tag, " +
+                            "and the removal is kept in the audit trail.",
+                            { confirmLabel: "Drop them", danger: true });
+                          if (!ok) return;
                           attempt(() => dropFromPipeline(pl.id, m.contact.id));
                         } }, "Drop")
                       : null)))))) 
@@ -4062,6 +4230,103 @@ function interviewsView() {
       : [el("p", { class: "muted" }, "Nothing booked in the next three weeks.")]));
 }
 
+/* --------------------------------------------------------------- paperwork
+ *
+ * What sales lives on. An account with open projects and no master agreement is
+ * work we cannot invoice, and a lapsed one is worse than none because everybody
+ * assumes it is fine. Both were visible only as a widget on the desk, which is
+ * the wrong place for the thing somebody has to chase.
+ */
+function paperworkView() {
+  const me = actingUser();
+  const mineOnly = UI.bookScope === undefined || UI.bookScope === null
+    ? true : UI.bookScope === "mine";
+  const mine = (accountId) => !mineOnly ||
+    ownersOf(accountId).some((o) => o.userId === me.id);
+  const today = iso(new Date());
+
+  const accounts = activeAccounts().filter((a) => mine(a.id));
+  const rows = accounts.map((a) => {
+    const all = where("agreements", (g) => g.accountId === a.id);
+    const msa = all.filter((g) => g.kind === "MSA" && g.status === "executed")[0] || null;
+    const expired = !!(msa && msa.effectiveTo && msa.effectiveTo < today);
+    const expiringIn = msa && msa.effectiveTo ? daysUntil(msa.effectiveTo) : null;
+    const openProjects = projectsOf(a.id).filter((p) => p.status === "open").length;
+    const working = where("placements", (pl) => pl.status === "active" &&
+      (byId("projects", pl.projectId) || {}).accountId === a.id).length;
+    return { account: a, agreements: all, msa, expired, expiringIn,
+             openProjects, working };
+  });
+
+  const urgent = rows.filter((r) => (!r.msa || r.expired) &&
+    (r.openProjects > 0 || r.working > 0));
+  const soon = rows.filter((r) => r.msa && !r.expired &&
+    r.expiringIn !== null && r.expiringIn <= 90);
+
+  const agreementRow = (r) => el("tr", {
+      class: (!r.msa || r.expired) && (r.openProjects || r.working) ? "urgent" : null,
+      style: "cursor:pointer", onclick: () => go("account", r.account.id) },
+    el("td", {}, el("strong", {}, r.account.name),
+      el("div", { class: "meta" },
+        ownersOf(r.account.id).map((o) => o.name).join(", ") || "unassigned")),
+    el("td", {},
+      !r.msa ? el("span", { class: "pill bad" }, "no master agreement")
+        : r.expired ? el("span", { class: "pill bad" },
+            "lapsed " + day(r.msa.effectiveTo))
+        : r.expiringIn !== null && r.expiringIn <= 90
+          ? el("span", { class: "pill warn" }, `expires in ${r.expiringIn} days`)
+          : el("span", { class: "pill good" }, "in force")),
+    el("td", { class: "num" }, r.openProjects),
+    el("td", { class: "num" }, r.working),
+    el("td", { class: "muted" },
+      r.agreements.length
+        ? r.agreements.map((g) => g.kind.replace(/_/g, " ")).join(", ")
+        : "nothing on file"),
+    el("td", { class: "muted" }, r.msa && r.msa.termsNotes ? r.msa.termsNotes : ""));
+
+  return el("div", { class: "pane" },
+    el("div", { class: "deskhead" },
+      el("div", {},
+        el("h2", { class: "dtitle" }, "Paperwork"),
+        el("p", { class: "dsub" },
+          "Master agreements, and which accounts are working without one. " +
+          "An account with people on site and no agreement in force is revenue " +
+          "we cannot bill for.")),
+      el("div", { class: "segs" },
+        el("div", { class: "deskswitch" },
+          ...[["mine", "My accounts"], ["all", "Everyone's"]].map(([k, label]) =>
+            el("button", { class: "seg" + ((mineOnly ? "mine" : "all") === k ? " on" : ""),
+                           onclick: () => { UI.bookScope = k; render(); } }, label))))),
+
+    urgent.length
+      ? el("div", { class: "banner warn" },
+          el("b", {}, urgent.length === 1
+            ? "One account is working without an agreement in force. "
+            : `${urgent.length} accounts are working without an agreement in force. `),
+          "That is delivery we may not be able to invoice. It is the first call to make.")
+      : null,
+
+    soon.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "Renewals coming. "),
+          soon.map((r) => `${r.account.name} in ${r.expiringIn} days`).join(", ") + ".")
+      : null,
+
+    !rows.length
+      ? el("div", { class: "banner" },
+          el("b", {}, "No accounts are yours. "),
+          "Switch to Everyone's above to see the whole book.")
+      : el("table", { class: "grid" },
+          el("thead", {},
+            el("tr", {}, ...["Account", "Master agreement", "Open projects",
+              "People on site", "On file", "Terms"].map((h) => el("th", {}, h)))),
+          el("tbody", {}, ...rows
+            .sort((a, b) =>
+              (Number(!b.msa || b.expired) - Number(!a.msa || a.expired)) ||
+              (b.openProjects + b.working) - (a.openProjects + a.working))
+            .map(agreementRow))));
+}
+
 /* --------------------------------------------------------- purchase orders */
 
 const leg = (tone, label, amount, opacity) => el("span", {},
@@ -4122,7 +4387,7 @@ function poCard(po, opts = {}) {
           num(po.approvedUnbilled) > 0
             ? el("button", { class: "send", onclick: () => {
                 const r = draftInvoice({ purchaseOrderId: po.id });
-                if (r.nothingToBill) return alert(r.message);
+                if (r.nothingToBill) { say(r.message, "bad"); return; }
                 commit(); go("invoice", r.id);
               } }, `Draft an invoice for ${money(po.approvedUnbilled)}`)
             : null,
@@ -4344,14 +4609,14 @@ function timesheetView() {
         const packets = submitTimesheet(ts.id);
         const unrouted = packets.filter((p) => !p.approverContactId);
         if (unrouted.length) {
-          alert(`Submitted, but ${unrouted.length} project has no approving manager ` +
+          say(`Submitted, but ${unrouted.length} project has no approving manager ` +
                 `on file. Somebody has to name one before that part can be approved.`);
         }
       }
       commit();
       UI.shownRows = null;
       render();
-    } catch (e) { alert(e.message); }
+    } catch (e) { say(e.message, "bad"); }
   }
 
   const shift = (n) => {
@@ -4436,21 +4701,36 @@ function approvalsView() {
   const rejected = approvalQueue("rejected");
 
   const card = (a) => {
-    const decide = (decision) => {
-      const by = a.approverName ||
-        prompt("Which manager at the client is deciding?");
-      if (!by) return;
-      const note = decision === "rejected"
-        ? prompt("Why is it going back? The consultant will see this.") : null;
-      if (decision === "rejected" && !note) return;
-      try { decideApproval(a.id, decision, by, note); commit(); render(); }
-      catch (e) { alert(e.message); }
+    const decide = async (decision) => {
+      let by = a.approverName;
+      if (!by) {
+        by = await askText("Who is deciding?", {
+          label: "The approving manager at the client",
+          multiline: false,
+          hint: "Nobody is named as an approver on this project yet.",
+          submitLabel: "Continue" });
+        if (!by) return;
+      }
+      let note = null;
+      if (decision === "rejected") {
+        note = await askText(`Send ${a.consultant}'s week back`, {
+          label: "Why it is going back",
+          placeholder: "The consultant will read this, so say what to change.",
+          submitLabel: "Send it back" });
+        if (!note) return;
+      }
+      attempt(() => decideApproval(a.id, decision, by, note));
     };
-    const askUnlock = () => {
-      const reason = prompt("This time is locked. Why does it need to be reopened?");
+    const askUnlock = async () => {
+      const reason = await askText("This time is locked", {
+        label: "Why does it need reopening",
+        placeholder: "An admin will read this and decide.",
+        hint: "Approved time is frozen at the rate in force. Only an admin can " +
+              "unlock it.",
+        submitLabel: "Ask for an unlock" });
       if (!reason) return;
       try { requestUnlock(a.id, reason); commit(); go("unlocks"); }
-      catch (e) { alert(e.message); }
+      catch (e) { say(e.message, "bad"); }
     };
     return el("div", { class: "packet" },
       el("div", { class: "hd" },
@@ -4514,12 +4794,17 @@ function unlocksView() {
   const me = actingUser();
   const isAdmin = me.role === "admin";
 
-  const decide = (u, decision) => {
-    const note = prompt(decision === "granted"
-      ? "Note for the record (optional)" : "Why is this being denied?");
+  const decide = async (u, decision) => {
+    const note = await askText(
+      decision === "granted" ? `Unlock ${u.consultant}'s week` : "Deny this request",
+      { label: decision === "granted" ? "Note for the record" : "Why it is being denied",
+        placeholder: decision === "granted"
+          ? "Optional, but the audit trail keeps it either way."
+          : "The person who asked will read this.",
+        required: decision === "denied",
+        submitLabel: decision === "granted" ? "Grant it" : "Deny it" });
     if (decision === "denied" && !note) return;
-    try { decideUnlock(u.id, decision, note); commit(); render(); }
-    catch (e) { alert(e.message); }
+    attempt(() => decideUnlock(u.id, decision, note));
   };
 
   const card = (u) => el("div", { class: "packet" },
@@ -4560,7 +4845,7 @@ function unlocksView() {
             el("span", { class: "pill good" }, "granted by " + (u.decidedByName || "—")),
             el("button", { class: "ghost", onclick: () => {
               try { reopenApproval(u.approvalId); commit(); go("timesheet"); }
-              catch (e) { alert(e.message); }
+              catch (e) { say(e.message, "bad"); }
             } }, "Reopen the week now"),
             el("span", { class: "muted" }, "one use only"))
         : el("div", { class: "meta", style: "margin-top:10px" },
@@ -4640,7 +4925,7 @@ function invoiceView(id) {
     .sort((a, b) => num(a.sortOrder) - num(b.sortOrder));
   const payments = where("payments", (p) => p.invoiceId === id);
 
-  const act = (fn) => { try { fn(); commit(); render(); } catch (e) { alert(e.message); } };
+  const act = (fn) => { try { fn(); commit(); render(); } catch (e) { say(e.message, "bad"); } };
 
   return el("div", { class: "pane" },
     el("div", { class: "card" },
@@ -4663,15 +4948,21 @@ function invoiceView(id) {
               "Send it — this burns the PO")
           : null,
         ["sent", "part_paid"].includes(inv.status)
-          ? el("button", { class: "send", onclick: () => {
-              const a = prompt(`Payment amount (outstanding ${money(t.outstanding)})`,
-                               String(t.outstanding));
-              if (a) act(() => recordPayment(id, Number(a), "ACH"));
+          ? el("button", { class: "send", onclick: async () => {
+              const a = await askNumber("Record a payment", {
+                label: "Amount received", value: t.outstanding,
+                hint: `${money(t.outstanding)} is outstanding on this invoice.`,
+                submitLabel: "Record it" });
+              if (a) act(() => recordPayment(id, a, "ACH"));
             } }, "Record a payment")
           : null,
         !["void", "paid"].includes(inv.status)
-          ? el("button", { class: "ghost", onclick: () => {
-              const r = prompt("Why is this being voided?");
+          ? el("button", { class: "ghost danger", onclick: async () => {
+              const r = await askText("Void this invoice", {
+                label: "Why it is being voided",
+                hint: "The invoice stays on file and its days become billable " +
+                      "again. Nothing is deleted.",
+                submitLabel: "Void it" });
               if (r) act(() => voidInvoice(id, r));
             } }, "Void")
           : null),
@@ -4770,17 +5061,6 @@ function auditView() {
 let ART = null;
 let canWrite = null;          // null = unknown yet
 let pendingSave = false;
-let savingNote = null;
-
-function noteSaving(text, tone) {
-  if (savingNote) savingNote.remove();
-  if (!text) { savingNote = null; return; }
-  savingNote = el("div", { class: "saving" },
-    tone === "bad" ? el("span", { class: "err" }, text) : text);
-  document.body.append(savingNote);
-  if (tone !== "bad") setTimeout(() => { if (savingNote) noteSaving(null); }, 2200);
-}
-
 function serialize() {
   const css = document.getElementById("app-css").textContent;
   const src = document.getElementById("app-src").textContent;
@@ -4846,10 +5126,11 @@ function go(view, sel) {
 
 const NAV = [
   ["Workspace", [["home", "My desk"]]],
+  ["Sales", [["accounts", "Accounts"], ["projects", "Projects"],
+             ["paperwork", "Paperwork"]]],
   ["Recruiting", [["submissions", "Submissions"], ["interviews", "Interviews"],
                   ["pipelines", "Pipelines"]]],
-  ["Records", [["accounts", "Accounts"], ["projects", "Projects"],
-               ["contacts", "Contacts"], ["documents", "Documents"]]],
+  ["Records", [["contacts", "Contacts"], ["documents", "Documents"]]],
   ["Time and money", [["timesheet", "My week"], ["approvals", "Approvals"],
                       ["unlocks", "Unlock requests"], ["pos", "Purchase orders"],
                       ["invoices", "Invoices"]]],
@@ -4877,6 +5158,7 @@ function render() {
         // before. Their week and their filters go with them too.
         UI.desk = null; UI.scope = null; UI.who = null; UI.shownRows = null;
         UI.subScope = null; UI.subClosed = false; UI.pipeWho = null;
+        UI.bookScope = null;
         audit("users", "update", null, me, "switched acting user");
         commit(); render();
       } }, ...S.users.map((u) => el("option",
@@ -4907,6 +5189,7 @@ function render() {
   try {
     body =
       UI.view === "home" ? homeView() :
+      UI.view === "paperwork" ? paperworkView() :
       UI.view === "submissions" ? submissionsView() :
       UI.view === "pipelines" ? pipelinesView() :
       UI.view === "submission" ? submissionView(UI.sel) :
