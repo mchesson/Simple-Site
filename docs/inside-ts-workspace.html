@@ -1,0 +1,671 @@
+<title>Inside TS Workspace</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400&family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root{
+  --paper:#f6f7f5; --panel:#ffffff; --sunk:#eef0ed;
+  --ink:#151917; --ink-2:#5d6763; --ink-3:#8b948f;
+  --rule:#dfe4e0; --rule-2:#c9d1cc;
+  --accent:#1e6b51; --accent-soft:#e6efe9;
+  --amber:#a3690f; --rust:#9b3527;
+  --serif:"Newsreader",Georgia,"Times New Roman",serif;
+  --sans:"Public Sans",ui-sans-serif,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --col:37rem;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0e1211; --panel:#161b19; --sunk:#121716;
+    --ink:#e4e9e6; --ink-2:#9aa4a0; --ink-3:#727c78;
+    --rule:#262e2b; --rule-2:#36403c;
+    --accent:#59bd92; --accent-soft:#16241e;
+    --amber:#d09a3f; --rust:#dd7a66;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0e1211; --panel:#161b19; --sunk:#121716;
+  --ink:#e4e9e6; --ink-2:#9aa4a0; --ink-3:#727c78;
+  --rule:#262e2b; --rule-2:#36403c;
+  --accent:#59bd92; --accent-soft:#16241e;
+  --amber:#d09a3f; --rust:#dd7a66;
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--paper); color:var(--ink);
+  font-family:var(--sans); font-size:16.5px; line-height:1.62;
+  font-weight:350; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:var(--col); margin:0 auto; padding:0 1.5rem}
+.wide{max-width:64rem; margin:0 auto; padding:0 1.5rem}
+
+/* ------------------------------------------------------------- masthead */
+header.top{
+  border-bottom:1px solid var(--rule); padding:4.5rem 0 2.75rem; margin-bottom:3.5rem;
+}
+.eyebrow{
+  font-family:var(--mono); font-size:11px; font-weight:500; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--accent);
+}
+h1{
+  font-family:var(--serif); font-weight:500; font-size:clamp(2.5rem,7vw,3.7rem);
+  line-height:1.02; letter-spacing:-.022em; margin:.7rem 0 0; text-wrap:balance;
+}
+.standfirst{
+  font-family:var(--serif); font-size:1.32rem; line-height:1.5; color:var(--ink-2);
+  margin:1.1rem 0 0; max-width:32rem; font-weight:400;
+}
+.byline{
+  margin-top:2rem; font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
+  display:flex; flex-wrap:wrap; gap:.4rem 1.4rem; letter-spacing:.02em;
+}
+
+/* -------------------------------------------------------------- sections */
+section{margin-bottom:4rem}
+h2{
+  font-family:var(--serif); font-weight:500; font-size:1.85rem; line-height:1.15;
+  letter-spacing:-.018em; margin:0 0 .2rem; text-wrap:balance;
+}
+h2 + .kicker{
+  font-family:var(--mono); font-size:11px; letter-spacing:.12em; text-transform:uppercase;
+  color:var(--ink-3); margin:0 0 1.4rem;
+}
+.sechead{border-top:1px solid var(--rule-2); padding-top:1.5rem; margin-bottom:1.5rem}
+.sechead .layer{
+  font-family:var(--mono); font-size:11px; letter-spacing:.13em; text-transform:uppercase;
+  color:var(--accent); display:block; margin-bottom:.85rem;
+}
+h3{
+  font-family:var(--sans); font-weight:600; font-size:1.02rem; letter-spacing:-.005em;
+  margin:2rem 0 .4rem;
+}
+p{margin:0 0 1.1rem}
+strong{font-weight:600}
+em{font-style:italic}
+a{color:var(--accent); text-underline-offset:3px; text-decoration-thickness:1px}
+code{
+  font-family:var(--mono); font-size:.855em; background:var(--sunk);
+  padding:.1em .38em; border-radius:4px; border:1px solid var(--rule);
+}
+.lede{font-size:1.08rem; color:var(--ink-2)}
+
+ul.plain{margin:0 0 1.2rem; padding-left:1.15rem}
+ul.plain li{margin:.45rem 0}
+ul.plain li::marker{color:var(--ink-3)}
+
+/* ------------------------------------------------------------- specimens */
+figure{margin:2rem 0}
+figcaption{
+  font-size:13.5px; color:var(--ink-3); margin-top:.85rem; line-height:1.5;
+  border-left:2px solid var(--rule-2); padding-left:.9rem;
+  max-width:34rem;
+}
+svg.fig{width:100%; height:auto; display:block; color:var(--ink)}
+
+pre{
+  font-family:var(--mono); font-size:12.5px; line-height:1.62; background:var(--panel);
+  border:1px solid var(--rule); border-radius:6px; padding:.95rem 1.05rem;
+  overflow-x:auto; margin:0 0 1.2rem; color:var(--ink-2);
+}
+pre b{color:var(--ink); font-weight:600}
+pre .c{color:var(--ink-3); font-style:italic}
+pre .k{color:var(--accent); font-weight:500}
+pre .bad{color:var(--rust); font-weight:500}
+
+table{
+  width:100%; border-collapse:collapse; font-size:14.5px; margin:0 0 1.2rem;
+  font-variant-numeric:tabular-nums;
+}
+th{
+  text-align:left; font-family:var(--mono); font-size:10.5px; font-weight:500;
+  letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3);
+  padding:0 1rem .55rem 0; border-bottom:1px solid var(--rule-2); white-space:nowrap;
+}
+td{padding:.6rem 1rem .6rem 0; border-bottom:1px solid var(--rule); vertical-align:top}
+td.n{font-family:var(--mono); font-size:13px; white-space:nowrap}
+.scroll{overflow-x:auto; margin-bottom:1.2rem}
+
+/* ------------------------------------------------------------ the trace */
+.turn{
+  background:var(--panel); border:1px solid var(--rule); border-radius:8px;
+  overflow:hidden;
+}
+.turn .q{
+  padding:1rem 1.2rem; border-bottom:1px solid var(--rule); background:var(--sunk);
+  font-family:var(--serif); font-size:1.08rem;
+}
+.turn .q span{
+  display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--ink-3); margin-bottom:.3rem;
+}
+ol.tl{list-style:none; margin:0; padding:1.1rem 1.2rem 1.2rem 2.4rem; position:relative}
+ol.tl::before{
+  content:""; position:absolute; left:1.55rem; top:1.7rem; bottom:1.7rem;
+  width:1px; background:var(--rule-2);
+}
+ol.tl > li{position:relative; margin-bottom:1.15rem}
+ol.tl > li:last-child{margin-bottom:0}
+ol.tl > li::before{
+  content:""; position:absolute; left:-1.11rem; top:.42rem; width:9px; height:9px;
+  border-radius:50%; background:var(--ink-3);
+  box-shadow:0 0 0 3px var(--panel);
+}
+ol.tl > li.m::before{background:var(--accent)}
+ol.tl > li.t::before{background:var(--amber)}
+ol.tl > li.s::before{background:var(--rule-2); border:1px solid var(--ink-3)}
+.step-h{display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap}
+.step-h b{font-size:14.5px; font-weight:600}
+.step-h .mono{
+  font-family:var(--mono); font-size:11.5px; color:var(--ink-3);
+  font-variant-numeric:tabular-nums;
+}
+.step-sub{font-size:13px; color:var(--ink-3); margin-top:.1rem}
+ol.tl pre{margin:.55rem 0 0; font-size:11.5px}
+
+.note{
+  border-left:2px solid var(--amber); padding:.1rem 0 .1rem 1rem; margin:1.5rem 0;
+  color:var(--ink-2); font-size:15px;
+}
+.note b{color:var(--ink)}
+
+.stat-row{
+  display:grid; grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr)); gap:1px;
+  background:var(--rule); border:1px solid var(--rule); border-radius:6px;
+  overflow:hidden; margin:1.6rem 0;
+}
+.stat{background:var(--panel); padding:.85rem 1rem}
+.stat .k{
+  font-family:var(--mono); font-size:10px; letter-spacing:.11em; text-transform:uppercase;
+  color:var(--ink-3);
+}
+.stat .v{
+  font-family:var(--mono); font-size:1.35rem; font-weight:600; letter-spacing:-.02em;
+  margin-top:.15rem; font-variant-numeric:tabular-nums;
+}
+
+footer{
+  border-top:1px solid var(--rule-2); margin-top:5rem; padding:2.5rem 0 4.5rem;
+  color:var(--ink-3); font-size:14px;
+}
+footer p{margin-bottom:.7rem}
+
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:2px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+@media (max-width:640px){
+  body{font-size:16px}
+  header.top{padding-top:3rem}
+}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="eyebrow">Technical Source · system walkthrough</div>
+    <h1>Inside TS&nbsp;Workspace</h1>
+    <p class="standfirst">The backend, the assistant, and the glass box that shows
+      you what both of them actually did.</p>
+    <div class="byline">
+      <span>Postgres 16 · Node 22 · claude-opus-5</span>
+      <span>23 tools · 26 tables · 52 tests</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section>
+  <p class="lede">Until now the workspace was one page that kept its data in the
+    page. That was enough to argue about the shape of the business, and not
+    enough to run it. This is the machinery underneath: a database that refuses
+    to hold a state the business does not allow, an assistant that is genuinely
+    Claude with its hands on that data, and an inspector that answers the
+    question you asked for — how does it work, and what is it doing right now.</p>
+
+  <p>Three things run. A <strong>Postgres database</strong> holding accounts,
+    sites, people, projects, paperwork and money. A <strong>Node server</strong>
+    that owns every write and records everything it does. And <strong>Claude</strong>,
+    reached over the API, given tools onto that database rather than a copy of
+    it.</p>
+
+  <p>The part worth being precise about: the model does not hold your data.
+    Nothing is loaded into it and nothing is remembered by it between questions.
+    Each turn, it is handed a set of tools; it decides which to call; the server
+    runs them against Postgres and hands back rows. That is why the answers can
+    be current, and why the inspector can show you the exact statement behind
+    any figure.</p>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Architecture</span>
+    <h2>What talks to what</h2>
+  </div>
+</section>
+</div>
+
+<div class="wide">
+<figure>
+<svg class="fig" viewBox="0 0 900 380" role="img"
+     aria-label="The browser calls the Node server, which reads and writes Postgres through a read-write role, calls the Claude API with tool definitions, and runs Claude's generated SELECT statements through a separate SELECT-only database role.">
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7"
+            orient="auto-start-reverse">
+      <polygon points="0,1 9,5 0,9" fill="currentColor"/>
+    </marker>
+  </defs>
+  <g fill="none" stroke="currentColor" stroke-width="1.25">
+    <rect x="20" y="152" width="150" height="86" rx="6" opacity=".85"/>
+    <rect x="290" y="120" width="180" height="150" rx="6" stroke-width="1.75"/>
+    <rect x="620" y="26" width="250" height="172" rx="6" opacity=".85"/>
+    <rect x="620" y="252" width="250" height="86" rx="6" opacity=".85"/>
+    <rect x="642" y="74" width="206" height="38" rx="4" opacity=".45" stroke-dasharray="3 3"/>
+    <rect x="642" y="122" width="206" height="38" rx="4" opacity=".45" stroke-dasharray="3 3"/>
+
+    <line x1="170" y1="180" x2="284" y2="172" marker-end="url(#ar)"/>
+    <line x1="284" y1="218" x2="170" y2="210" marker-end="url(#ar)"/>
+
+    <line x1="470" y1="150" x2="636" y2="95" marker-end="url(#ar)"/>
+    <line x1="470" y1="196" x2="636" y2="141" marker-end="url(#ar)" stroke-dasharray="5 3"/>
+
+    <line x1="470" y1="236" x2="614" y2="278" marker-end="url(#ar)"/>
+    <polyline points="618,320 520,320 520,272" marker-end="url(#ar)"/>
+  </g>
+
+  <g font-family="Public Sans, sans-serif" fill="currentColor">
+    <text x="95" y="186" font-size="14" font-weight="600" text-anchor="middle">Browser</text>
+    <text x="95" y="206" font-size="11.5" opacity=".6" text-anchor="middle">workspace · inspector</text>
+
+    <text x="380" y="152" font-size="14.5" font-weight="600" text-anchor="middle">Node server</text>
+    <text x="380" y="176" font-size="11.5" opacity=".6" text-anchor="middle">owns every write</text>
+    <text x="380" y="196" font-size="11.5" opacity=".6" text-anchor="middle">records every step</text>
+    <text x="380" y="228" font-size="11.5" opacity=".6" text-anchor="middle">runs the tool loop</text>
+
+    <text x="745" y="56" font-size="14" font-weight="600" text-anchor="middle">PostgreSQL</text>
+    <text x="745" y="192" font-size="10.5" text-anchor="middle" opacity=".55">26 tables · constraints · full history</text>
+
+    <text x="745" y="282" font-size="14" font-weight="600" text-anchor="middle">Claude API</text>
+    <text x="745" y="304" font-size="11.5" opacity=".6" text-anchor="middle">claude-opus-5</text>
+    <text x="745" y="322" font-size="11.5" opacity=".6" text-anchor="middle">holds no data of yours</text>
+  </g>
+
+  <g font-family="JetBrains Mono, monospace" font-size="10.5" fill="currentColor">
+    <text x="745" y="90" text-anchor="middle" opacity=".85">ts_app</text>
+    <text x="745" y="104" text-anchor="middle" opacity=".55">read / write</text>
+    <text x="745" y="138" text-anchor="middle" opacity=".85">ts_readonly</text>
+    <text x="745" y="152" text-anchor="middle" opacity=".55">SELECT only</text>
+
+    <text x="227" y="164" text-anchor="middle" opacity=".7">asks</text>
+    <text x="227" y="232" text-anchor="middle" opacity=".7">streams back</text>
+    <text x="553" y="110" text-anchor="middle" opacity=".7">writes</text>
+    <text x="553" y="192" text-anchor="middle" opacity=".7">model's SELECTs</text>
+    <text x="562" y="238" text-anchor="middle" opacity=".7">tools + question</text>
+    <text x="562" y="336" text-anchor="middle" opacity=".7">the tool to run</text>
+  </g>
+</svg>
+<figcaption>The dashed path is the one that matters. When Claude writes its own
+  SQL, that statement travels on a second connection held by a database role with
+  <code>SELECT</code> and nothing else — so a write is refused by Postgres, not by
+  a check in our code that someone could talk their way around.</figcaption>
+</figure>
+</div>
+
+<div class="wrap">
+
+<section>
+  <div class="sechead"><span class="layer">Observability</span>
+    <h2>What happens when you ask a question</h2>
+    <p class="kicker">One turn, step by step</p>
+  </div>
+
+  <p>Every turn is recorded as it runs. Not a log you grep afterwards — a
+    structured trace where each model call, each tool call, and each SQL
+    statement underneath that tool is a row with its own timing. Here is a real
+    one, exactly as the inspector renders it.</p>
+
+  <figure>
+    <div class="turn">
+      <div class="q"><span>The question</span>What's our margin on the Globex plant
+        data platform?</div>
+      <ol class="tl">
+        <li class="m">
+          <div class="step-h"><b>Model call 1</b>
+            <span class="mono">1,200 in · 240 out · $0.0120 · tool_use</span></div>
+          <div class="step-sub">claude-opus-5 · effort high · 1 message · 23 tools offered</div>
+          <pre><span class="c">reasoning</span>
+Margin on a placement, not a project average. The rates are
+effective-dated so there may be more than one, and I must use
+gross_margin rather than subtracting bill from pay — burden sits
+on the pay side.</pre>
+        </li>
+        <li class="t">
+          <div class="step-h"><b>sql_query</b>
+            <span class="mono">17 ms · 1 row</span></div>
+          <div class="step-sub">purpose: current margin per placement on this project</div>
+        </li>
+        <li class="s">
+          <div class="step-h"><b>SQL</b>
+            <span class="mono">read-only role · 16 ms · 1 row</span></div>
+          <pre><span class="k">select</span> c.full_name, r.pay_rate, r.bill_rate, r.burden_pct,
+       <b>gross_margin</b>(r.pay_rate, r.bill_rate, r.burden_pct)
+         <span class="k">as</span> gm,
+       <span class="k">round</span>(<b>gross_margin_pct</b>(
+         r.pay_rate, r.bill_rate, r.burden_pct), 2) <span class="k">as</span> gm_pct
+  <span class="k">from</span> placement pl
+  <span class="k">join</span> contact c <span class="k">on</span> c.id = pl.contact_id
+  <span class="k">join</span> placement_rate r <span class="k">on</span> r.placement_id = pl.id
+  <span class="k">join</span> project p <span class="k">on</span> p.id = pl.project_id
+ <span class="k">where</span> p.name <span class="k">ilike</span> '%plant data platform%'
+   <span class="k">and</span> r.effective_to <span class="k">is null</span>
+ <span class="k">limit</span> 200</pre>
+        </li>
+        <li class="m">
+          <div class="step-h"><b>Model call 2</b>
+            <span class="mono">1,200 in · 240 out · $0.0120 · end_turn</span></div>
+          <div class="step-sub">3 messages · the answer</div>
+        </li>
+      </ol>
+    </div>
+    <figcaption>The tool call and the SQL beneath it are real, recorded by the
+      running system. The model's half is a stand-in — no Claude credential was
+      available in the environment this was built in, so the two model calls
+      were scripted to exercise the loop. Everything below the model is
+      genuine.</figcaption>
+  </figure>
+
+  <p>Four things fall out of a trace like that, and all four are things you
+    normally cannot get:</p>
+
+  <ul class="plain">
+    <li><strong>The figure is checkable.</strong> You can read the statement that
+      produced it, and run it yourself in the inspector's console.</li>
+    <li><strong>The reasoning is visible.</strong> Adaptive thinking is on and
+      summarised, so you can see why it chose that path — here, catching that
+      burden goes on pay.</li>
+    <li><strong>The cost is known per answer.</strong> Tokens in, tokens out,
+      what was served from cache, dollars.</li>
+    <li><strong>The latency is attributed.</strong> If a turn is slow you can see
+      whether it was the model thinking or a query taking too long.</li>
+  </ul>
+
+  <div class="stat-row">
+    <div class="stat"><div class="k">Wall clock</div><div class="v">13 ms</div></div>
+    <div class="stat"><div class="k">Cost</div><div class="v">$0.024</div></div>
+    <div class="stat"><div class="k">Model calls</div><div class="v">2</div></div>
+    <div class="stat"><div class="k">Tool calls</div><div class="v">1</div></div>
+    <div class="stat"><div class="k">SQL</div><div class="v">1</div></div>
+  </div>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">The assistant</span>
+    <h2>Why it can answer in plain English</h2>
+  </div>
+
+  <p>Twenty-three tools cover accounts, sites, contacts, projects, activity,
+    documents, pipelines and PO burn-down. Most are ordinary: fetch this, list
+    those, write that. Three design choices do the heavy lifting.</p>
+
+  <h3>A tool that cannot proceed says what it needs</h3>
+  <p>Ask it to add a hiring manager and give it only a name, and the tool does
+    not fail — it returns the gap.</p>
+<pre>{ "error": "missing_information",
+  "needs": [
+    "the company they work for (a manager sits on an account)"
+  ],
+  "hint": "Ask the user for these before calling again." }</pre>
+  <p>The model reads that and asks you for exactly that one thing. This is what
+    makes entering a record by conversation feel like a conversation instead of a
+    form rejecting you.</p>
+
+  <h3>A name that matches two things is a question, not a guess</h3>
+  <p>"Globex" when there is a Globex Manufacturing and a Globex Logistics returns
+    both and asks which. Guessing here means logging a call against the wrong
+    company, which is worse than a moment's friction.</p>
+
+  <h3>When no tool fits, it writes SQL</h3>
+  <p>Ranked lists, aggregates, questions that span four entities — no purpose-built
+    tool can anticipate them all. So the model can write a <code>SELECT</code>,
+    and it reads the live schema from the database first so what it is told cannot
+    drift from what is there. The safety is not a promise:</p>
+<pre><span class="c">-- on the connection the assistant's queries travel</span>
+<b>insert into</b> app_user (email, full_name) <b>values</b> ('x@y.z','X');
+<span class="bad">ERROR:  permission denied for table app_user</span></pre>
+  <p>That is Postgres refusing, on a role that was granted <code>SELECT</code> and
+    nothing else. Pattern checks sit in front of it as a courtesy to the model, so
+    it gets a clear error instead of a permissions failure halfway through — but
+    they are not what is protecting you.</p>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Data plane</span>
+    <h2>The rules live in the database</h2>
+  </div>
+
+  <p>An application check is a rule that holds until someone writes a second
+    code path. A constraint is a rule that holds. These are the ones the business
+    actually turns on, and each has a test asserting it, because a constraint
+    nobody tested is a comment.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>The rule</th><th>Enforced by</th><th>What it prevents</th></tr></thead>
+    <tbody>
+      <tr><td>A manager sits on an account</td><td class="n">check</td>
+          <td>Contacts nobody can route a req through</td></tr>
+      <tr><td>Everyone is a manager, a candidate, or both</td><td class="n">check</td>
+          <td>Records with no reason to exist</td></tr>
+      <tr><td>A document belongs to exactly one thing</td><td class="n">check</td>
+          <td>An MSA that is also somehow a resume</td></tr>
+      <tr><td>A project uses its own account's sites</td><td class="n">trigger</td>
+          <td>Work booked to the wrong plant</td></tr>
+      <tr><td>Two rates of a type never overlap in time</td><td class="n">exclusion</td>
+          <td>Silent double-billing and broken history</td></tr>
+      <tr><td>Owners are workspace users</td><td class="n">foreign key</td>
+          <td>Commission owed to a name someone typed</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The last of the checks is the one worth showing, because most systems get it
+    wrong by storing a single rate column and editing it:</p>
+
+<pre><span class="k">create table</span> placement_rate (
+  placement_id   uuid <span class="k">not null references</span> placement(id),
+  rate_type      text <span class="k">not null</span>,
+  pay_rate       numeric(12,4) <span class="k">not null</span>,
+  bill_rate      numeric(12,4) <span class="k">not null</span>,
+  burden_pct     numeric(6,4)  <span class="k">not null default</span> 0,
+  effective_from date <span class="k">not null</span>,
+  effective_to   date,
+  validity       daterange <span class="k">generated always as</span>
+                 (daterange(effective_from, effective_to, '[)'))
+                 <span class="k">stored</span>,
+  supersedes_id  uuid <span class="k">references</span> placement_rate(id),
+
+  <span class="c">-- the whole point</span>
+  <b>exclude using gist</b> (placement_id <span class="k">with</span> =,
+                       rate_type    <span class="k">with</span> =,
+                       validity     <span class="k">with</span> &amp;&amp;)
+);</pre>
+
+  <p>A rate is never edited. A change writes a new row that starts where the last
+    one ended, and the exclusion constraint makes an overlap impossible rather
+    than unlikely. An invoice from March still reconciles against the rate that
+    was in force in March.</p>
+
+  <div class="note">
+    <b>Nothing is destroyed anywhere.</b> Every update writes the previous
+    version to <code>record_revision</code> before the row changes, inside the
+    same transaction. Deletes are an <code>archived_at</code> stamp — the row
+    stays. Ask the assistant what a record looked like before and it can tell
+    you, because the answer is stored rather than reconstructed.
+  </div>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Money</span>
+    <h2>Margin, defined once</h2>
+  </div>
+
+  <p>Burden is a percentage of <em>pay</em>, not of bill. Every system that gets
+    this backwards overstates margin, and overstates it most where the pay rate is
+    lowest — which is exactly where you can least afford to be wrong. So the
+    formula is a database function and there is only one of it:</p>
+
+<pre><span class="k">gross_margin</span>(pay, bill, burden_pct) = bill − pay − (pay × burden_pct / 100)</pre>
+
+  <p>Marcus Bell on the Globex plant data platform, with the raise that landed on
+    1 August:</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Effective</th><th>Pay</th><th>Bill</th><th>Burden</th>
+      <th>Spread</th><th>Gross margin</th><th>GM %</th></tr></thead>
+    <tbody>
+      <tr><td>1 Jun – 1 Aug 2026</td><td class="n">$65.00</td><td class="n">$105.00</td>
+          <td class="n">22%</td><td class="n">$40.00</td><td class="n">$25.70</td>
+          <td class="n">24.48%</td></tr>
+      <tr><td>1 Aug 2026 – open</td><td class="n">$68.00</td><td class="n">$108.00</td>
+          <td class="n">22%</td><td class="n">$40.00</td><td class="n">$25.04</td>
+          <td class="n">23.19%</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The spread is $40 in both rows and tells you nothing. The raise passed $3 to
+    the consultant and $3 to the bill rate, which looks like a wash and is not:
+    burden rides on the pay increase, so the cash margin fell 66¢ an hour and the
+    percentage fell more than a point. On a 40-hour week across a year that is
+    about $1,370 — from a change that reads as neutral on a rate sheet.</p>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Money</span>
+    <h2>Purchase order burn-down</h2>
+  </div>
+
+  <p>You asked for this specifically, and it is in. One view, so every screen in
+    the org reads the same number: what was committed, what approved time has
+    burned, what is submitted and waiting on the client, what is left, and how
+    many days until the PO expires.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>PO</th><th>Committed</th><th>Burned</th><th>Awaiting approval</th>
+      <th>Remaining</th><th>Expires</th></tr></thead>
+    <tbody>
+      <tr><td>PO-GLX-88412</td><td class="n">$180,000</td>
+          <td class="n">$46,560 · 25.9%</td><td class="n">$8,640</td>
+          <td class="n">$133,440</td><td class="n">31 Oct · 64 days</td></tr>
+      <tr><td>PO-GLX-88500</td><td class="n">$95,000</td><td class="n">$0</td>
+          <td class="n">$0</td><td class="n">$95,000</td>
+          <td class="n">31 Jan · 156 days</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The two middle columns are the ones that earn their place. <strong>Burned</strong>
+    is approved time only — money you can invoice. <strong>Awaiting approval</strong>
+    is work already done that the client has not signed off, which is money at
+    risk and invisible in most systems until it becomes an argument. Ask for POs
+    running out in the next 90 days and you get them ranked by how soon, not by
+    how full.</p>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Observability</span>
+    <h2>The inspector</h2>
+  </div>
+
+  <p>Five sections, at <code>/inspect.html</code>. Nothing in it is a
+    reconstruction — each panel reads the running system.</p>
+
+  <div class="scroll">
+  <table>
+    <thead><tr><th>Section</th><th>What it shows</th><th>Read from</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Turns</strong></td>
+          <td>Every model call, tool call and SQL statement, with timings, tokens,
+              cost and reasoning. Steps appear live as a turn runs.</td>
+          <td class="n">the trace itself</td></tr>
+      <tr><td><strong>Data</strong></td>
+          <td>The schema with row counts, and a query console.</td>
+          <td class="n">information_schema</td></tr>
+      <tr><td><strong>Tools</strong></td>
+          <td>The 23 tool definitions, exactly as sent to the model.</td>
+          <td class="n">the request builder</td></tr>
+      <tr><td><strong>Prompt</strong></td>
+          <td>The system prompt verbatim, the request settings, the pricing used
+              to cost each turn.</td>
+          <td class="n">the request builder</td></tr>
+      <tr><td><strong>Events</strong></td>
+          <td>Every change, each linking back to the turn that caused it.</td>
+          <td class="n">domain_event</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <p>The query console runs on the same read-only role the assistant uses. If you
+    doubt a number the assistant gave you, you can check it against the database
+    in the same window, by hand, in about fifteen seconds.</p>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Running it</span>
+    <h2>What you need</h2>
+  </div>
+
+  <p>PostgreSQL 16 and Node 22. The code is on the
+    <code>claude/applicant-tracking-crm-design-tkjh5b</code> branch, under
+    <code>server/</code>.</p>
+
+<pre>createdb ts_workspace
+psql -d ts_workspace -f src/bootstrap.sql   <span class="c"># as a superuser: creates the two roles</span>
+npm install
+cp .env.example .env                        <span class="c"># then put your API key in it</span>
+npm run db:reset                            <span class="c"># schema + demo data</span>
+npm start</pre>
+
+  <p>Chat needs an <code>ANTHROPIC_API_KEY</code>. Everything else — the database,
+    the record screens, the inspector, the query console — runs without one, and
+    the chat endpoint tells you the key is missing rather than failing quietly.</p>
+</section>
+
+<section>
+  <div class="sechead"><span class="layer">Honestly</span>
+    <h2>What is proven and what is not</h2>
+  </div>
+
+  <p><strong>Proven.</strong> Fifty-two tests run against a real Postgres database
+    built from the same schema the application uses — a mock would not catch the
+    constraints, and the constraints are where most of the design lives. Every
+    rule in the table above is asserted. So is the read-only role, including a
+    direct write attempt that Postgres refuses. So is the revision history, the
+    role-aware activity logging, the deduplication when you create someone who
+    already exists, PO burn-down arithmetic, the tool loop's iteration cap, and
+    the stability of the cached system prompt.</p>
+
+  <p><strong>Not proven.</strong> No live call to the Claude API was made. There
+    was no credential in the environment this was built in, so the agent loop was
+    exercised against a scripted stand-in for the API client. The request shape is
+    asserted against the documented parameters — model, adaptive thinking, effort,
+    tool schemas — but the round trip has not been run. Add a key and send one
+    message. If it answers, the loop is good; if it does not, the error will be in
+    the trace.</p>
+
+  <p><strong>Still to build.</strong> Managed-service deliverables and milestones.
+    Engagements with a team lead over several resources. The bench knowledge base
+    and redeployment. Change orders exist as a table but have no workflow around
+    them yet. Timecard entry and approval is seeded, not built — burn-down reads
+    real timecards, but nobody submits one through the product yet.</p>
+</section>
+
+</div>
+
+<footer>
+  <div class="wrap">
+    <p>Built for Technical Source. The code, the schema and the tests are in the
+      repository; this page describes the state of the branch as it stands.</p>
+    <p>Figures shown are from the seeded demo workspace, not from live client data.</p>
+  </div>
+</footer>
