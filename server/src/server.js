@@ -163,21 +163,54 @@ route("GET", "/api/po-burndown", async (_p, q) =>
     atRisk: q.get("at_risk") === "1",
   }));
 
-// ------------------------------------------------------- timecards & invoices
+// ------------------------------------------------------ timesheets & billing
 
-route("GET", "/api/timecards", async (_p, q) =>
-  repo.listTimecards({
-    status: q.get("status"), poId: q.get("po_id"), projectId: q.get("project_id"),
-    placementId: q.get("placement_id"), weekFrom: q.get("from"), weekTo: q.get("to"),
-    unbilledOnly: q.get("unbilled") === "1",
-    limit: Number(q.get("limit") || 200),
+route("GET", "/api/timesheets", async (_p, q) =>
+  repo.listTimesheets({
+    contactId: q.get("contact_id"), status: q.get("status"),
+    weekEnding: q.get("week_ending"), limit: Number(q.get("limit") || 100),
   }));
-route("POST", "/api/timecards", async (_p, _q, body) =>
-  repo.insertRecord("timecard", body, await actorId()));
-route("POST", "/api/timecards/approve", async (_p, _q, body) =>
-  repo.approveTimecards(body.ids, body.approved_by, await actorId()));
-route("POST", "/api/timecards/:id/reject", async (p, _q, body) =>
-  repo.rejectTimecard(p.id, body.reason, await actorId()));
+route("GET", "/api/timesheets/:id", async (p) =>
+  (await repo.getTimesheet(p.id)) || { error: "not_found" });
+route("POST", "/api/timesheets", async (_p, _q, body) =>
+  repo.getOrCreateTimesheet(body.contact_id, body.week_ending, await actorId()));
+route("PUT", "/api/timesheets/:id/entries", async (p, _q, body) =>
+  repo.saveTimesheet(p.id, body.entries || [], await actorId()));
+route("POST", "/api/timesheets/:id/submit", async (p) =>
+  repo.submitTimesheet(p.id, await actorId()));
+
+// What a consultant may charge this week: their placements and the open POs on
+// each. The grid offers these and nothing else.
+route("GET", "/api/allocation-targets", async (_p, q) => {
+  const who = q.get("contact_id");
+  const week = q.get("week_ending");
+  // Answering an under-specified question with an empty list looks like "this
+  // consultant has nothing to charge to", which is a different and wrong answer.
+  if (!who || !week) throw new Error("need contact_id and week_ending");
+  return repo.allocationTargets(who, week);
+});
+
+route("GET", "/api/approvals", async (_p, q) =>
+  repo.approvalQueue({
+    approverContactId: q.get("approver_id"), projectId: q.get("project_id"),
+    accountId: q.get("account_id"), status: q.get("status") || "pending",
+  }));
+route("GET", "/api/approvals/:id", async (p) =>
+  (await repo.getApproval(p.id)) || { error: "not_found" });
+route("POST", "/api/approvals/:id/decide", async (p, _q, body) =>
+  repo.decideApproval(p.id, body.decision, body.decided_by, body.note || null,
+                      await actorId()));
+
+route("GET", "/api/entries", async (_p, q) =>
+  repo.listEntries({
+    status: q.get("status"), poId: q.get("po_id"), projectId: q.get("project_id"),
+    contactId: q.get("contact_id"), from: q.get("from"), to: q.get("to"),
+    unbilledOnly: q.get("unbilled") === "1", limit: Number(q.get("limit") || 500),
+  }));
+
+route("GET", "/api/projects/:id/approvers", async (p) => repo.projectApprovers(p.id));
+route("PUT", "/api/projects/:id/approvers", async (p, _q, body) =>
+  repo.setProjectApprovers(p.id, body.contact_ids || [], await actorId()));
 
 route("GET", "/api/invoices", async (_p, q) =>
   repo.listInvoices({

@@ -604,70 +604,256 @@ export function buildTools(ctx) {
       },
     },
     {
-      name: "list_timecards",
+      name: "list_timesheets",
       description:
-        "Timecards. Status is submitted (claimed, not yet accepted by the client), " +
-        "approved (accepted - this is earned revenue) or rejected. Whether a week has " +
-        "been billed is not a status: the invoice_number field is filled in when it is " +
-        "on a live invoice. Use unbilled=true with status=approved to see the billing " +
-        "backlog.",
+        "Weekly timesheets. A consultant fills in one a week and allocates their hours " +
+        "across whatever projects and purchase orders they worked on. Status is draft " +
+        "(still being filled in), submitted (waiting on the client), partly_approved (one " +
+        "manager has signed off and another has not), approved, or rejected.",
       input_schema: {
         type: "object",
         properties: {
-          status: { type: "string", enum: ["draft", "submitted", "approved", "rejected"] },
-          project_name: { type: "string" }, po_number: { type: "string" },
-          from: { type: "string", description: "Earliest week ending, YYYY-MM-DD" },
-          to: { type: "string", description: "Latest week ending, YYYY-MM-DD" },
-          unbilled: { type: "boolean", description: "Only weeks not on a live invoice." },
-          limit: { type: "integer", default: 200 },
+          consultant_name: { type: "string" },
+          status: { type: "string",
+            enum: ["draft", "submitted", "partly_approved", "approved", "rejected"] },
+          week_ending: { type: "string", description: "YYYY-MM-DD" },
         },
       },
       run: async (i) => {
-        let projectId = null, poId = null;
+        let contactId = null;
+        if (i.consultant_name) {
+          const r = await resolve("contact", i.consultant_name);
+          if (!r.match) return ambiguous("person", i.consultant_name, r.candidates);
+          contactId = r.match.id;
+        }
+        return repo.listTimesheets({
+          contactId, status: i.status || null, weekEnding: i.week_ending || null });
+      },
+    },
+    {
+      name: "get_timesheet",
+      description:
+        "One week in full: every day, what each day was charged to, what it is worth, " +
+        "and where each project's part sits in approval.",
+      input_schema: {
+        type: "object",
+        properties: {
+          timesheet_id: { type: "string" },
+          consultant_name: { type: "string" },
+          week_ending: { type: "string", description: "YYYY-MM-DD" },
+        },
+      },
+      run: async (i) => {
+        let id = i.timesheet_id;
+        if (!id) {
+          if (!i.consultant_name || !i.week_ending)
+            return need("whose week, and which week ending date");
+          const r = await resolve("contact", i.consultant_name);
+          if (!r.match) return ambiguous("person", i.consultant_name, r.candidates);
+          const ts = await one(
+            `select id from timesheet where contact_id = $1 and week_ending = $2::date`,
+            [r.match.id, i.week_ending]);
+          if (!ts) return { error: "not_found",
+                            message: `No timesheet for that person, week ending ${i.week_ending}.` };
+          id = ts.id;
+        }
+        return (await repo.getTimesheet(id)) || { error: "not_found" };
+      },
+    },
+    {
+      name: "allocation_targets",
+      description:
+        "What a consultant is allowed to charge to in a given week - every placement " +
+        "they hold and the open purchase orders on each. Call this before entering time " +
+        "so the allocation lands on something real.",
+      input_schema: {
+        type: "object",
+        properties: {
+          consultant_name: { type: "string" },
+          week_ending: { type: "string", description: "YYYY-MM-DD" },
+        },
+        required: ["consultant_name", "week_ending"],
+      },
+      run: async (i) => {
+        const r = await resolve("contact", i.consultant_name);
+        if (!r.match) return ambiguous("person", i.consultant_name, r.candidates);
+        return repo.allocationTargets(r.match.id, i.week_ending);
+      },
+    },
+    {
+      name: "enter_time",
+      description:
+        "Enter or replace a consultant's week. Give every day they worked with the " +
+        "placement and purchase order it goes against - a day can appear more than once " +
+        "if it was split across projects. This replaces the whole week, so send all of " +
+        "it, not just the changes. Call allocation_targets first to get the placement ids.",
+      input_schema: {
+        type: "object",
+        properties: {
+          consultant_name: { type: "string" },
+          week_ending: { type: "string", description: "The Sunday, YYYY-MM-DD" },
+          entries: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                placement_id: { type: "string" },
+                purchase_order_id: { type: "string" },
+                work_date: { type: "string", description: "YYYY-MM-DD" },
+                hours: { type: "number" },
+                ot_hours: { type: "number" },
+                notes: { type: "string" },
+              },
+              required: ["placement_id", "work_date", "hours"],
+            },
+          },
+          submit: { type: "boolean",
+                    description: "Submit it for approval straight away." },
+        },
+        required: ["consultant_name", "week_ending", "entries"],
+      },
+      run: async (i) => {
+        const r = await resolve("contact", i.consultant_name);
+        if (!r.match) return ambiguous("person", i.consultant_name, r.candidates);
+        if (!i.entries?.length) return need("which days and how many hours on each");
+        const ts = await repo.getOrCreateTimesheet(r.match.id, i.week_ending, actor());
+        await repo.saveTimesheet(ts.id, i.entries, actor());
+        if (i.submit) await repo.submitTimesheet(ts.id, actor());
+        return repo.getTimesheet(ts.id);
+      },
+    },
+    {
+      name: "submit_timesheet",
+      description:
+        "Send a week to the client for approval. One approval packet is created per " +
+        "project the week touches, each routed to that project's approving manager, so " +
+        "two managers can sign off independently.",
+      input_schema: {
+        type: "object",
+        properties: {
+          timesheet_id: { type: "string" },
+          consultant_name: { type: "string" },
+          week_ending: { type: "string" },
+        },
+      },
+      run: async (i) => {
+        let id = i.timesheet_id;
+        if (!id) {
+          if (!i.consultant_name || !i.week_ending)
+            return need("whose week, and which week ending date");
+          const r = await resolve("contact", i.consultant_name);
+          if (!r.match) return ambiguous("person", i.consultant_name, r.candidates);
+          const ts = await one(
+            `select id from timesheet where contact_id = $1 and week_ending = $2::date`,
+            [r.match.id, i.week_ending]);
+          if (!ts) return { error: "not_found", message: "No timesheet for that week." };
+          id = ts.id;
+        }
+        return repo.submitTimesheet(id, actor());
+      },
+    },
+    {
+      name: "approval_queue",
+      description:
+        "Time waiting on client managers. Each row is one project's part of one " +
+        "consultant's week, with the hours, what it is worth, and who is meant to " +
+        "approve it. A row with no approver named is a routing gap somebody has to fix.",
+      input_schema: {
+        type: "object",
+        properties: {
+          approver_name: { type: "string", description: "One client manager's queue." },
+          account_name: { type: "string" }, project_name: { type: "string" },
+          status: { type: "string", enum: ["pending", "approved", "rejected"] },
+        },
+      },
+      run: async (i) => {
+        let approverId = null, projectId = null, accountId = null;
+        if (i.approver_name) {
+          const r = await resolve("contact", i.approver_name);
+          if (!r.match) return ambiguous("person", i.approver_name, r.candidates);
+          approverId = r.match.id;
+        }
         if (i.project_name) {
           const r = await resolve("project", i.project_name);
           if (!r.match) return ambiguous("project", i.project_name, r.candidates);
           projectId = r.match.id;
         }
-        if (i.po_number) {
-          const po = await one(
-            `select id from purchase_order where po_number ilike '%'||$1||'%'`,
-            [i.po_number]);
-          if (!po) return { error: "not_found", message: `No PO matching ${i.po_number}.` };
-          poId = po.id;
+        if (i.account_name) {
+          const r = await resolve("account", i.account_name);
+          if (!r.match) return ambiguous("account", i.account_name, r.candidates);
+          accountId = r.match.id;
         }
-        return repo.listTimecards({
-          status: i.status || null, projectId, poId,
-          weekFrom: i.from || null, weekTo: i.to || null,
-          unbilledOnly: !!i.unbilled, limit: i.limit || 200 });
+        return repo.approvalQueue({
+          approverContactId: approverId, projectId, accountId,
+          status: i.status || "pending" });
       },
     },
     {
-      name: "approve_timecards",
+      name: "decide_timesheet",
       description:
-        "Record that the client approved weeks of time. This freezes what each week is " +
-        "worth at the bill rate in force that week, and turns it into earned revenue " +
-        "that can be invoiced. Needs the name of the person at the client who approved.",
+        "Record a client manager's decision on their part of a week. Approving freezes " +
+        "what those days are worth at the rate in force on each day and makes them " +
+        "billable. Rejecting releases the value and sends the week back to the " +
+        "consultant to correct. Needs the name of the manager who decided.",
       input_schema: {
         type: "object",
         properties: {
-          timecard_ids: { type: "array", items: { type: "string" } },
-          approved_by: { type: "string",
-                         description: "The client-side name who signed off." },
+          approval_id: { type: "string",
+                         description: "From approval_queue." },
+          decision: { type: "string", enum: ["approved", "rejected"] },
+          decided_by: { type: "string",
+                        description: "The client-side manager who signed off." },
+          note: { type: "string", description: "Required in practice on a rejection." },
         },
-        required: ["timecard_ids", "approved_by"],
+        required: ["approval_id", "decision", "decided_by"],
       },
       run: async (i) => {
-        if (!i.timecard_ids?.length) return need("which weeks were approved");
-        if (!i.approved_by) return need("who at the client approved them");
-        return repo.approveTimecards(i.timecard_ids, i.approved_by, actor());
+        const missing = [];
+        if (!i.approval_id) missing.push("which week and project");
+        if (!i.decision) missing.push("approved or rejected");
+        if (!i.decided_by) missing.push("which manager at the client decided");
+        if (missing.length) return need(...missing);
+        return repo.decideApproval(i.approval_id, i.decision, i.decided_by,
+                                   i.note || null, actor());
+      },
+    },
+    {
+      name: "set_project_approvers",
+      description:
+        "Name the client managers who may approve time on a project. They have to be " +
+        "existing manager contacts on that account. The first one is the primary, and " +
+        "is who submitted time routes to.",
+      input_schema: {
+        type: "object",
+        properties: {
+          project_name: { type: "string" }, project_id: { type: "string" },
+          approver_names: { type: "array", items: { type: "string" } },
+        },
+        required: ["approver_names"],
+      },
+      run: async (i) => {
+        let projectId = i.project_id;
+        if (!projectId) {
+          if (!i.project_name) return need("which project");
+          const r = await resolve("project", i.project_name);
+          if (!r.match) return ambiguous("project", i.project_name, r.candidates);
+          projectId = r.match.id;
+        }
+        const ids = [];
+        for (const nm of i.approver_names || []) {
+          const r = await resolve("contact", nm);
+          if (!r.match) return ambiguous("person", nm, r.candidates);
+          ids.push(r.match.id);
+        }
+        if (!ids.length) return need("who should approve time on it");
+        return repo.setProjectApprovers(projectId, ids, actor());
       },
     },
     {
       name: "draft_invoice",
       description:
         "Draft an invoice from approved time that has not been billed yet. This is the " +
-        "only route from a timecard to an invoice: it cannot pick up time the client has " +
+        "only route from worked time to an invoice: it cannot pick up time the client has " +
         "not approved, and it cannot pick up a week that is already on a live invoice. " +
         "The draft does not burn the PO - sending it does.",
       input_schema: {
@@ -868,7 +1054,7 @@ export function buildTools(ctx) {
         properties: {
           table: { type: "string",
             enum: ["account", "location", "contact", "project", "submission", "placement",
-                   "purchase_order", "timecard", "document"] },
+                   "purchase_order", "timesheet", "timesheet_entry", "document"] },
           id: { type: "string" },
         },
         required: ["table", "id"],

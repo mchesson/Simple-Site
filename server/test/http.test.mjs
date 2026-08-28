@@ -86,7 +86,8 @@ describe("the HTTP surface", () => {
   });
 
   test("the billing endpoints answer", async () => {
-    for (const p of ["/api/timecards", "/api/invoices", "/api/invoice-aging",
+    for (const p of ["/api/timesheets", "/api/entries", "/api/approvals",
+                     "/api/invoices", "/api/invoice-aging",
                      "/api/po-burndown", "/api/po-burndown?at_risk=1"]) {
       const { status, body } = await get(p);
       assert.equal(status, 200, p);
@@ -104,12 +105,19 @@ describe("the HTTP surface", () => {
     }
   });
 
-  test("approving without naming the approver is refused", async () => {
-    const r = await fetch(base + "/api/timecards/approve", {
+  test("a decision without naming who made it is refused", async () => {
+    const r = await fetch(base + "/api/approvals/00000000-0000-0000-0000-000000000000/decide", {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ids: [], approved_by: "" }),
+      body: JSON.stringify({ decision: "approved", decided_by: "" }),
     });
     assert.equal(r.status, 400);
+    assert.match((await r.json()).error, /who made the decision/);
+  });
+
+  test("allocation targets need a consultant and a week", async () => {
+    const { status, body } = await get("/api/allocation-targets");
+    assert.equal(status, 400);
+    assert.ok(body.error);
   });
 
   test("a missing record answers 404 rather than an empty 200", async () => {

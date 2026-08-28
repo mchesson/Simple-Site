@@ -30,13 +30,15 @@ const WRITABLE = {
   sow: ["project_id","title","status","start_date","end_date","total_value","deliverables"],
   purchase_order: ["project_id","sow_id","po_number","amount","currency","start_date",
                    "end_date","status","notes"],
-  timecard: ["placement_id","purchase_order_id","week_ending","hours","ot_hours","status",
-             "submitted_at","approved_by","approved_at","rejected_reason",
-             "billable_amount","notes"],
+  timesheet: ["contact_id","week_ending","status","submitted_at","notes"],
+  timesheet_entry: ["timesheet_id","placement_id","project_id","purchase_order_id",
+                    "work_date","hours","ot_hours","notes"],
+  timesheet_approval: ["timesheet_id","project_id","approver_contact_id","status",
+                       "decided_at","decided_by","note"],
   invoice: ["invoice_number","account_id","project_id","purchase_order_id","status",
             "issue_date","due_date","terms_days","period_start","period_end","notes"],
-  invoice_line: ["invoice_id","kind","timecard_id","description","quantity","unit_rate",
-                 "amount","sort_order"],
+  invoice_line: ["invoice_id","kind","timesheet_entry_id","description","quantity",
+                 "unit_rate","amount","sort_order"],
   payment: ["invoice_id","amount","received_at","method","reference"],
   document: ["kind","title","account_id","location_id","project_id","contact_id",
              "sharepoint_url","sharepoint_path","content_text","mime_type","byte_size","uploaded_by"],
@@ -44,8 +46,8 @@ const WRITABLE = {
 };
 
 const HAS_UPDATED_AT = new Set(["account","location","contact","project","submission",
-  "placement","agreement","rate_verification","sow","purchase_order","timecard","invoice",
-  "conversation"]);
+  "placement","agreement","rate_verification","sow","purchase_order","timesheet",
+  "timesheet_entry","invoice","conversation"]);
 
 function pick(table, data) {
   const allowed = WRITABLE[table];
@@ -433,85 +435,320 @@ export async function poBurndown({ projectId = null, accountName = null,
     [projectId, accountName, expiringDays, atRisk]);
 }
 
-// ------------------------------------------------------------------ timecards
+// ----------------------------------------------------------------- timesheets
 
-export async function listTimecards({ status = null, poId = null, projectId = null,
-                                      placementId = null, weekFrom = null,
-                                      weekTo = null, unbilledOnly = false,
-                                      limit = 200 } = {}) {
+// What a consultant can charge to this week: every placement they hold, and the
+// purchase orders on each. This is what the entry grid offers as allocation
+// targets, so a consultant cannot invent one.
+export async function allocationTargets(contactId, weekEnding) {
   return rows(
-    `select tc.id, tc.week_ending, tc.hours, tc.ot_hours, tc.status,
-            tc.billable_amount, tc.approved_by, tc.approved_at, tc.rejected_reason,
-            c.full_name, c.id as contact_id,
-            p.id as project_id, p.name as project_name, a.name as account_name,
-            po.po_number, po.id as purchase_order_id,
-            -- What a submitted week would be worth if approved, so an approver
-            -- sees the money before they click.
-            case when tc.billable_amount is not null then tc.billable_amount
-                 else timecard_billable(tc.placement_id, tc.week_ending,
-                                        tc.hours, tc.ot_hours) end as value,
-            inv.invoice_number, inv.id as invoice_id, inv.status as invoice_status
-       from timecard tc
-       join placement pl on pl.id = tc.placement_id
-       join contact   c  on c.id  = pl.contact_id
-       join project   p  on p.id  = pl.project_id
-       join account   a  on a.id  = p.account_id
-       left join purchase_order po on po.id = tc.purchase_order_id
-       left join lateral (
-         select i.id, i.invoice_number, i.status
-           from invoice_line l join invoice i on i.id = l.invoice_id
-          where l.timecard_id = tc.id and i.status <> 'void' limit 1
-       ) inv on true
-      where ($1::text is null or tc.status = $1)
-        and ($2::uuid is null or tc.purchase_order_id = $2)
-        and ($3::uuid is null or p.id = $3)
-        and ($4::uuid is null or tc.placement_id = $4)
-        and ($5::date is null or tc.week_ending >= $5)
-        and ($6::date is null or tc.week_ending <= $6)
-        and (not $7::boolean or inv.id is null)
-      order by tc.week_ending desc, c.full_name
-      limit $8`,
-    [status, poId, projectId, placementId, weekFrom, weekTo, unbilledOnly, limit]);
+    `select pl.id as placement_id, p.id as project_id, p.name as project_name,
+            p.delivery_type, a.name as account_name,
+            po.id as purchase_order_id, po.po_number, po.end_date as po_end_date,
+            r.bill_rate
+       from placement pl
+       join project p on p.id = pl.project_id
+       join account a on a.id = p.account_id
+       left join purchase_order po
+              on po.project_id = p.id and po.status = 'open'
+       left join lateral (select * from rate_in_force(pl.id, $2::date)) r on true
+      where pl.contact_id = $1
+        and pl.start_date <= $2::date
+        and (pl.end_date is null or pl.end_date >= $2::date - 6)
+      order by a.name, p.name, po.po_number`,
+    [contactId, weekEnding]);
 }
 
-// The client accepting a week is the moment it becomes earned revenue, so this
-// is where the value gets frozen at the rate that was in force that week.
-export async function approveTimecards(ids, approvedBy, actorId = null) {
-  if (!ids?.length) throw new Error("no timecards named");
+export async function getOrCreateTimesheet(contactId, weekEnding, actorId = null) {
+  const found = await one(
+    `select * from timesheet where contact_id = $1 and week_ending = $2::date`,
+    [contactId, weekEnding]);
+  if (found) return found;
+  return insertRecord("timesheet",
+    { contact_id: contactId, week_ending: weekEnding }, actorId);
+}
+
+export async function getTimesheet(id) {
+  const ts = await one(
+    `select t.*, c.full_name as consultant from timesheet t
+       join contact c on c.id = t.contact_id where t.id = $1`, [id]);
+  if (!ts) return null;
+  const [entries, approvals] = await Promise.all([
+    rows(`select * from timesheet_entry_detail where timesheet_id = $1
+           order by work_date, project_name`, [id]),
+    rows(`select ap.*, p.name as project_name, c.full_name as approver_name,
+                 (select coalesce(sum(coalesce(e.billable_amount,
+                    entry_billable(e.placement_id, e.work_date, e.hours, e.ot_hours))), 0)
+                    from timesheet_entry e
+                   where e.timesheet_id = ap.timesheet_id
+                     and e.project_id = ap.project_id) as value,
+                 (select coalesce(sum(e.hours + e.ot_hours), 0) from timesheet_entry e
+                   where e.timesheet_id = ap.timesheet_id
+                     and e.project_id = ap.project_id) as hours
+            from timesheet_approval ap
+            join project p on p.id = ap.project_id
+            left join contact c on c.id = ap.approver_contact_id
+           where ap.timesheet_id = $1 order by p.name`, [id]),
+  ]);
+  const totalHours = entries.reduce((a, e) => a + Number(e.hours) + Number(e.ot_hours), 0);
+  return { ...ts, entries, approvals, total_hours: totalHours,
+           total_value: entries.reduce((a, e) => a + Number(e.value), 0) };
+}
+
+/**
+ * Save a week's allocation.
+ *
+ * The whole week is replaced in one transaction rather than patched row by row,
+ * because that is how a grid is edited - a consultant moves three hours from one
+ * project to another and expects both sides to land together or neither.
+ */
+export async function saveTimesheet(timesheetId, entries, actorId = null) {
   return tx(async (t) => {
+    const ts = await t.one(`select * from timesheet where id = $1 for update`, [timesheetId]);
+    if (!ts) throw new Error("timesheet not found");
+    if (!["draft", "rejected"].includes(ts.status)) {
+      throw new Error(`that week is ${ts.status} - reopen it before changing it`);
+    }
     const before = await t.rows(
-      `select id, status, week_ending from timecard where id = any($1::uuid[]) for update`,
-      [ids]);
-    const notPending = before.filter((b) => !["submitted", "rejected"].includes(b.status));
-    if (notPending.length) {
-      throw new Error(
-        `already ${notPending[0].status}: week ending ` +
-        notPending.map((b) => b.week_ending.toISOString().slice(0, 10)).join(", "));
+      `select * from timesheet_entry where timesheet_id = $1`, [timesheetId]);
+    await t.query(`delete from timesheet_entry where timesheet_id = $1`, [timesheetId]);
+
+    const kept = [];
+    for (const e of entries) {
+      const hours = Number(e.hours) || 0;
+      const ot = Number(e.ot_hours) || 0;
+      if (hours <= 0 && ot <= 0) continue;   // an empty cell is not a row
+      kept.push(await t.one(
+        `insert into timesheet_entry (timesheet_id, placement_id, project_id,
+                                      purchase_order_id, work_date, hours, ot_hours, notes)
+         values ($1,$2,(select project_id from placement where id = $2),$3,$4::date,$5,$6,$7)
+         returning *`,
+        [timesheetId, e.placement_id, e.purchase_order_id || null, e.work_date,
+         hours, ot, e.notes || null]));
     }
-    const after = await t.rows(
-      `update timecard set status = 'approved', approved_by = $2, approved_at = now(),
-              rejected_reason = null, billable_amount =
-                timecard_billable(placement_id, week_ending, hours, ot_hours),
-              updated_at = now()
-        where id = any($1::uuid[]) returning *`, [ids, approvedBy]);
-    for (const row of after) {
-      await t.query(
-        `insert into record_revision (table_name, record_id, before, after, changed_by)
-         values ('timecard',$1,$2,$3,$4)`,
-        [row.id, before.find((b) => b.id === row.id), row, actorId]);
+    // A rejected week that gets corrected goes back to draft, so the consultant
+    // has to submit it again rather than it silently re-entering the queue.
+    if (ts.status === "rejected") {
+      await t.query(`update timesheet set status = 'draft', updated_at = now()
+                      where id = $1`, [timesheetId]);
+      await t.query(`delete from timesheet_approval where timesheet_id = $1`, [timesheetId]);
     }
-    await recordEvent(t, "timecard.approved", "purchase_order",
-                      after[0]?.purchase_order_id ?? null,
-                      { weeks: after.length, approved_by: approvedBy,
-                        value: after.reduce((a, r) => a + Number(r.billable_amount), 0) },
+    await t.query(
+      `insert into record_revision (table_name, record_id, before, after, changed_by)
+       values ('timesheet',$1,$2,$3,$4)`,
+      [timesheetId, JSON.stringify(before), JSON.stringify(kept), actorId]);
+    await recordEvent(t, "timesheet.saved", "timesheet", timesheetId,
+                      { entries: kept.length,
+                        hours: kept.reduce((a, e) => a + Number(e.hours) + Number(e.ot_hours), 0) },
                       actorId);
+    return kept;
+  });
+}
+
+/**
+ * Submit a week.
+ *
+ * One approval packet per project the week touches, each routed to that
+ * project's designated approver. A project with no approver on file still gets
+ * a packet - it just has nobody named on it, which is a gap somebody needs to
+ * fix rather than a reason to swallow the time.
+ */
+export async function submitTimesheet(timesheetId, actorId = null) {
+  return tx(async (t) => {
+    const ts = await t.one(`select * from timesheet where id = $1 for update`, [timesheetId]);
+    if (!ts) throw new Error("timesheet not found");
+    if (!["draft", "rejected"].includes(ts.status)) {
+      throw new Error(`that week is already ${ts.status}`);
+    }
+    const projects = await t.rows(
+      `select e.project_id, p.name,
+              sum(e.hours + e.ot_hours) as hours,
+              sum(entry_billable(e.placement_id, e.work_date, e.hours, e.ot_hours)) as value
+         from timesheet_entry e join project p on p.id = e.project_id
+        where e.timesheet_id = $1 group by e.project_id, p.name order by p.name`,
+      [timesheetId]);
+    if (!projects.length) throw new Error("there is no time on that week to submit");
+
+    await t.query(`delete from timesheet_approval where timesheet_id = $1`, [timesheetId]);
+    const packets = [];
+    for (const pr of projects) {
+      const approver = await t.one(
+        `select contact_id from project_approver
+          where project_id = $1 order by is_primary desc, added_at limit 1`,
+        [pr.project_id]);
+      packets.push(await t.one(
+        `insert into timesheet_approval (timesheet_id, project_id, approver_contact_id)
+         values ($1,$2,$3) returning *`,
+        [timesheetId, pr.project_id, approver?.contact_id ?? null]));
+    }
+    const after = await t.one(
+      `update timesheet set status = 'submitted', submitted_at = now(), updated_at = now()
+        where id = $1 returning *`, [timesheetId]);
+    await recordEvent(t, "timesheet.submitted", "timesheet", timesheetId,
+                      { projects: projects.length,
+                        hours: projects.reduce((a, p) => a + Number(p.hours), 0),
+                        unrouted: packets.filter((p) => !p.approver_contact_id).length },
+                      actorId);
+    return { ...after, packets, projects };
+  });
+}
+
+// What is sitting in one client manager's queue, or in everyone's.
+export async function approvalQueue({ approverContactId = null, projectId = null,
+                                      accountId = null, status = "pending" } = {}) {
+  return rows(
+    `select ap.id as approval_id, ap.status, ap.note, ap.decided_by, ap.decided_at,
+            t.id as timesheet_id, t.week_ending, t.submitted_at,
+            c.full_name as consultant, c.id as contact_id,
+            p.id as project_id, p.name as project_name,
+            a.id as account_id, a.name as account_name,
+            appr.full_name as approver_name, appr.id as approver_id,
+            (select coalesce(sum(e.hours + e.ot_hours),0) from timesheet_entry e
+              where e.timesheet_id = t.id and e.project_id = p.id) as hours,
+            (select coalesce(sum(entry_billable(e.placement_id, e.work_date,
+                                                e.hours, e.ot_hours)),0)
+               from timesheet_entry e
+              where e.timesheet_id = t.id and e.project_id = p.id) as value,
+            -- The days behind the total, so an approver sees the shape of the
+            -- week rather than one number.
+            (select jsonb_agg(jsonb_build_object(
+                      'work_date', e.work_date, 'hours', e.hours + e.ot_hours,
+                      'po_number', po.po_number) order by e.work_date)
+               from timesheet_entry e
+               left join purchase_order po on po.id = e.purchase_order_id
+              where e.timesheet_id = t.id and e.project_id = p.id) as days
+       from timesheet_approval ap
+       join timesheet t on t.id = ap.timesheet_id
+       join contact  c  on c.id = t.contact_id
+       join project  p  on p.id = ap.project_id
+       join account  a  on a.id = p.account_id
+       left join contact appr on appr.id = ap.approver_contact_id
+      where ($1::uuid is null or ap.approver_contact_id = $1)
+        and ($2::uuid is null or ap.project_id = $2)
+        and ($3::uuid is null or a.id = $3)
+        and ($4::text is null or ap.status = $4)
+      order by t.week_ending desc, a.name, c.full_name`,
+    [approverContactId, projectId, accountId, status]);
+}
+
+// One packet, with the days in it, so an approver sees what they are agreeing to.
+export async function getApproval(approvalId) {
+  const ap = await one(
+    `select ap.*, t.week_ending, t.contact_id, c.full_name as consultant,
+            p.name as project_name, a.name as account_name,
+            appr.full_name as approver_name
+       from timesheet_approval ap
+       join timesheet t on t.id = ap.timesheet_id
+       join contact c on c.id = t.contact_id
+       join project p on p.id = ap.project_id
+       join account a on a.id = p.account_id
+       left join contact appr on appr.id = ap.approver_contact_id
+      where ap.id = $1`, [approvalId]);
+  if (!ap) return null;
+  const entries = await rows(
+    `select * from timesheet_entry_detail
+      where timesheet_id = $1 and project_id = $2 order by work_date`,
+    [ap.timesheet_id, ap.project_id]);
+  return { ...ap, entries,
+           hours: entries.reduce((a, e) => a + Number(e.hours) + Number(e.ot_hours), 0),
+           value: entries.reduce((a, e) => a + Number(e.value), 0) };
+}
+
+// A client manager decides on their part of a week. Approving freezes the value
+// of those days; rejecting releases it and sends the week back.
+export async function decideApproval(approvalId, decision, decidedBy, note = null,
+                                     actorId = null) {
+  if (!["approved", "rejected"].includes(decision)) {
+    throw new Error("a decision is either approved or rejected");
+  }
+  if (!decidedBy) throw new Error("record who made the decision");
+  return tx(async (t) => {
+    const before = await t.one(
+      `select * from timesheet_approval where id = $1 for update`, [approvalId]);
+    if (!before) throw new Error("that approval is not on file");
+    if (before.status !== "pending") {
+      throw new Error(`that was already ${before.status} by ${before.decided_by}`);
+    }
+    const after = await t.one(
+      `update timesheet_approval set status = $2, decided_at = now(), decided_by = $3,
+              note = $4 where id = $1 returning *`,
+      [approvalId, decision, decidedBy, note]);
+    await t.query(
+      `insert into record_revision (table_name, record_id, before, after, changed_by)
+       values ('timesheet_approval',$1,$2,$3,$4)`, [approvalId, before, after, actorId]);
+    await recordEvent(t, `timesheet.${decision}`, "timesheet", before.timesheet_id,
+                      { project_id: before.project_id, by: decidedBy, note }, actorId);
     return after;
   });
 }
 
-export async function rejectTimecard(id, reason, actorId = null) {
-  return updateRecord("timecard", id,
-    { status: "rejected", rejected_reason: reason, billable_amount: null }, actorId);
+export async function listTimesheets({ contactId = null, status = null,
+                                       weekEnding = null, limit = 100 } = {}) {
+  return rows(
+    `select t.id, t.week_ending, t.status, t.submitted_at,
+            c.id as contact_id, c.full_name as consultant,
+            (select coalesce(sum(e.hours + e.ot_hours),0) from timesheet_entry e
+              where e.timesheet_id = t.id) as hours,
+            (select count(distinct e.project_id)::int from timesheet_entry e
+              where e.timesheet_id = t.id) as projects,
+            (select count(*)::int from timesheet_approval a
+              where a.timesheet_id = t.id and a.status = 'pending') as awaiting
+       from timesheet t join contact c on c.id = t.contact_id
+      where ($1::uuid is null or t.contact_id = $1)
+        and ($2::text is null or t.status = $2)
+        and ($3::date is null or t.week_ending = $3::date)
+      order by t.week_ending desc, c.full_name limit $4`,
+    [contactId, status, weekEnding, limit]);
+}
+
+export async function listEntries({ status = null, poId = null, projectId = null,
+                                    contactId = null, from = null, to = null,
+                                    unbilledOnly = false, limit = 500 } = {}) {
+  return rows(
+    `select * from timesheet_entry_detail
+      where ($1::text is null or approval_status is not distinct from $1)
+        and ($2::uuid is null or purchase_order_id = $2)
+        and ($3::uuid is null or project_id = $3)
+        and ($4::uuid is null or contact_id = $4)
+        and ($5::date is null or work_date >= $5::date)
+        and ($6::date is null or work_date <= $6::date)
+        and (not $7::boolean or invoice_id is null)
+      order by work_date desc, consultant limit $8`,
+    [status, poId, projectId, contactId, from, to, unbilledOnly, limit]);
+}
+
+// Who at the client may approve time on a project. Approvers are drawn from the
+// account's own contacts, so this cannot become a list of typed-in names.
+export async function setProjectApprovers(projectId, contactIds, actorId = null) {
+  return tx(async (t) => {
+    const proj = await t.one(`select account_id from project where id = $1`, [projectId]);
+    if (!proj) throw new Error("project not found");
+    const valid = await t.rows(
+      `select id, full_name from contact
+        where id = any($1::uuid[]) and is_manager and account_id = $2
+          and archived_at is null`, [contactIds, proj.account_id]);
+    if (valid.length !== contactIds.length) {
+      throw new Error("an approver has to be a manager on this account");
+    }
+    await t.query(`delete from project_approver where project_id = $1`, [projectId]);
+    let first = true;
+    for (const id of contactIds) {
+      await t.query(
+        `insert into project_approver (project_id, contact_id, is_primary)
+         values ($1,$2,$3)`, [projectId, id, first]);
+      first = false;
+    }
+    await recordEvent(t, "project.approvers_set", "project", projectId,
+                      { approvers: valid.map((v) => v.full_name) }, actorId);
+    return valid;
+  });
+}
+
+export async function projectApprovers(projectId) {
+  return rows(
+    `select pa.contact_id, pa.is_primary, c.full_name, c.email, c.title
+       from project_approver pa join contact c on c.id = pa.contact_id
+      where pa.project_id = $1 order by pa.is_primary desc, c.full_name`, [projectId]);
 }
 
 // ------------------------------------------------------------------- invoices
@@ -529,7 +766,7 @@ async function nextInvoiceNumber(t) {
 /**
  * Draft an invoice from approved, unbilled time.
  *
- * This is the only route from a timecard to an invoice line. It cannot pick up
+ * This is the only route from worked time to an invoice line. It cannot pick up
  * time the client has not approved, and it cannot pick up a week that is
  * already on a live invoice - the database refuses both.
  */
@@ -537,29 +774,23 @@ export async function draftInvoiceFromApproved({ purchaseOrderId = null, project
                                                  throughWeek = null, terms = 45,
                                                  notes = null }, actorId = null) {
   return tx(async (t) => {
-    const cards = await t.rows(
-      `select tc.*, c.full_name, pl.project_id
-         from timecard tc
-         join placement pl on pl.id = tc.placement_id
-         join contact c on c.id = pl.contact_id
-        where tc.status = 'approved'
-          and ($1::uuid is null or tc.purchase_order_id = $1)
-          and ($2::uuid is null or pl.project_id = $2)
-          and ($3::date is null or tc.week_ending <= $3)
-          and not exists (
-            select 1 from invoice_line l join invoice i on i.id = l.invoice_id
-             where l.timecard_id = tc.id and i.status <> 'void')
-        order by tc.week_ending, c.full_name`,
+    const entries = await t.rows(
+      `select d.* from timesheet_entry_detail d
+        where d.approval_status = 'approved' and d.invoice_id is null
+          and ($1::uuid is null or d.purchase_order_id = $1)
+          and ($2::uuid is null or d.project_id = $2)
+          and ($3::date is null or d.week_ending <= $3::date)
+        order by d.work_date, d.consultant`,
       [purchaseOrderId, projectId, throughWeek]);
 
-    if (!cards.length) {
+    if (!entries.length) {
       return { nothing_to_bill: true,
                message: "No approved time is waiting to be billed for that." };
     }
 
     const project = await t.one(
       `select p.id, p.name, p.account_id from project p where p.id = $1`,
-      [projectId || cards[0].project_id]);
+      [projectId || entries[0].project_id]);
     const number = await nextInvoiceNumber(t);
 
     const inv = await t.one(
@@ -567,30 +798,32 @@ export async function draftInvoiceFromApproved({ purchaseOrderId = null, project
                             status, terms_days, period_start, period_end, notes)
        values ($1,$2,$3,$4,'draft',$5,$6,$7,$8) returning *`,
       [number, project.account_id, project.id,
-       purchaseOrderId || cards[0].purchase_order_id, terms,
-       cards[0].week_ending, cards[cards.length - 1].week_ending, notes]);
+       purchaseOrderId || entries[0].purchase_order_id, terms,
+       entries[0].work_date, entries[entries.length - 1].work_date, notes]);
 
+    // One line per consultant per week rather than per day - a client wants to
+    // read an invoice, not audit it. The days behind each line are still linked.
     let n = 0;
-    for (const c of cards) {
-      const hours = Number(c.hours) + Number(c.ot_hours);
+    for (const e of entries) {
+      const hours = Number(e.hours) + Number(e.ot_hours);
       await t.query(
-        `insert into invoice_line (invoice_id, kind, timecard_id, description,
+        `insert into invoice_line (invoice_id, kind, timesheet_entry_id, description,
                                    quantity, unit_rate, amount, sort_order)
-         values ($1,'time',$2,$3,$4,$5,$6,$7)`,
-        [inv.id, c.id,
-         `${c.full_name} - week ending ${c.week_ending.toISOString().slice(0, 10)}`,
-         hours, hours ? Number(c.billable_amount) / hours : null,
-         c.billable_amount, n++]);
+         values ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [inv.id, "time", e.entry_id,
+         `${e.consultant} - ${e.work_date.toISOString().slice(0, 10)}` +
+         (e.po_number ? ` (${e.po_number})` : ""),
+         hours, hours ? Number(e.value) / hours : null, e.value, n++]);
     }
     await t.query(
       `insert into record_revision (table_name, record_id, before, after, changed_by)
        values ('invoice',$1,null,$2,$3)`, [inv.id, inv, actorId]);
     await recordEvent(t, "invoice.drafted", "invoice", inv.id,
-                      { number, weeks: cards.length,
-                        total: cards.reduce((a, c) => a + Number(c.billable_amount), 0) },
+                      { number, days: entries.length,
+                        total: entries.reduce((a, e) => a + Number(e.value), 0) },
                       actorId);
-    return { ...inv, line_count: cards.length,
-             total: cards.reduce((a, c) => a + Number(c.billable_amount), 0) };
+    return { ...inv, line_count: entries.length,
+             total: entries.reduce((a, e) => a + Number(e.value), 0) };
   });
 }
 
@@ -694,8 +927,9 @@ export async function getInvoice(id) {
       where i.id = $1`, [id]);
   if (!inv) return null;
   const [lines, payments] = await Promise.all([
-    rows(`select l.*, tc.week_ending, tc.hours, tc.ot_hours
-            from invoice_line l left join timecard tc on tc.id = l.timecard_id
+    rows(`select l.*, d.work_date, d.hours, d.ot_hours, d.consultant, d.po_number
+            from invoice_line l
+            left join timesheet_entry_detail d on d.entry_id = l.timesheet_entry_id
            where l.invoice_id = $1 order by l.sort_order, l.created_at`, [id]),
     rows(`select * from payment where invoice_id = $1 order by received_at`, [id]),
   ]);

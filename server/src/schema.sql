@@ -272,7 +272,7 @@ create table rate_verification (
   updated_at   timestamptz not null default now()
 );
 
--- ------------------------------------------------------- SOW / PO / timecards
+-- ------------------------------------------------------------ SOW / PO
 
 create table sow (
   id           uuid primary key default gen_random_uuid(),
@@ -318,43 +318,155 @@ create table purchase_order (
 );
 create index po_end_date_idx on purchase_order (end_date) where status = 'open';
 
--- A week of work on a placement. Time moves through three states that mean
--- different things to the business: submitted is a claim, approved is work the
--- client has accepted and we have earned, invoiced is money we have actually
--- billed. Only the third one burns a purchase order.
+-- ----------------------------------------------------------------- timesheets
 --
--- Whether a card has been billed is not a column here - it is whether a live
--- invoice line points at it. A status column would drift from the invoices.
-create table timecard (
-  id            uuid primary key default gen_random_uuid(),
-  placement_id  uuid not null references placement(id),
-  purchase_order_id uuid references purchase_order(id),
-  week_ending   date not null,
-  hours         numeric(8,2) not null default 0 check (hours >= 0),
-  ot_hours      numeric(8,2) not null default 0 check (ot_hours >= 0),
-  status        text not null default 'submitted'
-                check (status in ('draft','submitted','approved','rejected')),
-  submitted_at  timestamptz,
-  approved_by   text,
-  approved_at   timestamptz,
-  rejected_reason text,
-  -- What this week is worth to bill, frozen when the client approves it. Stored
-  -- rather than derived at read time because the rate in force on the week
-  -- ending date is what we agreed, and rates move afterwards.
-  billable_amount numeric(14,2),
-  notes         text,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now(),
-  unique (placement_id, week_ending),
-  constraint approved_time_has_a_value
-    check (status <> 'approved' or billable_amount is not null)
+-- A consultant fills in one timesheet a week. Within that week they allocate
+-- their hours day by day across however many projects and purchase orders they
+-- worked on - a person can be on two engagements at one client, or on two
+-- clients, and a Tuesday can be split between them.
+--
+-- Approval follows the allocation, not the timesheet. Each client manager
+-- approves the part that belongs to their project, so one week can be half
+-- approved while the other half is still waiting. That is how it actually
+-- happens, and pretending otherwise means one slow approver blocks a whole
+-- week of billing.
+
+create table timesheet (
+  id           uuid primary key default gen_random_uuid(),
+  contact_id   uuid not null references contact(id),
+  week_ending  date not null,
+  status       text not null default 'draft'
+               check (status in ('draft','submitted','partly_approved','approved',
+                                 'rejected')),
+  submitted_at timestamptz,
+  notes        text,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  unique (contact_id, week_ending)
 );
-create index timecard_po_idx     on timecard (purchase_order_id);
-create index timecard_status_idx on timecard (status, week_ending);
+create index timesheet_status_idx on timesheet (status, week_ending desc);
+
+-- One row per day per thing the day was charged to. Two rows on the same date
+-- means the day was split.
+create table timesheet_entry (
+  id           uuid primary key default gen_random_uuid(),
+  timesheet_id uuid not null references timesheet(id) on delete cascade,
+  placement_id uuid not null references placement(id),
+  project_id   uuid not null references project(id),
+  purchase_order_id uuid references purchase_order(id),
+  work_date    date not null,
+  hours        numeric(6,2) not null default 0 check (hours >= 0 and hours <= 24),
+  ot_hours     numeric(6,2) not null default 0 check (ot_hours >= 0 and ot_hours <= 24),
+  notes        text,
+  -- Frozen when the client approves this project's part of the week.
+  billable_amount numeric(14,2),
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  constraint some_time_was_worked check (hours > 0 or ot_hours > 0),
+  unique (timesheet_id, placement_id, purchase_order_id, work_date)
+);
+create index tse_timesheet_idx on timesheet_entry (timesheet_id);
+create index tse_po_idx        on timesheet_entry (purchase_order_id);
+create index tse_project_idx   on timesheet_entry (project_id, work_date);
+
+-- Who at the client is allowed to approve time on a project. Approvers are
+-- contacts on the account - the same person graph as everything else - so an
+-- approver is a manager we already know, not a name in a text field.
+create table project_approver (
+  project_id uuid not null references project(id) on delete cascade,
+  contact_id uuid not null references contact(id),
+  is_primary boolean not null default false,
+  added_at   timestamptz not null default now(),
+  primary key (project_id, contact_id)
+);
+
+-- One packet of a timesheet, routed to one project's approver. This is the unit
+-- that gets approved, rejected and later billed.
+create table timesheet_approval (
+  id           uuid primary key default gen_random_uuid(),
+  timesheet_id uuid not null references timesheet(id) on delete cascade,
+  project_id   uuid not null references project(id),
+  approver_contact_id uuid references contact(id),
+  status       text not null default 'pending'
+               check (status in ('pending','approved','rejected')),
+  decided_at   timestamptz,
+  decided_by   text,
+  note         text,
+  created_at   timestamptz not null default now(),
+  unique (timesheet_id, project_id)
+);
+create index tsa_status_idx on timesheet_approval (status, project_id);
+
+-- A day cannot hold more than 24 hours however it is split, and a day has to
+-- fall inside the week the timesheet is for. Both of these are the kind of
+-- thing a form can check and then a bulk import quietly ignores.
+create or replace function timesheet_entry_guard() returns trigger as $$
+declare ts timesheet; day_total numeric; proj uuid;
+begin
+  select * into ts from timesheet where id = new.timesheet_id;
+
+  -- Locked once submitted - but only against changes to the allocation itself.
+  -- Approving stamps a value onto these same rows, and that is the system
+  -- writing, not the consultant editing.
+  if tg_op = 'INSERT' or
+     (new.hours, new.ot_hours, new.work_date, new.placement_id,
+      new.purchase_order_id, new.notes) is distinct from
+     (old.hours, old.ot_hours, old.work_date, old.placement_id,
+      old.purchase_order_id, old.notes)
+  then
+    if ts.status not in ('draft','rejected') then
+      raise exception 'that week has already been submitted - it cannot be edited';
+    end if;
+  else
+    return new;   -- nothing about the allocation changed
+  end if;
+
+  if new.work_date > ts.week_ending or new.work_date < ts.week_ending - 6 then
+    raise exception '% is not in the week ending %', new.work_date, ts.week_ending;
+  end if;
+
+  select coalesce(sum(e.hours + e.ot_hours), 0) into day_total
+    from timesheet_entry e
+   where e.timesheet_id = new.timesheet_id and e.work_date = new.work_date
+     and e.id is distinct from new.id;
+  if day_total + new.hours + new.ot_hours > 24 then
+    raise exception 'that would put % at % hours', new.work_date,
+      day_total + new.hours + new.ot_hours;
+  end if;
+
+  -- The project is whatever the placement is on. Deriving it rather than
+  -- trusting the caller keeps an entry from being filed against a project the
+  -- consultant is not placed on.
+  select p.project_id into proj from placement p where p.id = new.placement_id;
+  if proj is null then raise exception 'no such placement'; end if;
+  new.project_id := proj;
+
+  if new.purchase_order_id is not null then
+    if not exists (select 1 from purchase_order po
+                    where po.id = new.purchase_order_id and po.project_id = proj) then
+      raise exception 'that purchase order does not belong to this project';
+    end if;
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger timesheet_entry_guard_t before insert or update on timesheet_entry
+  for each row execute function timesheet_entry_guard();
+
+create or replace function timesheet_entry_delete_guard() returns trigger as $$
+declare st text;
+begin
+  select status into st from timesheet where id = old.timesheet_id;
+  if st is not null and st not in ('draft','rejected') then
+    raise exception 'that week has already been submitted - days cannot be removed';
+  end if;
+  return old;
+end $$ language plpgsql;
+create trigger timesheet_entry_delete_guard_t before delete on timesheet_entry
+  for each row execute function timesheet_entry_delete_guard();
 
 -- The bill rate in force for a placement on a given date. Rates are
--- effective-dated and never edited, so "what was the rate that week" always has
--- an answer - which is the whole reason a timecard from March still prices
+-- effective-dated and never edited, so "what was the rate that day" always has
+-- an answer - which is the whole reason a Tuesday in March still prices
 -- correctly in June.
 create or replace function rate_in_force(p_placement uuid, p_on date,
                                          p_type text default 'standard')
@@ -365,19 +477,19 @@ returns placement_rate language sql stable as $$
    limit 1
 $$;
 
--- What a week of work is worth. Overtime uses the overtime rate if one is on
+-- What one allocated day is worth. Overtime uses the overtime rate if one is on
 -- file and time and a half otherwise, which is the convention when nobody
 -- negotiated something different.
-create or replace function timecard_billable(p_placement uuid, p_week date,
-                                             p_hours numeric, p_ot numeric)
+create or replace function entry_billable(p_placement uuid, p_date date,
+                                          p_hours numeric, p_ot numeric)
 returns numeric language plpgsql stable as $$
 declare std placement_rate; ot placement_rate; ot_rate numeric;
 begin
-  std := rate_in_force(p_placement, p_week, 'standard');
+  std := rate_in_force(p_placement, p_date, 'standard');
   if std.id is null then
-    raise exception 'no standard rate in force for placement % on %', p_placement, p_week;
+    raise exception 'no standard rate in force for placement % on %', p_placement, p_date;
   end if;
-  ot := rate_in_force(p_placement, p_week, 'overtime');
+  ot := rate_in_force(p_placement, p_date, 'overtime');
   ot_rate := coalesce(ot.bill_rate, std.bill_rate * 1.5);
   return round(coalesce(p_hours,0) * std.bill_rate + coalesce(p_ot,0) * ot_rate, 2);
 end $$;
@@ -415,7 +527,7 @@ create table invoice_line (
   invoice_id  uuid not null references invoice(id) on delete cascade,
   kind        text not null default 'time'
               check (kind in ('time','expense','milestone','adjustment')),
-  timecard_id uuid references timecard(id),
+  timesheet_entry_id uuid references timesheet_entry(id),
   description text not null,
   quantity    numeric(12,2),
   unit_rate   numeric(12,4),
@@ -423,11 +535,13 @@ create table invoice_line (
   sort_order  int not null default 0,
   created_at  timestamptz not null default now(),
   -- A line billing time has to say which week it is billing.
-  constraint time_lines_cite_a_timecard
-    check (kind <> 'time' or timecard_id is not null)
+  -- A line billing time has to say which allocated day it is billing, so an
+  -- invoice for one PO can never pick up hours charged to another.
+  constraint time_lines_cite_an_entry
+    check (kind <> 'time' or timesheet_entry_id is not null)
 );
 create index invoice_line_invoice_idx  on invoice_line (invoice_id, sort_order);
-create index invoice_line_timecard_idx on invoice_line (timecard_id);
+create index invoice_line_entry_idx on invoice_line (timesheet_entry_id);
 
 create table payment (
   id          uuid primary key default gen_random_uuid(),
@@ -454,13 +568,65 @@ select i.id as invoice_id,
   from invoice i left join invoice_line l on l.invoice_id = i.id
  group by i.id;
 
+-- One row per entry with everything a screen or a query needs: who, when, what
+-- it was charged to, where it is in the approval cycle, what it is worth, and
+-- whether it has been billed. Whether an entry is billed is not a column
+-- anywhere - it is whether a live invoice line points at it.
+create view timesheet_entry_detail as
+select e.id                as entry_id,
+       e.timesheet_id,
+       t.contact_id,
+       c.full_name         as consultant,
+       t.week_ending,
+       t.status            as timesheet_status,
+       e.work_date,
+       e.hours, e.ot_hours,
+       e.notes,
+       e.placement_id,
+       e.project_id,
+       p.name              as project_name,
+       p.delivery_type,
+       a.id                as account_id,
+       a.name              as account_name,
+       e.purchase_order_id,
+       po.po_number,
+       ap.id               as approval_id,
+       ap.status           as approval_status,
+       ap.decided_by,
+       ap.decided_at,
+       ap.note             as approval_note,
+       appr.full_name      as approver_name,
+       -- Approved entries carry the value they were approved at; anything else
+       -- is quoted at the rate in force that day so an approver sees the money
+       -- before they agree to it.
+       coalesce(e.billable_amount,
+                entry_billable(e.placement_id, e.work_date, e.hours, e.ot_hours)) as value,
+       e.billable_amount,
+       inv.id              as invoice_id,
+       inv.invoice_number,
+       inv.status          as invoice_status
+  from timesheet_entry e
+  join timesheet t on t.id = e.timesheet_id
+  join contact  c  on c.id = t.contact_id
+  join project  p  on p.id = e.project_id
+  join account  a  on a.id = p.account_id
+  left join purchase_order po on po.id = e.purchase_order_id
+  left join timesheet_approval ap
+         on ap.timesheet_id = e.timesheet_id and ap.project_id = e.project_id
+  left join contact appr on appr.id = ap.approver_contact_id
+  left join lateral (
+    select i.id, i.invoice_number, i.status
+      from invoice_line l join invoice i on i.id = l.invoice_id
+     where l.timesheet_entry_id = e.id and i.status <> 'void' limit 1
+  ) inv on true;
+
 -- Three guards on billing. Each of them is a mistake that costs real money and
 -- that no amount of care in the application layer reliably prevents.
 
 -- 1. You cannot bill time the client has not approved, and you cannot bill the
 --    same week twice. A voided invoice releases its time to be billed again.
 create or replace function invoice_line_guard() returns trigger as $$
-declare tc timecard; inv invoice; dup int;
+declare e timesheet_entry; ap timesheet_approval; inv invoice; wk date; dup int;
 begin
   select * into inv from invoice where id = new.invoice_id;
   if inv.status <> 'draft' then
@@ -468,24 +634,28 @@ begin
       inv.invoice_number, inv.status;
   end if;
 
-  if new.timecard_id is not null then
-    select * into tc from timecard where id = new.timecard_id;
-    if tc.status <> 'approved' then
-      raise exception 'timecard for week ending % is %, not approved - it cannot be billed',
-        tc.week_ending, tc.status;
+  if new.timesheet_entry_id is not null then
+    select * into e from timesheet_entry where id = new.timesheet_entry_id;
+    select * into ap from timesheet_approval
+      where timesheet_id = e.timesheet_id and project_id = e.project_id;
+    select week_ending into wk from timesheet where id = e.timesheet_id;
+
+    if ap.status is distinct from 'approved' then
+      raise exception 'time on % is %, not approved - it cannot be billed',
+        e.work_date, coalesce(ap.status, 'not submitted');
     end if;
 
     select count(*) into dup
       from invoice_line l join invoice i2 on i2.id = l.invoice_id
-     where l.timecard_id = new.timecard_id and i2.status <> 'void'
+     where l.timesheet_entry_id = new.timesheet_entry_id and i2.status <> 'void'
        and l.id is distinct from new.id;
     if dup > 0 then
-      raise exception 'week ending % is already on a live invoice', tc.week_ending;
+      raise exception 'the time on % is already on a live invoice', e.work_date;
     end if;
 
     if inv.purchase_order_id is not null
-       and tc.purchase_order_id is distinct from inv.purchase_order_id then
-      raise exception 'that week is booked to a different purchase order';
+       and e.purchase_order_id is distinct from inv.purchase_order_id then
+      raise exception 'that time is allocated to a different purchase order';
     end if;
   end if;
   return new;
@@ -518,17 +688,36 @@ end $$ language plpgsql;
 create trigger invoice_po_guard_t before update on invoice
   for each row execute function invoice_po_guard();
 
--- 3. Approved time has to carry the value it was approved at.
-create or replace function timecard_value_guard() returns trigger as $$
+-- 3. Approving a packet freezes what its days are worth, at the rate in force
+--    on each day. Rejecting it releases them again.
+create or replace function timesheet_approval_effects() returns trigger as $$
 begin
-  if new.status = 'approved' and new.billable_amount is null then
-    new.billable_amount :=
-      timecard_billable(new.placement_id, new.week_ending, new.hours, new.ot_hours);
+  if new.status = 'approved' and old.status is distinct from 'approved' then
+    update timesheet_entry e
+       set billable_amount =
+             entry_billable(e.placement_id, e.work_date, e.hours, e.ot_hours),
+           updated_at = now()
+     where e.timesheet_id = new.timesheet_id and e.project_id = new.project_id;
+  elsif new.status <> 'approved' and old.status = 'approved' then
+    update timesheet_entry e set billable_amount = null, updated_at = now()
+     where e.timesheet_id = new.timesheet_id and e.project_id = new.project_id;
   end if;
+
+  -- Roll the packet statuses up into the timesheet, so a week reads correctly
+  -- when one manager has signed off and another has not.
+  update timesheet t set status = (
+    select case
+      when count(*) filter (where a.status = 'rejected') > 0 then 'rejected'
+      when count(*) filter (where a.status <> 'approved') = 0 then 'approved'
+      when count(*) filter (where a.status = 'approved') > 0 then 'partly_approved'
+      else 'submitted' end
+      from timesheet_approval a where a.timesheet_id = new.timesheet_id
+  ), updated_at = now()
+  where t.id = new.timesheet_id;
   return new;
 end $$ language plpgsql;
-create trigger timecard_value_guard_t before insert or update on timecard
-  for each row execute function timecard_value_guard();
+create trigger timesheet_approval_effects_t after update on timesheet_approval
+  for each row execute function timesheet_approval_effects();
 
 -- Burn-down.
 --
@@ -567,18 +756,16 @@ with invoiced as (
    group by 1
 ), unbilled as (
   -- Approved and not on any invoice at all, draft or otherwise.
-  select tc.purchase_order_id as po_id, sum(tc.billable_amount) as amount
-    from timecard tc
-   where tc.status = 'approved'
-     and not exists (
-       select 1 from invoice_line l join invoice i2 on i2.id = l.invoice_id
-        where l.timecard_id = tc.id and i2.status <> 'void')
+  select d.purchase_order_id as po_id, sum(d.value) as amount
+    from timesheet_entry_detail d
+   where d.approval_status = 'approved' and d.invoice_id is null
    group by 1
 ), pending as (
-  select tc.purchase_order_id as po_id,
-         sum(timecard_billable(tc.placement_id, tc.week_ending, tc.hours, tc.ot_hours))
-           as amount
-    from timecard tc where tc.status = 'submitted' group by 1
+  -- Submitted, waiting on a client manager. Not earned.
+  select d.purchase_order_id as po_id, sum(d.value) as amount
+    from timesheet_entry_detail d
+   where d.approval_status = 'pending'
+   group by 1
 )
 select
   po.id            as purchase_order_id,

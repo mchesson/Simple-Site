@@ -40,7 +40,13 @@ The delivery type is what changes the paperwork, not the shape of the work:
 - managed_project: our team, often with a team lead, doing work the client directs week to week. No fixed deliverables. Governed by an SOW and burned against purchase orders.
 - managed_service: our team delivering against defined deliverables. SOW, change orders, purchase orders.
 
-Where there is an SOW, the signed SOW does the job that an Exhibit A does in general staffing. Purchase orders are burned down by approved timecards; a PO that is nearly exhausted or about to expire is an operational emergency, not a filing detail.
+Where there is an SOW, the signed SOW does the job that an Exhibit A does in general staffing.
+
+TIME AND MONEY
+
+A consultant fills in one timesheet a week and allocates their hours day by day across whatever projects and purchase orders they worked on. A single Tuesday can be split between two projects. Approval follows the allocation, not the week: each client manager approves the part belonging to their project, so a week can be half approved while the rest waits. Approving freezes what those days are worth at the bill rate in force on each day.
+
+A purchase order is burned by what we have INVOICED, not by what our people worked. Keep the stages distinct: submitted time is claimed and not earned; approved time is earned but not billed; a drafted invoice is prepared but not issued; only an issued invoice burns the PO. A PO can read healthy on what remains and already be spent, because approved work is sitting unbilled - projected_remaining going negative is that condition, and it is worth raising unprompted. A PO nearly exhausted or about to expire is an operational emergency, not a filing detail.
 
 PEOPLE
 

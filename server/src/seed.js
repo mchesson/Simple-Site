@@ -190,7 +190,7 @@ await q(`insert into rate_verification (project_id, contact_id, placement_id, st
          values ($1,$2,$3,'confirmed',68,108,'2026-08-01','Dana Reyes', now()) returning *`,
   [dataPlatform.id, marcus.id, pl.id]);
 
-// -- SOW, PO and timecards ---------------------------------------------------
+// -- SOW, PO and time --------------------------------------------------------
 const sowRow = await q(
   `insert into sow (project_id, title, status, start_date, end_date, total_value, deliverables)
    values ($1,'Plant data platform - phase 1','executed','2026-06-01','2026-12-31',420000,
@@ -209,47 +209,126 @@ const po2 = await q(
    values ($1,'PO-GLX-88500',95000,'2026-08-01','2027-01-31') returning *`,
   [dataPlatform.id]);
 
-// Thirteen weeks of time in three states, then the invoices drawn from them.
-// This is the shape that makes the burn-down interesting: some weeks billed,
-// some approved and sitting unbilled in our own queue, some still waiting on
-// the client to approve.
-const cards = [];
-let wk = new Date("2026-06-07");
-for (let i = 0; i < 13; i++) {
-  const d = new Date(wk); d.setDate(wk.getDate() + i * 7);
-  const iso = d.toISOString().slice(0, 10);
-  // 0-9 approved, 10-12 still submitted and waiting on Globex.
-  const approved = i < 10;
-  const tc = await q(
-    `insert into timecard (placement_id, purchase_order_id, week_ending, hours,
-                           status, submitted_at, approved_by, approved_at)
-     values ($1,$2,$3,40,$4, now(), $5, $6) returning *`,
-    [pl.id, po.id, iso, approved ? "approved" : "submitted",
-     approved ? "Dana Reyes" : null, approved ? new Date() : null]);
-  cards.push(tc);
+// Marcus is on two Globex projects at once, so his weeks split. Priya approves
+// the Reno side and Dana the Austin side, which is what makes one week able to
+// be half approved.
+const controlsPlacement = await q(
+  `insert into placement (project_id, contact_id, status, start_date, recruiter_id)
+   values ($1,$2,'active','2026-07-06',$3) returning *`,
+  [controls.id, marcus.id, dev.id]);
+await client.query(
+  `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct, effective_from)
+   values ($1,55,90,22,'2026-07-06')`, [controlsPlacement.id]);
+const controlsPo = await q(
+  `insert into purchase_order (project_id, po_number, amount, start_date, end_date)
+   values ($1,'PO-GLX-90114',60000,'2026-07-06','2026-11-30') returning *`, [controls.id]);
+
+await client.query(
+  `insert into project_approver (project_id, contact_id, is_primary) values
+   ($1,$2,true), ($3,$4,true), ($5,$2,true)`,
+  [dataPlatform.id, dana.id, controls.id, priya.id, erp.id]);
+
+// Twelve weeks of history, then a live week in each state so every screen has
+// something real in it.
+function weekEnding(offsetWeeks) {
+  const d = new Date("2026-08-30");
+  d.setDate(d.getDate() - offsetWeeks * 7);
+  return d;
 }
+const iso = (d) => d.toISOString().slice(0, 10);
+
+async function week(offset, plan) {
+  const we = weekEnding(offset);
+  const ts = await q(
+    `insert into timesheet (contact_id, week_ending, status) values ($1,$2,'draft')
+     returning *`, [marcus.id, iso(we)]);
+  for (const [dayOffset, alloc] of plan.entries()) {
+    const day = new Date(we); day.setDate(we.getDate() - 6 + dayOffset);
+    for (const a of alloc) {
+      if (!a.hours) continue;
+      await client.query(
+        `insert into timesheet_entry (timesheet_id, placement_id, project_id,
+                                      purchase_order_id, work_date, hours)
+         values ($1,$2,$3,$4,$5,$6)`,
+        [ts.id, a.placement, a.project, a.po, iso(day), a.hours]);
+    }
+  }
+  return ts;
+}
+
+const platform = { placement: pl.id, project: dataPlatform.id, po: po.id };
+const line4 = { placement: controlsPlacement.id, project: controls.id, po: controlsPo.id };
+// Index 0 is Monday, index 6 is Sunday.
+const straight = [[{ ...platform, hours: 8 }], [{ ...platform, hours: 8 }],
+  [{ ...platform, hours: 8 }], [{ ...platform, hours: 8 }],
+  [{ ...platform, hours: 8 }], [], []];
+// A split week: Tuesday is shared and Wednesday goes entirely to line 4.
+const split = [[{ ...platform, hours: 8 }],
+  [{ ...platform, hours: 5 }, { ...line4, hours: 3 }],
+  [{ ...line4, hours: 8 }], [{ ...platform, hours: 8 }],
+  [{ ...platform, hours: 6 }], [], []];
+
+async function submitAndDecide(ts, decisions) {
+  await client.query(
+    `update timesheet set status='submitted', submitted_at=now() where id=$1`, [ts.id]);
+  const projects = await client.query(
+    `select distinct project_id from timesheet_entry where timesheet_id=$1`, [ts.id]);
+  for (const row of projects.rows) {
+    const approver = await q(
+      `select contact_id from project_approver where project_id=$1
+        order by is_primary desc limit 1`, [row.project_id]);
+    const ap = await q(
+      `insert into timesheet_approval (timesheet_id, project_id, approver_contact_id)
+       values ($1,$2,$3) returning *`, [ts.id, row.project_id, approver.contact_id]);
+    const d = decisions[row.project_id];
+    if (d) {
+      await client.query(
+        `update timesheet_approval set status=$2, decided_at=now(), decided_by=$3, note=$4
+          where id=$1`, [ap.id, d.status, d.by, d.note ?? null]);
+    }
+  }
+}
+
+const approvedWeeks = [];
+for (let i = 12; i >= 3; i--) {
+  // Marcus only joins line 4 in July, so only the later weeks split.
+  const ts = await week(i, i % 4 === 2 && i <= 6 ? split : straight);
+  await submitAndDecide(ts, {
+    [dataPlatform.id]: { status: "approved", by: "Dana Reyes" },
+    [controls.id]: { status: "approved", by: "Priya Raman" },
+  });
+  approvedWeeks.push(ts);
+}
+
+// Two weeks ago: Dana has signed off, Priya has not. Half the week is earned.
+const halfWeek = await week(2, split);
+await submitAndDecide(halfWeek, {
+  [dataPlatform.id]: { status: "approved", by: "Dana Reyes" },
+});
+// Last week: submitted, nobody has looked at it.
+await week(1, straight).then((ts) => submitAndDecide(ts, {}));
+// This week: still being filled in.
+await week(0, [[{ ...platform, hours: 8 }], [{ ...platform, hours: 8 }], [], [], [], [], []]);
 
 // Two invoices already issued and one still in draft, so the difference between
 // billed, prepared and earned is visible on day one.
-async function invoiceFor(number, weeks, status, issued, paidAmount) {
+async function invoiceFor(number, poId, projectId, entryIds, status, issued, paidAmount) {
   const inv = await q(
     `insert into invoice (invoice_number, account_id, project_id, purchase_order_id,
-                          status, terms_days, period_start, period_end, issue_date,
-                          due_date, sent_at)
-     values ($1,$2,$3,$4,'draft',45,$5,$6,$7,$8,$9) returning *`,
-    [number, globex.id, dataPlatform.id, po.id,
-     weeks[0].week_ending, weeks[weeks.length - 1].week_ending,
-     issued, issued ? new Date(new Date(issued).getTime() + 45 * 864e5)
-       .toISOString().slice(0, 10) : null, issued]);
+                          status, terms_days, issue_date, due_date, sent_at)
+     values ($1,$2,$3,$4,'draft',45,$5,$6,$7) returning *`,
+    [number, globex.id, projectId, poId, issued,
+     issued ? iso(new Date(new Date(issued).getTime() + 45 * 864e5)) : null, issued]);
   let n = 0;
-  for (const w of weeks) {
-    const rate = Number(w.billable_amount) / 40;
+  for (const e of entryIds) {
+    const hours = Number(e.hours) + Number(e.ot_hours);
     await client.query(
-      `insert into invoice_line (invoice_id, kind, timecard_id, description,
+      `insert into invoice_line (invoice_id, kind, timesheet_entry_id, description,
                                  quantity, unit_rate, amount, sort_order)
-       values ($1,'time',$2,$3,40,$4,$5,$6)`,
-      [inv.id, w.id, `Marcus Bell - week ending ${w.week_ending
-        .toISOString().slice(0, 10)}`, rate, w.billable_amount, n++]);
+       values ($1,'time',$2,$3,$4,$5,$6,$7)`,
+      [inv.id, e.entry_id,
+       `${e.consultant} - ${iso(e.work_date)}${e.po_number ? " (" + e.po_number + ")" : ""}`,
+       hours, hours ? Number(e.value) / hours : null, e.value, n++]);
   }
   if (status !== "draft") {
     await client.query(`update invoice set status = $2 where id = $1`, [inv.id, status]);
@@ -257,17 +336,24 @@ async function invoiceFor(number, weeks, status, issued, paidAmount) {
   if (paidAmount) {
     await client.query(
       `insert into payment (invoice_id, amount, received_at, method, reference)
-       values ($1,$2,$3,'ACH',$4)`,
-      [inv.id, paidAmount, issued, "GLX-" + number]);
+       values ($1,$2,$3,'ACH',$4)`, [inv.id, paidAmount, issued, "GLX-" + number]);
   }
   return inv;
 }
 
-await invoiceFor("TS-2026-0411", cards.slice(0, 4), "paid", "2026-07-06",
-                 cards.slice(0, 4).reduce((a, c) => a + Number(c.billable_amount), 0));
-await invoiceFor("TS-2026-0452", cards.slice(4, 8), "sent", "2026-08-03", null);
-// Weeks 9 and 10 are drafted but not issued. Weeks 11-13 are not even approved.
-await invoiceFor("TS-2026-0488", cards.slice(8, 10), "draft", null, null);
+const billable = await client.query(
+  `select * from timesheet_entry_detail
+    where approval_status = 'approved' and purchase_order_id = $1
+    order by work_date`, [po.id]);
+const rowsA = billable.rows;
+const third = Math.floor(rowsA.length / 3);
+await invoiceFor("TS-2026-0411", po.id, dataPlatform.id, rowsA.slice(0, third),
+                 "paid", "2026-07-06",
+                 rowsA.slice(0, third).reduce((a, e) => a + Number(e.value), 0));
+await invoiceFor("TS-2026-0452", po.id, dataPlatform.id, rowsA.slice(third, third * 2),
+                 "sent", "2026-08-03", null);
+await invoiceFor("TS-2026-0488", po.id, dataPlatform.id,
+                 rowsA.slice(third * 2, third * 2 + 2), "draft", null, null);
 
 // -- agreements and documents ------------------------------------------------
 await client.query(
@@ -344,7 +430,9 @@ const counts = await client.query(`
   union all select 'contacts', count(*) from contact
   union all select 'projects', count(*) from project
   union all select 'documents', count(*) from document
-  union all select 'timecards', count(*) from timecard
+  union all select 'timesheets', count(*) from timesheet
+  union all select 'time entries', count(*) from timesheet_entry
+  union all select 'invoices', count(*) from invoice
   order by 1`);
 console.table(counts.rows);
 await client.end();

@@ -17,7 +17,7 @@ server/
   src/trace.js         the observability spine
   src/server.js        REST API, streaming chat, inspector endpoints
   public/              the workspace UI and the inspector
-  test/                71 tests against a real Postgres database
+  test/                78 tests against a real Postgres database
 ```
 
 ## Running it
@@ -83,7 +83,7 @@ watching, so `po_burndown` carries every stage:
 
 | Column | What it is |
 |---|---|
-| `submitted_pending` | Time claimed, not yet accepted by the client. Not earned. |
+| `submitted_pending` | Time claimed, waiting on a client manager. Not earned. |
 | `approved_unbilled` | Accepted by the client, not billed. Earned revenue sitting in our own queue. |
 | `drafted_not_sent` | An invoice prepared but not issued. Still ours, not theirs. |
 | `invoiced` | Issued to the client. **This is the burn.** |
@@ -95,26 +95,65 @@ A PO can read healthy on `remaining` and already be spent, because a month of
 approved time is sitting unbilled. `projected_remaining` going negative is that
 condition, and `po_burndown(at_risk => true)` returns exactly those.
 
+## The timesheet cycle
+
+A consultant fills in **one timesheet a week** and allocates their hours day by
+day across whatever projects and purchase orders they worked on. A single
+Tuesday can be split between two projects; a person on two engagements at one
+client charges both from the same week.
+
+**Approval follows the allocation, not the week.** Submitting creates one
+approval packet per project the week touches, each routed to that project's
+designated approving manager. Two managers sign off independently, so a week can
+sit in `partly_approved` while one of them catches up — rather than one slow
+approver blocking a week of billing.
+
+```
+   consultant enters and allocates
+              |
+          submits  ──► packet per project ──► each client manager decides
+              |                                    |            |
+              |                                approved     rejected
+              |                                    |            |
+              |                              billable      back to draft
+              ▼
+   draft ─► submitted ─► partly_approved ─► approved
+                     └─► rejected ─► draft (corrected, resubmitted)
+```
+
+Approvers are contacts on the account — the same person graph as everything
+else — so an approver is a manager we already know, not a name in a text field.
+
+What the database enforces:
+
+- **A day cannot exceed 24 hours**, however it is split across projects.
+- **A day has to fall inside its week.**
+- **A purchase order has to belong to the project** the placement is on.
+- **The project is derived from the placement**, not taken from the caller, so
+  time cannot be filed against a project the consultant is not placed on.
+- **A submitted week is locked** — no edits, no deletions — until it is decided.
+  The lock is against changes to the *allocation*; approving still writes the
+  frozen value onto the same rows.
+- **Approval freezes the value** at the bill rate in force on each day, from the
+  effective-dated rate history. A Tuesday worked in March still prices at
+  March's rate in June. **Rejection releases it** and sends the week back.
+- **A decision is made once.** Re-deciding tells you who already decided.
+
+## Billing
+
 Time moves one way and the database enforces every step:
 
-```
-draft -> submitted -> approved -> on a draft invoice -> issued -> paid
-                         |
-                     rejected
-```
-
-- **Approval freezes the value.** `timecard_billable()` prices the week at the
-  bill rate that was in force on the week ending date, using the effective-dated
-  rate history. A week worked in July still prices at July's rate in December.
-- **Only approved time can be invoiced.** A trigger refuses an invoice line
-  pointing at a timecard in any other state.
-- **A week cannot be billed twice.** A trigger refuses a second line for the same
-  timecard on any invoice that is not voided.
-- **A sent invoice is frozen.** Lines can only change while it is a draft.
+- **Only approved time can be invoiced.** A line pointing at an entry whose
+  packet is not approved is refused.
+- **A day cannot be billed twice.** A second line for the same entry on any live
+  invoice is refused.
+- **An invoice bills one PO.** A line whose day is allocated elsewhere is
+  refused, so an invoice for PO-A can never pick up hours charged to PO-B.
+- **A sent invoice is frozen.** Lines change only while it is a draft.
 - **An invoice cannot overrun its PO.** Sending one that would take the PO past
   its committed amount is refused, and the error names the remedy: a change
   order or a new PO.
-- **Voiding never deletes.** The invoice stays and its weeks become billable
+- **Voiding never deletes.** The invoice stays and its days become billable
   again.
 
 `invoice_aging` buckets receivables the way a controller expects - current,
@@ -127,8 +166,8 @@ until an invoice is issued.
 `agent.js` rather than the SDK tool runner — because the point of this build is
 that every step is observable, and the loop is where the instrumentation hangs.
 
-Thirty-one tools cover accounts, sites, contacts, projects, activity,
-documents, pipelines, timecards, invoices and PO burn-down. Two of them matter more than the rest:
+Thirty-seven tools cover accounts, sites, contacts, projects, activity,
+documents, pipelines, timesheets, approvals, invoices and PO burn-down. Two of them matter more than the rest:
 
 - `sql_query` runs a SELECT when no purpose-built tool fits. The connection
   holds a `ts_readonly` role with `SELECT` and nothing else, so a write is
@@ -170,15 +209,18 @@ it, because that would invalidate the cache every day.
 npm test
 ```
 
-71 tests against a real Postgres database built from the same `schema.sql` the
+78 tests against a real Postgres database built from the same `schema.sql` the
 application uses — the constraints are where most of the design lives, and a
 mock would not catch them. The agent loop is exercised with a scripted stand-in
 for the Anthropic client, so tool dispatch, trace capture, the iteration cap,
 parallel tool results and cache stability are all covered without a key.
 
-The money path gets the most attention: double-billing, invoicing unapproved
-time, changing a sent invoice, overrunning a purchase order, the rate in force
-on a given week, and every column of the burn-down at each stage.
+The time and money path gets the most attention: a day split across two
+projects, the 24-hour and in-week limits, a PO from the wrong project, a locked
+week, partial approval, rejection releasing value, a week reopening for
+correction, a project with no approver on file, double-billing, invoicing
+unapproved time, changing a sent invoice, overrunning a purchase order, the rate
+in force on a given day, and every column of the burn-down at each stage.
 
 **What is not covered:** no test in this suite makes a live Claude API call.
 The request shape is asserted against the documented parameters, but the round

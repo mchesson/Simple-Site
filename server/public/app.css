@@ -182,6 +182,50 @@ tr.sel td{background:var(--accent-soft)}
   top:0; background:var(--bg); z-index:2}
 input[type=checkbox]{accent-color:var(--accent); width:15px; height:15px}
 
+/* ------------------------------------------------------------ timesheets */
+/* The week grid. Rows are what the time was charged to, columns are days. */
+.wk{width:100%; border-collapse:collapse; font-size:14px}
+.wk th{
+  text-align:center; font-size:11px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-3); font-weight:600; padding:8px 6px; border-bottom:1px solid var(--line);
+  white-space:nowrap;
+}
+.wk th.tgt{text-align:left; min-width:15rem}
+.wk td{padding:5px 6px; border-bottom:1px solid var(--line); text-align:center}
+.wk td.tgt{text-align:left}
+.wk td.tgt strong{display:block; font-weight:560}
+.wk td.tgt span{color:var(--ink-3); font-size:12.5px}
+.wk input.h{
+  width:3.6rem; text-align:center; padding:6px 4px; border:1px solid transparent;
+  border-radius:7px; background:var(--panel-2); color:var(--ink);
+  font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:14px;
+}
+.wk input.h:hover{border-color:var(--line)}
+.wk input.h:focus{border-color:var(--accent); outline:none; background:var(--panel)}
+.wk input.h.zero{color:var(--ink-3)}
+.wk tfoot td{font-weight:600; border-bottom:0; border-top:1px solid var(--line)}
+.wk tfoot td.over{color:var(--bad)}
+.wk .rowtot{font-family:var(--mono); font-variant-numeric:tabular-nums; font-weight:600}
+.wkbar{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:14px}
+.wkbar .grow{flex:1}
+.ghost{
+  background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+  border-radius:9px; padding:7px 13px; font-weight:520; cursor:pointer; font-size:14px;
+}
+.ghost:hover{border-color:var(--accent)}
+.packet{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  padding:14px 16px; margin-bottom:12px;
+}
+.packet .hd{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap}
+.packet .hd h3{margin:0}
+.days{display:flex; flex-wrap:wrap; gap:6px; margin:10px 0 0}
+.day{
+  border:1px solid var(--line); border-radius:8px; padding:5px 9px; font-size:13px;
+  background:var(--bg);
+}
+.day b{font-variant-numeric:tabular-nums; font-family:var(--mono)}
+
 /* -------------------------------------------------------------- inspector */
 .split{display:grid; grid-template-columns:340px 1fr; flex:1; min-height:0}
 @media(max-width:900px){.split{grid-template-columns:1fr}}

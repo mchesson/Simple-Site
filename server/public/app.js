@@ -590,84 +590,298 @@ async function documentsView() {
 }
 
 
-// The approval queue. Approving is what turns a claim into earned revenue, so
-// the value of each week is shown before you agree to it, not after.
-async function timecardsView() {
-  const pending = await api("/api/timecards?status=submitted");
-  const approvedAll = await api("/api/timecards?status=approved");
-  const approved = approvedAll.filter((t) => !t.invoice_id);
-  const drafted = approvedAll.filter((t) => t.invoice_status === "draft");
-  const chosen = new Set();
+// ------------------------------------------------------------ timesheets
 
-  const who = el("input", {
-    placeholder: "Who at the client approved these?",
-    style: "flex:1;max-width:20rem;padding:7px 11px;border:1px solid var(--line);" +
-           "border-radius:8px;background:var(--panel);color:var(--ink);font:inherit",
+const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const isoDay = (d) => d.toISOString().slice(0, 10);
+// Weeks end on Sunday. Given any date, the Sunday that closes its week.
+function weekEndingOf(date = new Date()) {
+  const d = new Date(date);
+  d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
+  return d;
+}
+function daysOfWeek(weekEnding) {
+  const end = new Date(weekEnding);
+  end.setHours(12, 0, 0, 0);
+  return DAYS.map((_, i) => {
+    const d = new Date(end);
+    d.setDate(end.getDate() - 6 + i);
+    return d;
   });
-  const total = el("span", { class: "muted" }, "");
-  const btn = el("button", { class: "send", disabled: "", onclick: approve }, "Approve");
+}
 
-  function refreshBulk() {
-    const sum = pending.filter((t) => chosen.has(t.id))
-      .reduce((a, t) => a + Number(t.value), 0);
-    total.textContent = chosen.size
-      ? `${chosen.size} week${chosen.size === 1 ? "" : "s"} · ${money(sum)}` : "";
-    if (chosen.size) btn.removeAttribute("disabled"); else btn.setAttribute("disabled", "");
+// The consultant's week. Rows are what the time was charged to; columns are the
+// seven days. Adding a row is how you allocate to a second project or PO.
+async function timesheetView(weekEnding, contactId) {
+  const me = await api("/api/me");
+  // Without a signed-in consultant, work on behalf of whoever is on payroll.
+  const consultants = await api("/api/contacts?on_payroll=1&limit=50");
+  const who = contactId || consultants[0]?.id;
+  if (!who) {
+    return el("div", { class: "pane muted" },
+      "Nobody is on payroll yet, so there is no week to fill in.");
+  }
+  const we = weekEnding || isoDay(weekEndingOf());
+
+  const [ts, targets] = await Promise.all([
+    api("/api/timesheets", { method: "POST",
+      body: JSON.stringify({ contact_id: who, week_ending: we }) }),
+    api(`/api/allocation-targets?contact_id=${who}&week_ending=${we}`),
+  ]);
+  const full = await api(`/api/timesheets/${ts.id}`);
+  const dates = daysOfWeek(we);
+  const editable = ["draft", "rejected"].includes(full.status);
+
+  // A row is one allocation target. Start from what is already on the week, then
+  // offer the rest so a consultant can add a project without hunting for it.
+  const key = (t) => `${t.placement_id}|${t.purchase_order_id || ""}`;
+  const rows = new Map();
+  for (const t of targets) rows.set(key(t), { target: t, hours: {} });
+  for (const e of full.entries) {
+    const k = `${e.placement_id}|${e.purchase_order_id || ""}`;
+    if (!rows.has(k)) {
+      rows.set(k, { target: {
+        placement_id: e.placement_id, purchase_order_id: e.purchase_order_id,
+        project_name: e.project_name, account_name: e.account_name,
+        po_number: e.po_number }, hours: {} });
+    }
+    rows.get(k).hours[isoDay(new Date(e.work_date))] = Number(e.hours);
+  }
+  // Only show rows that have time on them, plus the ones the consultant adds.
+  const shown = new Set([...rows.entries()]
+    .filter(([, r]) => Object.values(r.hours).some((h) => h > 0))
+    .map(([k]) => k));
+  if (!shown.size && rows.size) shown.add([...rows.keys()][0]);
+
+  const table = el("table", { class: "wk" });
+  const status = el("span", { class: "pill" }, full.status.replace(/_/g, " "));
+  const totalOut = el("span", { class: "muted" }, "");
+
+  function totals() {
+    const perDay = {}, perRow = {};
+    for (const k of shown) {
+      const r = rows.get(k);
+      perRow[k] = 0;
+      for (const d of dates) {
+        const h = Number(r.hours[isoDay(d)]) || 0;
+        perDay[isoDay(d)] = (perDay[isoDay(d)] || 0) + h;
+        perRow[k] += h;
+      }
+    }
+    const week = Object.values(perDay).reduce((a, b) => a + b, 0);
+    return { perDay, perRow, week };
   }
 
-  async function approve() {
-    if (!who.value.trim()) return alert("Name the person at the client who approved.");
-    const r = await api("/api/timecards/approve", {
-      method: "POST",
-      body: JSON.stringify({ ids: [...chosen], approved_by: who.value.trim() }) });
+  function draw() {
+    const { perDay, perRow, week } = totals();
+    table.replaceChildren(
+      el("thead", {}, el("tr", {},
+        el("th", { class: "tgt" }, "Charged to"),
+        ...dates.map((d, i) => el("th", {},
+          DAYS[i], el("div", { class: "muted", style: "font-weight:400" },
+            d.toLocaleDateString(undefined, { day: "numeric", month: "short" })))),
+        el("th", {}, "Total"))),
+      el("tbody", {}, ...[...shown].map((k) => {
+        const r = rows.get(k);
+        return el("tr", {},
+          el("td", { class: "tgt" },
+            el("strong", {}, r.target.project_name),
+            el("span", {},
+              [r.target.account_name, r.target.po_number || "no PO"]
+                .filter(Boolean).join(" · "))),
+          ...dates.map((d) => {
+            const iso = isoDay(d);
+            const v = r.hours[iso] || 0;
+            return el("td", {}, el("input", {
+              class: "h" + (v ? "" : " zero"), type: "number", min: "0", max: "24",
+              step: "0.25", value: v || "", disabled: editable ? null : "",
+              onchange: (e) => {
+                r.hours[iso] = Number(e.target.value) || 0;
+                draw();
+              },
+            }));
+          }),
+          el("td", { class: "rowtot" }, perRow[k] || ""));
+      })),
+      el("tfoot", {}, el("tr", {},
+        el("td", { class: "tgt" }, "Total"),
+        ...dates.map((d) => el("td", {
+          class: "rowtot" + ((perDay[isoDay(d)] || 0) > 24 ? " over" : "") },
+          perDay[isoDay(d)] || "")),
+        el("td", { class: "rowtot" }, week || ""))));
+    totalOut.textContent = week
+      ? `${week} hours this week` : "Nothing entered yet";
+  }
+  draw();
+
+  const unusedTargets = () => targets.filter((t) => !shown.has(key(t)));
+
+  const addRow = el("select", {
+    class: "ghost", onchange: (e) => {
+      if (!e.target.value) return;
+      shown.add(e.target.value);
+      e.target.value = "";
+      go("timesheet", null, { week: we, contact: who });
+    },
+  }, el("option", { value: "" }, "Charge to another project…"),
+     ...unusedTargets().map((t) => el("option", { value: key(t) },
+       `${t.project_name}${t.po_number ? " · " + t.po_number : ""}`)));
+
+  async function save(thenSubmit) {
+    const entries = [];
+    for (const k of shown) {
+      const r = rows.get(k);
+      for (const d of dates) {
+        const h = Number(r.hours[isoDay(d)]) || 0;
+        if (!h) continue;
+        entries.push({ placement_id: r.target.placement_id,
+                       purchase_order_id: r.target.purchase_order_id || null,
+                       work_date: isoDay(d), hours: h });
+      }
+    }
+    const r = await api(`/api/timesheets/${ts.id}/entries`, {
+      method: "PUT", body: JSON.stringify({ entries }) });
     if (r.error) return alert(r.error);
-    go("timecards");
+    if (thenSubmit) {
+      const sub = await api(`/api/timesheets/${ts.id}/submit`, { method: "POST" });
+      if (sub.error) return alert(sub.error);
+      const unrouted = (sub.packets || []).filter((p) => !p.approver_contact_id);
+      if (unrouted.length) {
+        alert(`Submitted, but ${unrouted.length} project has no approving manager on ` +
+              `file. Somebody has to name one before that part can be approved.`);
+      }
+    }
+    go("timesheet", null, { week: we, contact: who });
   }
 
-  const row = (t, pick) => {
-    const tr = el("tr", {},
-      pick ? el("td", { style: "width:2rem" },
-        el("input", { type: "checkbox", onchange: (e) => {
-          e.target.checked ? chosen.add(t.id) : chosen.delete(t.id);
-          tr.classList.toggle("sel", e.target.checked);
-          refreshBulk();
-        } })) : null,
-      el("td", {}, el("strong", {}, t.full_name),
-        el("div", { class: "meta" }, t.account_name + " · " + t.project_name)),
-      el("td", {}, "Week ending " + day(t.week_ending)),
-      el("td", {}, el("span", { class: "num" }, t.hours),
-        Number(t.ot_hours)
-          ? [" + ", el("span", { class: "num" }, t.ot_hours), " overtime"] : []),
-      el("td", { class: "num" }, money(t.value)),
-      el("td", { class: "muted" }, t.po_number || "no PO"),
-      el("td", {}, t.invoice_number
-        ? el("span", { class: "pill good" }, "Billed on " + t.invoice_number)
-        : t.status === "approved"
-          ? el("span", { class: "pill warn" }, "Approved, not billed")
-          : el("span", { class: "pill" }, "Awaiting the client")));
-    return tr;
+  const shift = (n) => {
+    const d = new Date(we); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n * 7);
+    go("timesheet", null, { week: isoDay(d), contact: who });
   };
 
   return el("div", { class: "pane" },
-    el("div", { class: "bulkbar" }, who, total, btn),
-    el("div", { class: "navsec", style: "padding-left:0" },
-      `Waiting on the client — ${money(pending.reduce((a, t) => a + Number(t.value), 0))}`),
+    el("div", { class: "wkbar" },
+      el("button", { class: "ghost", onclick: () => shift(-1) }, "← Previous"),
+      el("strong", {},
+        "Week ending " + new Date(we).toLocaleDateString(undefined,
+          { day: "numeric", month: "long", year: "numeric" })),
+      el("button", { class: "ghost", onclick: () => shift(1) }, "Next →"),
+      consultants.length > 1
+        ? el("select", { class: "ghost",
+            onchange: (e) => go("timesheet", null, { week: we, contact: e.target.value }) },
+            ...consultants.map((c) => el("option",
+              { value: c.id, selected: c.id === who ? "" : null }, c.full_name)))
+        : el("span", { class: "muted" }, consultants[0]?.full_name || ""),
+      status, el("span", { class: "grow" }), totalOut),
+
+    table,
+
+    el("div", { class: "wkbar", style: "margin-top:16px" },
+      editable ? addRow : null,
+      el("span", { class: "grow" }),
+      editable
+        ? el("button", { class: "ghost", onclick: () => save(false) }, "Save draft")
+        : null,
+      editable
+        ? el("button", { class: "send", onclick: () => save(true) },
+            "Submit for approval")
+        : el("span", { class: "muted" },
+            full.status === "submitted"
+              ? "Waiting on the client. It cannot be changed while it is out."
+              : "This week has been decided.")),
+
+    full.approvals.length
+      ? section("Approval", full.approvals.map((a) =>
+          el("div", { class: "packet" },
+            el("div", { class: "hd" },
+              el("h3", {}, a.project_name),
+              el("span", { class: "pill " + (a.status === "approved" ? "good"
+                : a.status === "rejected" ? "bad" : "warn") }, a.status),
+              el("span", { class: "muted" },
+                `${a.hours} hours · ${money(a.value)}`),
+              el("span", { class: "grow" }),
+              el("span", { class: "muted" },
+                a.approver_name
+                  ? (a.decided_by ? "decided by " + a.decided_by
+                                  : "with " + a.approver_name)
+                  : "no approver on file")),
+            a.note ? el("p", { style: "margin:8px 0 0" }, a.note) : null)))
+      : null,
+
+    full.status === "rejected"
+      ? el("p", { class: "pill bad", style: "margin-top:12px" },
+          "Sent back. Fix it and submit again.")
+      : null);
+}
+
+// The client manager's side. Each row is one project's part of one week, which
+// is the unit they actually sign off.
+async function approvalsView() {
+  const [pending, decided] = await Promise.all([
+    api("/api/approvals?status=pending"),
+    api("/api/approvals?status=approved"),
+  ]);
+
+  const card = (a) => {
+    const decide = async (decision) => {
+      const by = a.approver_name ||
+        prompt("Which manager at the client is deciding?");
+      if (!by) return;
+      const note = decision === "rejected"
+        ? prompt("Why is it going back? The consultant will see this.") : null;
+      if (decision === "rejected" && !note) return;
+      const r = await api(`/api/approvals/${a.approval_id}/decide`, {
+        method: "POST",
+        body: JSON.stringify({ decision, decided_by: by, note }) });
+      if (r.error) return alert(r.error);
+      go("approvals");
+    };
+    return el("div", { class: "packet" },
+      el("div", { class: "hd" },
+        el("h3", {}, a.consultant),
+        el("span", { class: "muted" },
+          `week ending ${day(a.week_ending)} · ${a.project_name}`),
+        el("span", { class: "grow" }),
+        el("span", {}, el("strong", {}, a.hours + " hours"), " · ", money(a.value))),
+      el("div", { class: "meta", style: "margin-top:4px" },
+        a.account_name + " · " +
+        (a.approver_name ? "with " + a.approver_name : "no approving manager on file")),
+      el("div", { class: "days" },
+        ...(a.days || []).map((d) => el("span", { class: "day" },
+          new Date(d.work_date).toLocaleDateString(undefined,
+            { weekday: "short", day: "numeric", month: "short" }),
+          " ", el("b", {}, d.hours), "h"))),
+      a.status === "pending"
+        ? el("div", { style: "margin-top:12px;display:flex;gap:8px" },
+            el("button", { class: "send", onclick: () => decide("approved") },
+              "Approve " + money(a.value)),
+            el("button", { class: "ghost", onclick: () => decide("rejected") },
+              "Send back"))
+        : el("div", { class: "meta", style: "margin-top:8px" },
+            `${a.status} by ${a.decided_by || "—"}` + (a.note ? " — " + a.note : "")));
+  };
+
+  const owed = pending.reduce((a, x) => a + Number(x.value), 0);
+  const unrouted = pending.filter((p) => !p.approver_name);
+
+  return el("div", { class: "pane" },
+    el("div", { class: "card" },
+      el("h3", {}, money(owed) + " waiting on client approval"),
+      el("div", { class: "meta" },
+        `${pending.length} week${pending.length === 1 ? "" : "s"} of work across ` +
+        `${new Set(pending.map((p) => p.project_name)).size} project(s). ` +
+        "None of it can be billed until it is approved."),
+      unrouted.length
+        ? el("p", { class: "pill bad", style: "margin-top:10px" },
+            `${unrouted.length} of these has no approving manager on file`)
+        : null),
     pending.length
-      ? el("table", { class: "grid" }, el("tbody", {}, ...pending.map((t) => row(t, true))))
-      : el("p", { class: "muted" }, "Nothing waiting for approval."),
-    el("div", { class: "navsec", style: "padding-left:0;margin-top:24px" },
-      `Approved but not yet billed — ${money(approved.reduce((a, t) => a + Number(t.value), 0))}`),
-    approved.length
-      ? el("table", { class: "grid" }, el("tbody", {}, ...approved.map((t) => row(t, false))))
-      : el("p", { class: "muted" }, "Nothing approved is waiting to be billed."),
-    drafted.length ? el("div", {},
-      el("div", { class: "navsec", style: "padding-left:0;margin-top:24px" },
-        `On a draft invoice, not yet sent — ` +
-        money(drafted.reduce((a, t) => a + Number(t.value), 0))),
-      el("p", { class: "muted", style: "margin:0 0 10px" },
-        "Prepared but not issued, so it has not burned the purchase order yet."),
-      el("table", { class: "grid" },
-        el("tbody", {}, ...drafted.map((t) => row(t, false))))) : null);
+      ? el("div", {}, ...pending.map(card))
+      : el("p", { class: "muted" }, "Nothing is waiting on the client."),
+    decided.length
+      ? section("Recently approved", decided.slice(0, 8).map(card))
+      : null);
 }
 
 async function invoicesView() {
@@ -775,9 +989,9 @@ async function invoiceView(id) {
 // ------------------------------------------------------------------ routing
 const TITLES = { chat: "Project Assistant", accounts: "Accounts", projects: "Projects",
   contacts: "Contacts", documents: "Documents", pos: "Purchase orders",
-  timecards: "Timecards", invoices: "Invoices" };
+  timesheet: "My week", approvals: "Approvals", invoices: "Invoices" };
 
-async function go(view, id = null) {
+async function go(view, id = null, opts = {}) {
   state.view = view;
   const body = $("#body");
   body.replaceChildren(el("div", { class: "pane muted" }, "Loading…"));
@@ -797,7 +1011,8 @@ async function go(view, id = null) {
   else if (view === "project") { node = await projectView(id); $("#title").textContent = "Project"; }
   else if (view === "documents") node = await documentsView();
   else if (view === "pos") node = await poView();
-  else if (view === "timecards") node = await timecardsView();
+  else if (view === "timesheet") node = await timesheetView(opts.week, opts.contact);
+  else if (view === "approvals") node = await approvalsView();
   else if (view === "invoices") node = await invoicesView();
   else if (view === "invoice") { node = await invoiceView(id); $("#title").textContent = "Invoice"; }
   body.replaceChildren(node);
