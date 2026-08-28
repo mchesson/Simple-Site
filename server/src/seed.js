@@ -538,15 +538,40 @@ await client.query(
    values ($1,'candidate','call','Jo is on a contract through October. Available after.
 Wants to stay in Reno.',$2, now() - interval '1 day')`, [jo.id, dev.id]);
 
+// -- the bench ---------------------------------------------------------------
+// On our payroll and not out working. Every day here costs us and earns nothing,
+// so putting him against a project is the cheapest seat the desk will fill.
+const owen = await q(
+  `insert into contact (full_name, email, phone, is_candidate, headline, skills,
+                        location_text, on_payroll, recruiter_id, source)
+   values ('Owen Marsh','o.marsh@example.com','775-555-0132',true,
+     'Controls engineer, 11 years, food and beverage',
+     '{"PLC","Allen-Bradley","Ignition","SCADA"}','Reno, NV',true,$1,'Redeployment')
+   returning *`, [dev.id]);
+const owenPl = await q(
+  `insert into placement (project_id, contact_id, status, start_date, end_date,
+                          recruiter_id)
+   values ($1,$2,'ended','2026-02-02', current_date - 21, $3) returning *`,
+  [controls.id, owen.id, dev.id]);
+await client.query(
+  `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct,
+                               effective_from, effective_to)
+   values ($1,58,94,22,'2026-02-02', current_date - 21)`, [owenPl.id]);
+
 // -- pipelines ---------------------------------------------------------------
+//
+// A pipeline is a recruiter's own named category, not the submission board. It
+// holds resources they know are good and who are not out working, grouped
+// however that person thinks about the work.
 const pipe = await q(
   `insert into pipeline (owner_id, name, notes) values
    ($1,'Reno controls bench','People I can move on short notice in northern Nevada')
    returning *`, [dev.id]);
 await client.query(
   `insert into pipeline_member (pipeline_id, contact_id, note) values
-   ($1,$2,'Free after October'), ($1,$3,'On payroll, redeployable in December')`,
-  [pipe.id, jo.id, marcus.id]);
+   ($1,$2,'Free after October'), ($1,$3,'On payroll, redeployable in December'),
+   ($1,$4,'Came off line 4 in good standing. Ready now.')`,
+  [pipe.id, jo.id, marcus.id, owen.id]);
 
 await client.query(
   `insert into domain_event (kind, subject_type, subject_id, payload)

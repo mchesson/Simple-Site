@@ -73,16 +73,24 @@ function attempt(fn) {
   catch (e) { alert(e.message); return null; }
 }
 
-/* Our own consultants come first. Somebody already on the payroll being put
- * against a new project is a redeployment: no onboarding, no screening, and
- * they are already earning. It is the cheapest seat there is to fill, so the
- * list should not bury them under a hundred strangers. */
+/* Ordered by how soon each person is actually free, because that is the question
+ * the list is being asked. Somebody on our bench is a redeployment - no
+ * onboarding, no screening, and they are already costing us - which makes them
+ * the cheapest seat on the desk. Somebody with eight months left on an
+ * assignment is a different conversation, and the label says which. */
 const candidateOptions = () => where("contacts", (c) => c.isCandidate && !c.archivedAt)
-  .sort((a, b) => (Number(!!b.onPayroll) - Number(!!a.onPayroll)) ||
-                  a.fullName.localeCompare(b.fullName))
-  .map((c) => ({ value: c.id,
-                 label: c.fullName + (c.onPayroll ? " (our consultant)" : "") +
-                        (c.headline ? ` — ${c.headline}` : "") }));
+  .map((c) => ({ contact: c, status: workStatus(c.id) }))
+  .sort((a, b) => {
+    const rank = (r) => r.status.code === "bench" ? 0
+      : r.status.code === "resource" ? 1
+      : (r.status.freeIn ?? 9999) <= 45 ? 2 : 3;
+    return rank(a) - rank(b) || a.contact.fullName.localeCompare(b.contact.fullName);
+  })
+  .map(({ contact: c, status }) => ({
+    value: c.id,
+    label: c.fullName + (status.label ? ` (${status.label})` : "") +
+           (c.headline ? ` — ${c.headline}` : ""),
+  }));
 
 const openProjectOptions = () => where("projects", (p) => !p.archivedAt &&
     ["open", "draft"].includes(p.status))
@@ -98,8 +106,8 @@ async function submitFlow({ projectId = null, contactId = null } = {}) {
   if (!contactId) {
     fields.push({ name: "contactId", label: "Resource", type: "select",
                   options: candidateOptions(), wide: true,
-                  hint: "somebody already on our payroll is a redeployment, "
-                        + "which is the cheapest seat you will fill all month" });
+                  hint: "on the bench means a redeployment - ours already, and "
+                        + "the cheapest seat you will fill all month" });
   }
   if (!projectId) {
     fields.push({ name: "projectId", label: "For which project", type: "select",
@@ -312,11 +320,11 @@ function subCard(r) {
     r.loss ? el("div", { class: "scnote" }, r.loss.label) : null);
 }
 
-function pipelineView() {
+function submissionsView() {
   const me = actingUser();
-  const mineOnly = UI.pipeScope === undefined || UI.pipeScope === null
-    ? me.role !== "admin" : UI.pipeScope === "mine";
-  const showClosed = !!UI.pipeClosed;
+  const mineOnly = UI.subScope === undefined || UI.subScope === null
+    ? me.role !== "admin" : UI.subScope === "mine";
+  const showClosed = !!UI.subClosed;
   const rows = board({ ownerId: mineOnly ? me.id : null, openOnly: !showClosed });
   const stages = STAGES.filter((st) => showClosed || st.open);
   const f = funnel(mineOnly ? me.id : null);
@@ -330,15 +338,16 @@ function pipelineView() {
   return el("div", { class: "pane" },
     el("div", { class: "deskhead" },
       el("div", {},
-        el("h2", { class: "dtitle" }, "Pipeline"),
+        el("h2", { class: "dtitle" }, "Submissions"),
         el("p", { class: "dsub" },
-          "Everybody we have out, and how long they have been sitting there. " +
-          "The buttons on a submission are the moves the rules allow from where it is.")),
+          "Every resource we have out with a client, and how long they have been " +
+          "sitting there. The buttons on a submission are the moves the rules allow " +
+          "from where it is.")),
       el("div", { class: "segs" },
         seg([["mine", "Mine"], ["all", "Everyone"]], mineOnly ? "mine" : "all",
-            (k) => { UI.pipeScope = k; }),
+            (k) => { UI.subScope = k; }),
         seg([["open", "In play"], ["all", "Everything"]], showClosed ? "all" : "open",
-            (k) => { UI.pipeClosed = k === "all"; }),
+            (k) => { UI.subClosed = k === "all"; }),
         el("button", { class: "send", onclick: () => submitFlow() },
           "Submit a resource"))),
 
@@ -537,6 +546,201 @@ function submissionView(id) {
               : "Submitted"),
             el("td", { class: "muted" }, (byId("users", e.actorId) || {}).name || "\u2014"),
             el("td", { class: "muted" }, e.reason || ""))))))]));
+}
+
+/* ------------------------------------------------------------- pipelines
+ *
+ * A recruiter's own categories, which they name themselves. This screen is the
+ * other half of recruiting from the submission board: submissions are what is
+ * out with a client, and this is what a recruiter has in reserve.
+ */
+
+/* What to call somebody's situation in one chip. outCount is how many live
+ * submissions they have: being out with a client is not being on assignment, but
+ * it is not "available" either, and a recruiter about to ring them should see
+ * the difference before they do. */
+const statusChip = (st, outCount = 0) => {
+  if (st.code === "on_assignment") {
+    const warn = st.freeIn !== null && st.freeIn <= 45;
+    return el("span", { class: "pill" + (warn ? " warn" : " good") },
+      st.freeIn === null ? "on assignment" : `free in ${st.freeIn}d`);
+  }
+  if (st.code === "starting") return el("span", { class: "pill good" }, st.label);
+  if (st.code === "bench") return el("span", { class: "pill warn" }, "on the bench");
+  if (outCount) return el("span", { class: "pill" }, "out with a client");
+  return el("span", { class: "pill" }, "available");
+};
+
+async function newPipelineFlow() {
+  const answer = await askFor("New category", [
+    { name: "name", label: "Call it", type: "text", wide: true,
+      placeholder: "Reno controls bench, PLC people I trust, night shift…" },
+    { name: "notes", label: "What goes in it", type: "textarea", wide: true,
+      placeholder: "For you, in six months, when you cannot remember why you " +
+                   "made this one." },
+  ], { submitLabel: "Create it",
+       note: "Your own category, named however you think about the work. It holds " +
+             "resources you know are good and who are not out working, so you do " +
+             "not go looking for them twice." });
+  if (!answer) return;
+  const pl = attempt(() => createPipeline(answer.name, answer.notes || null));
+  if (pl) noteSaving(`Created ${pl.name}.`, "good");
+}
+
+async function renamePipelineFlow(pipelineId) {
+  const pl = byId("pipelines", pipelineId);
+  const answer = await askFor(`Edit ${pl.name}`, [
+    { name: "name", label: "Call it", type: "text", wide: true, value: pl.name },
+    { name: "notes", label: "What goes in it", type: "textarea", wide: true,
+      value: pl.notes || "" },
+  ], { submitLabel: "Save" });
+  if (!answer) return;
+  attempt(() => renamePipeline(pipelineId, answer.name, answer.notes || null));
+}
+
+async function addToPipelineFlow(pipelineId, contactId = null) {
+  const pl = pipelineId ? byId("pipelines", pipelineId) : null;
+  const me = actingUser();
+  const mine = pipelinesOwnedBy(me.id);
+  const fields = [];
+
+  if (!pipelineId) {
+    if (!mine.length) {
+      alert("You have no categories yet. Make one first, on the Pipelines screen.");
+      return;
+    }
+    fields.push({ name: "pipelineId", label: "Which category", type: "select", wide: true,
+      options: mine.map((x) => ({ value: x.id, label: x.name })) });
+  }
+  if (!contactId) {
+    const already = new Set(where("pipelineMembers",
+      (m) => m.pipelineId === pipelineId).map((m) => m.contactId));
+    const options = candidateOptions().filter((o) => !already.has(o.value));
+    if (!options.length) {
+      alert("Everybody on file is already in this one.");
+      return;
+    }
+    fields.push({ name: "contactId", label: "Who", type: "select", wide: true,
+                  options });
+  }
+  fields.push({ name: "note", label: "Why you are keeping them", type: "textarea",
+    wide: true,
+    placeholder: "Free after October. Day shift only. Would not send back to Globex." });
+
+  const contact = contactId ? byId("contacts", contactId) : null;
+  const answer = await askFor(
+    contact ? `Keep ${contact.fullName} in a category` : `Add to ${pl.name}`, fields,
+    { submitLabel: "Add",
+      note: "The note is the point. It is what you will have forgotten by the time " +
+            "this person becomes the answer to something." });
+  if (!answer) return;
+  const out = attempt(() => addToPipeline(
+    pipelineId || answer.pipelineId, contactId || answer.contactId,
+    answer.note || null));
+  if (out) noteSaving("Added.", "good");
+}
+
+function pipelinesView() {
+  const me = actingUser();
+  const mineOnly = UI.pipeWho === undefined || UI.pipeWho === null
+    ? me.role !== "admin" : UI.pipeWho === "mine";
+  const pipes = mineOnly ? pipelinesOwnedBy(me.id)
+    : [...S.pipelines].sort((a, b) =>
+        ((byId("users", a.ownerId) || {}).name || "").localeCompare(
+          (byId("users", b.ownerId) || {}).name || "") ||
+        a.name.localeCompare(b.name));
+
+  return el("div", { class: "pane" },
+    el("div", { class: "deskhead" },
+      el("div", {},
+        el("h2", { class: "dtitle" }, "Pipelines"),
+        el("p", { class: "dsub" },
+          "Your own categories, named however you think about the work. They hold " +
+          "resources you know are good and who are not out working — so when a " +
+          "project lands you go to a list, not to a search.")),
+      el("div", { class: "segs" },
+        el("div", { class: "deskswitch" },
+          ...[["mine", "Mine"], ["all", "Everyone"]].map(([k, label]) =>
+            el("button", { class: "seg" + ((mineOnly ? "mine" : "all") === k ? " on" : ""),
+                           onclick: () => { UI.pipeWho = k; render(); } }, label))),
+        el("button", { class: "send", onclick: () => newPipelineFlow() },
+          "New category"))),
+
+    !pipes.length
+      ? el("div", { class: "banner" },
+          el("b", {}, mineOnly ? "You have no categories yet. " : "Nobody has one yet. "),
+          "A category is whatever grouping you actually work from — a site, a skill, " +
+          "a shift, people you would put in front of anyone. Make one and tag people " +
+          "into it from here or from their record.")
+      : null,
+
+    ...pipes.map((pl) => {
+      const members = pipelineMembers(pl.id);
+      const owner = byId("users", pl.ownerId);
+      const project = pl.projectId ? byId("projects", pl.projectId) : null;
+      // Free to work on something means not on assignment and not already out
+      // with a client, plus anyone rolling off soon enough to matter.
+      const free = members.filter((m) =>
+        (m.status.code === "on_assignment" &&
+         m.status.freeIn !== null && m.status.freeIn <= 45) ||
+        (m.status.code !== "on_assignment" && m.status.code !== "starting" &&
+         !m.out.length)).length;
+
+      return el("div", { class: "card" },
+        el("div", { class: "pipehead" },
+          el("div", {},
+            el("h3", {}, pl.name),
+            el("div", { class: "meta" },
+              `${members.length} ${members.length === 1 ? "person" : "people"}` +
+              (free ? ` · ${free} free or coming free` : " · nobody free") +
+              (owner && !mineOnly ? " · " + owner.name : "") +
+              (project ? " · for " + project.name : ""))),
+          pl.ownerId === me.id
+            ? el("div", { class: "rowbtns", style: "margin:0" },
+                el("button", { class: "linkbtn",
+                  onclick: () => addToPipelineFlow(pl.id) }, "Add a resource"),
+                el("button", { class: "linkbtn",
+                  onclick: () => renamePipelineFlow(pl.id) }, "Edit"))
+            : null),
+        pl.notes ? el("p", { class: "meta", style: "margin:6px 0 0" }, pl.notes) : null,
+
+        members.length
+          ? el("table", { class: "grid", style: "margin-top:12px" },
+              el("thead", {},
+                el("tr", {}, ...["Resource", "Right now", "Last spoken to",
+                  "Out with a client", "Why you kept them", ""]
+                  .map((h) => el("th", {}, h)))),
+              el("tbody", {}, ...members.map((m) => el("tr", {},
+                el("td", {},
+                  el("button", { class: "linkbtn",
+                    onclick: () => go("contact", m.contact.id) }, m.contact.fullName),
+                  m.contact.headline
+                    ? el("div", { class: "meta" }, m.contact.headline) : null),
+                el("td", {}, statusChip(m.status, m.out.length),
+                  m.status.label && m.status.code === "on_assignment"
+                    ? el("div", { class: "meta" }, m.status.label) : null),
+                el("td", {}, ageChip(m.quiet, 21)),
+                el("td", { class: "muted" },
+                  m.out.length
+                    ? m.out.map((s) => `${s.account ? s.account.name : ""} (${s.stageLabel})`)
+                        .join(", ")
+                    : "—"),
+                el("td", { class: "muted" }, m.note || ""),
+                el("td", {},
+                  el("div", { class: "rowbtns", style: "margin:0" },
+                    el("button", { class: "linkbtn",
+                      onclick: () => submitFlow({ contactId: m.contact.id }) },
+                      "Submit"),
+                    pl.ownerId === me.id
+                      ? el("button", { class: "linkbtn danger", onclick: () => {
+                          if (!confirm(`Drop ${m.contact.fullName} out of ${pl.name}? ` +
+                              "Their record is untouched — this only removes the tag.")) return;
+                          attempt(() => dropFromPipeline(pl.id, m.contact.id));
+                        } }, "Drop")
+                      : null)))))) 
+          : el("p", { class: "muted", style: "margin:10px 0 0" },
+              "Nobody in this one yet."));
+    }));
 }
 
 /* --------------------------------------------------------------- interviews

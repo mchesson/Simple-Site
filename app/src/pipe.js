@@ -256,6 +256,120 @@ function placeSubmission({ submissionId, startDate, endDate = null, payRate = nu
   return { placement, submission: byId("submissions", submissionId) };
 }
 
+/* ------------------------------------------------------------- pipelines
+ *
+ * A recruiter's own categories. They choose what the categories are - by skill,
+ * by site, by shift, by "people I would put in front of anyone" - and they hold
+ * resources who are not out working. That is the whole distinction from the
+ * submission board: submissions are what is out with a client, a pipeline is
+ * what a recruiter has in reserve and does not want to search for twice.
+ */
+
+/* What somebody is doing right now. This decides which word applies to them:
+ * on assignment they are an active consultant, otherwise they are a resource. */
+function workStatus(contactId) {
+  const today = iso(new Date());
+  const c = byId("contacts", contactId) || {};
+  const live = where("placements", (pl) => pl.contactId === contactId &&
+      ["active", "pending"].includes(pl.status) &&
+      pl.startDate <= today && (!pl.endDate || pl.endDate >= today))
+    .sort((a, b) => (a.endDate || "9999").localeCompare(b.endDate || "9999"))[0] || null;
+  if (live) {
+    const left = live.endDate ? daysUntil(live.endDate) : null;
+    return { code: "on_assignment", placement: live, freeIn: left,
+             word: "active consultant",
+             label: live.endDate ? "on assignment to " + day(live.endDate)
+                                 : "on assignment, open ended" };
+  }
+  const soon = where("placements", (pl) => pl.contactId === contactId &&
+      ["active", "pending"].includes(pl.status) && pl.startDate > today)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0] || null;
+  if (soon) {
+    return { code: "starting", placement: soon, freeIn: null,
+             word: "active consultant", label: "starts " + day(soon.startDate) };
+  }
+  // On our payroll but not out: the bench. Ours already, and earning nothing.
+  if (c.onPayroll) {
+    return { code: "bench", placement: null, freeIn: 0, word: "employee",
+             label: "on the bench" };
+  }
+  return { code: "resource", placement: null, freeIn: 0, word: "resource",
+           label: null };
+}
+
+const pipelinesOwnedBy = (ownerId) => where("pipelines", (pl) => pl.ownerId === ownerId)
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+function pipelineMembers(pipelineId) {
+  return where("pipelineMembers", (m) => m.pipelineId === pipelineId)
+    .map((m) => {
+      const contact = byId("contacts", m.contactId);
+      if (!contact) return null;
+      return { ...m, contact, status: workStatus(m.contactId),
+               quiet: daysSince(lastTouch(m.contactId)),
+               out: board({ contactId: m.contactId, openOnly: true }) };
+    })
+    .filter(Boolean)
+    // The ones free soonest first: a pipeline is a list to work, not a filing
+    // cabinet, and the person who is available is the one to call.
+    .sort((a, b) => (a.status.freeIn ?? 9999) - (b.status.freeIn ?? 9999) ||
+                    a.contact.fullName.localeCompare(b.contact.fullName));
+}
+
+function createPipeline(name, notes = null, projectId = null) {
+  const clean = (name || "").trim();
+  if (!clean) throw new Error("a category needs a name - it is how you will find it again");
+  const me = actingUser();
+  if (pipelinesOwnedBy(me.id).some((pl) => pl.name.toLowerCase() === clean.toLowerCase())) {
+    throw new Error(`you already have a category called "${clean}"`);
+  }
+  return insert("pipelines", {
+    ownerId: me.id, name: clean, projectId, notes,
+    createdAt: new Date().toISOString(),
+  }, "created a pipeline category");
+}
+
+function renamePipeline(pipelineId, name, notes) {
+  const pl = byId("pipelines", pipelineId);
+  if (!pl) throw new Error("that category is not on file");
+  const clean = (name || "").trim();
+  if (!clean) throw new Error("a category needs a name");
+  if (pipelinesOwnedBy(pl.ownerId).some((x) =>
+        x.id !== pipelineId && x.name.toLowerCase() === clean.toLowerCase())) {
+    throw new Error(`there is already a category called "${clean}"`);
+  }
+  return update("pipelines", pipelineId, { name: clean, notes: notes ?? pl.notes },
+    "renamed a pipeline category");
+}
+
+function addToPipeline(pipelineId, contactId, note = null) {
+  const pl = byId("pipelines", pipelineId);
+  if (!pl) throw new Error("that category is not on file");
+  const contact = byId("contacts", contactId);
+  if (!contact) throw new Error("that person is not on file");
+  if (!contact.isCandidate) {
+    throw new Error(`${contact.fullName} is not marked as a candidate - mark them as ` +
+      "one on their record first");
+  }
+  if (where("pipelineMembers", (m) => m.pipelineId === pipelineId &&
+                                      m.contactId === contactId).length) {
+    throw new Error(`${contact.fullName} is already in ${pl.name}`);
+  }
+  return insert("pipelineMembers", {
+    pipelineId, contactId, note, addedAt: new Date().toISOString(),
+  }, `added to ${pl.name}`);
+}
+
+/* Dropping somebody out of a category. The person is untouched - this removes a
+ * tag, not a record - and the removal is audited like everything else. */
+function dropFromPipeline(pipelineId, contactId) {
+  const m = where("pipelineMembers", (x) => x.pipelineId === pipelineId &&
+                                            x.contactId === contactId)[0];
+  if (!m) return null;
+  const pl = byId("pipelines", pipelineId);
+  return remove("pipelineMembers", m.id, `dropped from ${pl ? pl.name : "a category"}`);
+}
+
 /* ------------------------------------------------------------ the numbers */
 
 /* How many submissions ever reached each stage, read off the history rather than

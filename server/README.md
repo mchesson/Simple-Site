@@ -88,22 +88,39 @@ burden the spread looks like $40 but the gross margin is $25.70 - 24.48%.
 Computing it the other way overstates margin on every placement, and it
 overstates it most where the pay rate is lowest.
 
-## The pipeline
-
-Three words for a person, kept apart on purpose:
+## Words, kept apart on purpose
 
 | Word | Means | Where it is used |
 |---|---|---|
 | **candidate** | Somebody we could place. A role on a contact record, alongside manager — one human can be both. | Where the subject is the person being assessed: interviews, chasing, going quiet. |
-| **resource** | The internal word for a person put against a project's need. A project has a resource need; we submit a resource to fill it. | Where the subject is the project's need being filled: the submit action, a project's own pipeline. |
-| **consultant** | A person who is working — on our payroll, on an assignment. | The word for the person themselves, and anywhere they would read it: their week, their rates, rolling off. |
+| **resource** | The internal word for a person put against a project's need. A project has a resource need; we submit a resource to fill it. Covers anybody not currently out working. | Where the subject is the project's need being filled: the submit action, a project's own submissions. |
+| **active consultant** / **employee** | Somebody on assignment. A W-2 contractor of ours is an employee, so both words are right. | The word for the person themselves, and for anyone out working now: their week, their rates, rolling off. |
+| **bench** | On our payroll and not out working. Ours already, costing us, earning nothing. | Availability. A bench employee against a project is a redeployment — the cheapest seat the desk fills. |
 
-A candidate is submitted as a resource and becomes a consultant on the day they
-start. Somebody already on the bench is a consultant being submitted as a
-resource again — a redeployment, with no onboarding and no screening, which is
-why the submit action says resource rather than consultant: it has to be true in
-both cases. The submit list sorts our own consultants to the top for that
-reason.
+A resource becomes an active consultant on the day they start and goes back to
+being a resource when the assignment ends. That is why the submit action says
+resource: it has to be true whether the person is new to us or coming off an
+assignment. The submit list is ordered by how soon each person is actually free,
+bench first.
+
+**Submissions and pipelines are two different things and do not share a word.**
+
+- A **submission** is one resource put forward for one project — what is out
+  with a client. That is the board, `submission_board`, and everything in the
+  next section.
+- A **pipeline** is a recruiter's own set of named categories, which they choose
+  themselves, holding resources they know are good and who are not out working
+  — what a recruiter has in reserve. That is the `pipeline` and
+  `pipeline_member` tables, `listPipelines`, and the `list_pipelines` tool.
+
+When a user says "my pipeline" they mean their categories. `listPipelines`
+returns each member with what they are doing right now — `on_assignment` with
+the date they come free, `starting`, `bench`, `out_with_a_client`, or
+`available` — because a category full of people already on assignment has
+nothing in it to sell, and a bench employee in one is the cheapest seat on the
+desk.
+
+## Submissions
 
 
 A submission is one person put forward for one project. Which stages it may move
@@ -267,7 +284,7 @@ until an invoice is issued.
 `agent.js` rather than the SDK tool runner — because the point of this build is
 that every step is observable, and the loop is where the instrumentation hangs.
 
-Fifty-two tools cover accounts, sites, contacts, projects, submissions,
+Fifty-three tools cover accounts, sites, contacts, projects, submissions,
 interviews, activity, documents, pipelines, timesheets, approvals, unlocks,
 invoices, PO burn-down and the audit trail. Two of them matter more than the
 rest:
@@ -312,7 +329,7 @@ it, because that would invalidate the cache every day.
 npm test
 ```
 
-139 tests against a real Postgres database built from the same `schema.sql` the
+144 tests against a real Postgres database built from the same `schema.sql` the
 application uses — the constraints are where most of the design lives, and a
 mock would not catch them. The agent loop is exercised with a scripted stand-in
 for the Anthropic client, so tool dispatch, trace capture, the iteration cap,

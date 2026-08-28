@@ -538,9 +538,11 @@ export function buildTools(ctx) {
     {
       name: "submission_board",
       description:
-        "The pipeline: who is out where, at which stage, and how long it has sat there. " +
-        "Use this for 'what is out with the client', 'my pipeline', 'what is stale', " +
-        "'who have we got at Globex'. Default is only submissions still in play.",
+        "What is out with clients: which resource is where, at which stage, and how " +
+        "long it has sat there. Use this for 'what is out with the client', 'what is " +
+        "stale', 'who have we got at Globex'. Note that this is NOT what a user means " +
+        "by their pipeline - that is their own named categories, and list_pipelines " +
+        "reads those. Default is only submissions still in play.",
       input_schema: {
         type: "object",
         properties: {
@@ -1300,11 +1302,45 @@ export function buildTools(ctx) {
 
     // ------------------------------------------------------------- pipelines
     {
+      name: "list_pipelines",
+      description:
+        "A recruiter's own named categories and who is in them. This is what a user " +
+        "means by 'my pipeline': resources they know are good and who are not out " +
+        "working, grouped however that person thinks about the work. Each member comes " +
+        "back with what they are doing right now, so a redeployment is visible.",
+      input_schema: {
+        type: "object",
+        properties: {
+          mine: { type: "boolean",
+                  description: "Only the current user's categories. Default true." },
+          owner_name: { type: "string", description: "Somebody else's categories." },
+        },
+      },
+      run: async (i) => {
+        let ownerId = i.mine === false ? null : actor();
+        if (i.owner_name) {
+          const users = await repo.listUsers();
+          const hit = users.filter((u) =>
+            u.full_name.toLowerCase().includes(i.owner_name.toLowerCase()));
+          if (hit.length !== 1) {
+            return hit.length
+              ? { error: "ambiguous", message: `More than one user matches "${i.owner_name}".`,
+                  candidates: hit.map((u) => ({ id: u.id, name: u.full_name })) }
+              : { error: "not_found", message: `No user named "${i.owner_name}".` };
+          }
+          ownerId = hit[0].id;
+        }
+        return repo.listPipelines(ownerId);
+      },
+    },
+    {
       name: "tag_to_pipeline",
       description:
-        "Add someone to one of the current user's named pipelines, creating the pipeline " +
-        "if it does not exist. This is how a recruiter remembers a person without owning " +
-        "them - general candidates belong to the house, not to an individual.",
+        "Add a resource to one of the current user's named categories - their " +
+        "pipeline - creating the category if it does not exist yet. This is how a " +
+        "recruiter remembers a person without searching the whole system again, and " +
+        "without owning them: general candidates belong to the house, not to an " +
+        "individual.",
       input_schema: {
         type: "object",
         properties: {

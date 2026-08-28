@@ -148,6 +148,11 @@ route("POST", "/api/activity", async (_p, _q, body) =>
 
 route("GET", "/api/stage-machine", async () => repo.stageMachine());
 
+// A recruiter's own named categories - their pipeline - which is a different
+// thing from the submission board and gets a different endpoint.
+route("GET", "/api/pipelines", async (_p, q) =>
+  repo.listPipelines(q.get("owner_id") || null));
+
 route("GET", "/api/submissions", async (_p, q) =>
   repo.submissionBoard({
     ownerId: q.get("owner_id"), accountId: q.get("account_id"),

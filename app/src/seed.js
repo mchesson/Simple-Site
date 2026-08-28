@@ -109,6 +109,15 @@ function seedState() {
     recruiterId: dev.id, source: "Referral", accountId: null, locationId: null,
     phone: "512-555-0188", title: null, onPayroll: false, notes: null,
     archivedAt: null }, "seeded");
+  // On our payroll and not out working: the bench. Every day here costs us and
+  // earns nothing, which is why redeploying somebody beats finding somebody.
+  const owen = insert("contacts", { fullName: "Owen Marsh", email: "o.marsh@example.com",
+    isManager: false, isCandidate: true,
+    headline: "Controls engineer, 11 years, food and beverage",
+    skills: ["PLC", "Allen-Bradley", "Ignition", "SCADA"], locationText: "Reno, NV",
+    recruiterId: dev.id, source: "Redeployment", accountId: null, locationId: null,
+    phone: "775-555-0132", title: null, onPayroll: true, notes: null,
+    archivedAt: null }, "seeded");
   const nia = insert("contacts", { fullName: "Nia Boateng", email: "nia.b@example.com",
     isManager: false, isCandidate: true, headline: "Controls technician, PLC and HMI",
     skills: ["PLC", "HMI", "Allen-Bradley"], locationText: "Sparks, NV",
@@ -161,6 +170,15 @@ function seedState() {
   const plLine4 = insert("placements", { projectId: line4.id, contactId: marcus.id,
     status: "active", startDate: "2026-07-06", endDate: "2026-10-16",
     recruiterId: dev.id }, "seeded");
+
+  // Owen's last assignment ended three weeks ago. He is on the bench from the
+  // day it closed - nothing sets that, it falls out of having no live placement.
+  const plOwen = insert("placements", { projectId: line4.id, contactId: owen.id,
+    status: "ended", startDate: "2026-02-02", endDate: iso(new Date(Date.now() - 21 * 864e5)),
+    recruiterId: dev.id, submissionId: null }, "seeded");
+  insert("rates", { placementId: plOwen.id, rateType: "standard", unit: "hour",
+    payRate: 58, billRate: 94, burdenPct: 22, effectiveFrom: "2026-02-02",
+    effectiveTo: iso(new Date(Date.now() - 21 * 864e5)), supersedesId: null }, "seeded");
 
   // A correction that supersedes rather than overwrites.
   const first = insert("rates", { placementId: plPlatform.id, rateType: "standard",
@@ -356,6 +374,8 @@ function seedState() {
     note: "Wants day shift only", addedAt: ago(9) }, "seeded");
   insert("pipelineMembers", { pipelineId: bench.id, contactId: marcus.id,
     note: "On payroll, redeployable in October", addedAt: ago(4) }, "seeded");
+  insert("pipelineMembers", { pipelineId: bench.id, contactId: owen.id,
+    note: "Came off line 4 in good standing. Ready now.", addedAt: ago(19) }, "seeded");
   const erpBench = insert("pipelines", { ownerId: sam.id, name: "ERP programme leads",
     projectId: erp.id, notes: "Shortlist for the Initech cutover" }, "seeded");
   insert("pipelineMembers", { pipelineId: erpBench.id, contactId: tess.id,

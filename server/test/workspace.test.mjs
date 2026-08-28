@@ -1553,3 +1553,87 @@ describe("a placement's status follows its start date", () => {
     assert.equal(out.placement.status, "pending");
   });
 });
+
+describe("a pipeline is a recruiter's categories, not the submission board", () => {
+  let bench, onAssignment, benched, working;
+
+  before(async () => {
+    // Somebody on our payroll with a finished assignment: the bench.
+    benched = await repo.insertRecord("contact", {
+      full_name: "Owen Marsh", email: "owen@example.com", is_candidate: true,
+      on_payroll: true, recruiter_id: dev.id }, dev.id);
+    const p = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 11 controls", owner_id: dev.id }, dev.id);
+    const done = await repo.insertRecord("placement", {
+      project_id: p.id, contact_id: benched.id, status: "ended",
+      start_date: "2026-01-05", end_date: "2026-08-01", recruiter_id: dev.id }, dev.id);
+    assert.ok(done.id);
+
+    // And somebody out working right now.
+    working = await repo.insertRecord("contact", {
+      full_name: "Sana Iqbal", email: "sana@example.com", is_candidate: true,
+      on_payroll: true, recruiter_id: dev.id }, dev.id);
+    const p2 = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 12 controls", owner_id: dev.id }, dev.id);
+    onAssignment = await repo.insertRecord("placement", {
+      project_id: p2.id, contact_id: working.id, status: "active",
+      start_date: "2026-07-01", end_date: "2027-03-31", recruiter_id: dev.id }, dev.id);
+
+    bench = await repo.addToPipeline("Reno controls bench", dev.id, benched.id,
+      "Came off line 11 in good standing. Ready now.");
+    await repo.addToPipeline("Reno controls bench", dev.id, working.id,
+      "Out until March, worth holding.");
+  });
+
+  test("a category is named by the recruiter and holds whoever they choose", async () => {
+    const pipes = await repo.listPipelines(dev.id);
+    const mine = pipes.find((p) => p.name === "Reno controls bench");
+    assert.ok(mine, "the category the recruiter named should come back");
+    assert.equal(mine.owner_name, "Devon Okafor");
+    assert.equal(mine.members.length, 2);
+  });
+
+  test("each member carries what they are doing right now", async () => {
+    const pipes = await repo.listPipelines(dev.id);
+    const mine = pipes.find((p) => p.name === "Reno controls bench");
+    const byName = Object.fromEntries(mine.members.map((m) => [m.full_name, m]));
+    // On our payroll, no live placement: an employee on the bench.
+    assert.equal(byName["Owen Marsh"].status, "bench");
+    // On assignment: an active consultant, with the date they come free.
+    assert.equal(byName["Sana Iqbal"].status, "on_assignment");
+    assert.equal(String(byName["Sana Iqbal"].free_on).slice(0, 10), "2027-03-31");
+  });
+
+  test("the note is kept, because it is the reason they were tagged", async () => {
+    const pipes = await repo.listPipelines(dev.id);
+    const mine = pipes.find((p) => p.name === "Reno controls bench");
+    const owen = mine.members.find((m) => m.full_name === "Owen Marsh");
+    assert.match(owen.note, /good standing/);
+  });
+
+  test("somebody out with a client reads as that, not as available", async () => {
+    const out = await repo.insertRecord("contact", {
+      full_name: "Kofi Mensah", email: "kofi@example.com", is_candidate: true }, dev.id);
+    const p = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 13 controls", owner_id: dev.id }, dev.id);
+    await repo.submitCandidate({ projectId: p.id, contactId: out.id,
+      payRate: 50, billRate: 82 }, dev.id);
+    await repo.addToPipeline("Reno controls bench", dev.id, out.id, "Out at Globex now");
+    const pipes = await repo.listPipelines(dev.id);
+    const mine = pipes.find((p2) => p2.name === "Reno controls bench");
+    const kofi = mine.members.find((m) => m.full_name === "Kofi Mensah");
+    assert.equal(kofi.status, "out_with_a_client");
+    assert.equal(kofi.submissions_out, 1);
+  });
+
+  test("the assistant is given the categories, not the board, when asked for them",
+    async () => {
+      const tools = buildTools({ userId: dev.id });
+      const out = await tools.find((t) => t.name === "list_pipelines").run({});
+      assert.ok(Array.isArray(out));
+      assert.ok(out.some((p) => p.name === "Reno controls bench"));
+      // and the board is a different tool with different rows
+      const board = await tools.find((t) => t.name === "submission_board").run({});
+      assert.ok(board.submissions, "the board returns submissions");
+    });
+});

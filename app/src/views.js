@@ -7,7 +7,8 @@ const TITLES = {
   documents: "Documents", pos: "Purchase orders", timesheet: "My week",
   approvals: "Approvals", invoices: "Invoices", invoice: "Invoice",
   unlocks: "Unlock requests", audit: "Audit trail",
-  pipeline: "Pipeline", submission: "Submission", interviews: "Interviews",
+  submissions: "Submissions", submission: "Submission",
+  interviews: "Interviews", pipelines: "Pipelines",
 };
 
 const UI = { view: "home", sel: null, week: null, who: null,
@@ -129,7 +130,7 @@ function recruitingDesk(me, mineOnly) {
           noSubs.length ? "alarm" : null),
       kpi("With the client", waiting.length,
           waiting.length ? `oldest ${waiting[0].waiting} days` : "nothing out",
-          null, () => go("pipeline")),
+          null, () => go("submissions")),
       kpi("Interviews booked", coming.length,
           coming.length ? "next " + new Date(coming[0].scheduledAt).toLocaleDateString(
             undefined, { month: "short", day: "numeric" }) : "none this fortnight",
@@ -251,7 +252,7 @@ function recruitingDesk(me, mineOnly) {
         )
       : el("p", { class: "muted" }, "Nobody rolls off in the next two months.")),
 
-    deskSection("Your pipelines",
+    deskSection("Your categories",
       "People you have set aside, so you do not search for them twice.",
       pipes.length
       ? el("div", { class: "pipegrid" }, ...pipes.map((pl) =>
@@ -268,7 +269,10 @@ function recruitingDesk(me, mineOnly) {
                 m.contact.fullName,
                 m.note ? el("span", {}, " · " + m.note) : null))))))
       : el("p", { class: "muted" },
-          "You have no pipelines yet. Tag people from a contact record.")));
+          "You have no categories yet. ",
+          el("button", { class: "linkbtn", onclick: () => go("pipelines") },
+            "Make one"),
+          " — resources you know are good and who are not out working.")));
 }
 
 /* ----------------------------------------------------------------- sales */
@@ -622,12 +626,40 @@ function contactView(id) {
       (c.skills || []).length ? el("p", {}, c.skills.join(" · ")) : null,
       approvesOn.length ? el("p", { class: "muted" },
         "Approves time on " + approvesOn.map((p) => p.name).join(", ")) : null,
+      c.isCandidate ? (() => {
+        const st = workStatus(id);
+        return el("p", {},
+          st.code === "on_assignment"
+            ? el("span", { class: "pill good" }, "Active consultant · " + st.label)
+            : st.code === "starting"
+              ? el("span", { class: "pill good" }, "Starts " +
+                  day(st.placement.startDate))
+              : st.code === "bench"
+                ? el("span", { class: "pill warn" },
+                    "On the bench — ours, and not out working")
+                : el("span", { class: "pill" }, "Available"));
+      })() : null,
       c.isCandidate
         ? el("div", { class: "rowbtns" },
             el("button", { class: "send",
               onclick: () => submitFlow({ contactId: id }) },
-              "Submit as a resource"))
+              "Submit as a resource"),
+            el("button", { class: "ghost",
+              onclick: () => addToPipelineFlow(null, id) },
+              "Keep in a category"))
         : null),
+
+    section("Categories you keep them in", (() => {
+      const inPipes = where("pipelineMembers", (m) => m.contactId === id)
+        .map((m) => ({ m, pl: byId("pipelines", m.pipelineId) }))
+        .filter((x) => x.pl);
+      if (!inPipes.length) return [];
+      return [el("div", { class: "chiprow" }, ...inPipes.map((x) =>
+        el("button", { class: "chip", onclick: () => go("pipelines") },
+          x.pl.name,
+          el("span", {}, " · " + ((byId("users", x.pl.ownerId) || {}).name || "")),
+          x.m.note ? el("span", {}, " · " + x.m.note) : null)))];
+    })()),
 
     section("Where they are out", (() => {
       const out = board({ contactId: id, openOnly: false });

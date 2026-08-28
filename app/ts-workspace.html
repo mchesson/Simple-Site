@@ -544,6 +544,18 @@ input[type=number].fi{font-family:var(--mono); font-variant-numeric:tabular-nums
             max-height:92dvh}
   .askbtns .send, .askbtns .ghost{flex:1; min-height:44px}
 }
+
+/* ------------------------------------------------------- pipeline categories */
+
+.pipehead{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap}
+.pipehead > div:first-child{flex:1; min-width:0}
+.chiprow{display:flex; flex-wrap:wrap; gap:6px}
+.linkbtn.danger{color:var(--bad)}
+
+@media (max-width:860px){
+  .pipehead{gap:8px}
+  .pipehead .rowbtns{width:100%}
+}
 </script>
 <script type="application/json" id="app-state">null</script>
 <script type="text/plain" id="app-src">/* TS Workspace, hosted as a single page.
@@ -660,21 +672,28 @@ const daysSince = (when) => when
 const daysUntil = (when) => when
   ? Math.round((new Date(when + "T12:00:00").getTime() - Date.now()) / DAY) : null;
 
-/* Three words for a person, and they are not interchangeable.
+/* Words for a person, and they are not interchangeable.
  *
- *   candidate   Somebody we could place. A role on a contact record, alongside
- *               manager - the same human can be both.
- *   resource    The internal word for a person put against a project's need.
- *               A project has a resource need; we submit a resource to fill it.
- *               This is how the desk talks among itself.
- *   consultant  A person who is working: on our payroll, on an assignment.
- *               This is the word for the person themselves, and the word to use
- *               anywhere they would read it.
+ *   candidate           Somebody we could place. A role on a contact record,
+ *                       alongside manager - the same human can be both.
+ *   resource            The internal word for a person put against a project's
+ *                       need. A project has a resource need; we submit a
+ *                       resource to fill it. This is how the desk talks among
+ *                       itself, and it covers anyone not currently out working.
+ *   active consultant   Somebody on assignment. Also called an employee, since
+ *   / employee          a W-2 contractor of ours is exactly that. This is the
+ *                       word for the person themselves and for anyone on
+ *                       assignment right now.
  *
- * So a candidate is submitted as a resource and becomes a consultant on the day
- * they start. Somebody already on the bench is a consultant being submitted as
- * a resource again, which is why the submit action says resource and not
- * consultant - it has to be true in both cases.
+ * A resource becomes an active consultant on the day they start, and goes back
+ * to being a resource when the assignment ends. That is why the submit action
+ * says resource: it has to be true whether the person is new to us or coming
+ * off an assignment.
+ *
+ * A PIPELINE is not the submission board. It is a recruiter's own set of named
+ * categories - they choose the categories - holding resources they know are
+ * good but who are not out working. Submissions are what is out with clients;
+ * a pipeline is what a recruiter has in reserve. Do not use one word for both.
  *
  * "Somebody" is still the right word when it means a colleague of ours, and is
  * left alone in those places.
@@ -1564,6 +1583,15 @@ function seedState() {
     recruiterId: dev.id, source: "Referral", accountId: null, locationId: null,
     phone: "512-555-0188", title: null, onPayroll: false, notes: null,
     archivedAt: null }, "seeded");
+  // On our payroll and not out working: the bench. Every day here costs us and
+  // earns nothing, which is why redeploying somebody beats finding somebody.
+  const owen = insert("contacts", { fullName: "Owen Marsh", email: "o.marsh@example.com",
+    isManager: false, isCandidate: true,
+    headline: "Controls engineer, 11 years, food and beverage",
+    skills: ["PLC", "Allen-Bradley", "Ignition", "SCADA"], locationText: "Reno, NV",
+    recruiterId: dev.id, source: "Redeployment", accountId: null, locationId: null,
+    phone: "775-555-0132", title: null, onPayroll: true, notes: null,
+    archivedAt: null }, "seeded");
   const nia = insert("contacts", { fullName: "Nia Boateng", email: "nia.b@example.com",
     isManager: false, isCandidate: true, headline: "Controls technician, PLC and HMI",
     skills: ["PLC", "HMI", "Allen-Bradley"], locationText: "Sparks, NV",
@@ -1616,6 +1644,15 @@ function seedState() {
   const plLine4 = insert("placements", { projectId: line4.id, contactId: marcus.id,
     status: "active", startDate: "2026-07-06", endDate: "2026-10-16",
     recruiterId: dev.id }, "seeded");
+
+  // Owen's last assignment ended three weeks ago. He is on the bench from the
+  // day it closed - nothing sets that, it falls out of having no live placement.
+  const plOwen = insert("placements", { projectId: line4.id, contactId: owen.id,
+    status: "ended", startDate: "2026-02-02", endDate: iso(new Date(Date.now() - 21 * 864e5)),
+    recruiterId: dev.id, submissionId: null }, "seeded");
+  insert("rates", { placementId: plOwen.id, rateType: "standard", unit: "hour",
+    payRate: 58, billRate: 94, burdenPct: 22, effectiveFrom: "2026-02-02",
+    effectiveTo: iso(new Date(Date.now() - 21 * 864e5)), supersedesId: null }, "seeded");
 
   // A correction that supersedes rather than overwrites.
   const first = insert("rates", { placementId: plPlatform.id, rateType: "standard",
@@ -1811,6 +1848,8 @@ function seedState() {
     note: "Wants day shift only", addedAt: ago(9) }, "seeded");
   insert("pipelineMembers", { pipelineId: bench.id, contactId: marcus.id,
     note: "On payroll, redeployable in October", addedAt: ago(4) }, "seeded");
+  insert("pipelineMembers", { pipelineId: bench.id, contactId: owen.id,
+    note: "Came off line 4 in good standing. Ready now.", addedAt: ago(19) }, "seeded");
   const erpBench = insert("pipelines", { ownerId: sam.id, name: "ERP programme leads",
     projectId: erp.id, notes: "Shortlist for the Initech cutover" }, "seeded");
   insert("pipelineMembers", { pipelineId: erpBench.id, contactId: tess.id,
@@ -1921,7 +1960,8 @@ const TITLES = {
   documents: "Documents", pos: "Purchase orders", timesheet: "My week",
   approvals: "Approvals", invoices: "Invoices", invoice: "Invoice",
   unlocks: "Unlock requests", audit: "Audit trail",
-  pipeline: "Pipeline", submission: "Submission", interviews: "Interviews",
+  submissions: "Submissions", submission: "Submission",
+  interviews: "Interviews", pipelines: "Pipelines",
 };
 
 const UI = { view: "home", sel: null, week: null, who: null,
@@ -2043,7 +2083,7 @@ function recruitingDesk(me, mineOnly) {
           noSubs.length ? "alarm" : null),
       kpi("With the client", waiting.length,
           waiting.length ? `oldest ${waiting[0].waiting} days` : "nothing out",
-          null, () => go("pipeline")),
+          null, () => go("submissions")),
       kpi("Interviews booked", coming.length,
           coming.length ? "next " + new Date(coming[0].scheduledAt).toLocaleDateString(
             undefined, { month: "short", day: "numeric" }) : "none this fortnight",
@@ -2165,7 +2205,7 @@ function recruitingDesk(me, mineOnly) {
         )
       : el("p", { class: "muted" }, "Nobody rolls off in the next two months.")),
 
-    deskSection("Your pipelines",
+    deskSection("Your categories",
       "People you have set aside, so you do not search for them twice.",
       pipes.length
       ? el("div", { class: "pipegrid" }, ...pipes.map((pl) =>
@@ -2182,7 +2222,10 @@ function recruitingDesk(me, mineOnly) {
                 m.contact.fullName,
                 m.note ? el("span", {}, " · " + m.note) : null))))))
       : el("p", { class: "muted" },
-          "You have no pipelines yet. Tag people from a contact record.")));
+          "You have no categories yet. ",
+          el("button", { class: "linkbtn", onclick: () => go("pipelines") },
+            "Make one"),
+          " — resources you know are good and who are not out working.")));
 }
 
 /* ----------------------------------------------------------------- sales */
@@ -2536,12 +2579,40 @@ function contactView(id) {
       (c.skills || []).length ? el("p", {}, c.skills.join(" · ")) : null,
       approvesOn.length ? el("p", { class: "muted" },
         "Approves time on " + approvesOn.map((p) => p.name).join(", ")) : null,
+      c.isCandidate ? (() => {
+        const st = workStatus(id);
+        return el("p", {},
+          st.code === "on_assignment"
+            ? el("span", { class: "pill good" }, "Active consultant · " + st.label)
+            : st.code === "starting"
+              ? el("span", { class: "pill good" }, "Starts " +
+                  day(st.placement.startDate))
+              : st.code === "bench"
+                ? el("span", { class: "pill warn" },
+                    "On the bench — ours, and not out working")
+                : el("span", { class: "pill" }, "Available"));
+      })() : null,
       c.isCandidate
         ? el("div", { class: "rowbtns" },
             el("button", { class: "send",
               onclick: () => submitFlow({ contactId: id }) },
-              "Submit as a resource"))
+              "Submit as a resource"),
+            el("button", { class: "ghost",
+              onclick: () => addToPipelineFlow(null, id) },
+              "Keep in a category"))
         : null),
+
+    section("Categories you keep them in", (() => {
+      const inPipes = where("pipelineMembers", (m) => m.contactId === id)
+        .map((m) => ({ m, pl: byId("pipelines", m.pipelineId) }))
+        .filter((x) => x.pl);
+      if (!inPipes.length) return [];
+      return [el("div", { class: "chiprow" }, ...inPipes.map((x) =>
+        el("button", { class: "chip", onclick: () => go("pipelines") },
+          x.pl.name,
+          el("span", {}, " · " + ((byId("users", x.pl.ownerId) || {}).name || "")),
+          x.m.note ? el("span", {}, " · " + x.m.note) : null)))];
+    })()),
 
     section("Where they are out", (() => {
       const out = board({ contactId: id, openOnly: false });
@@ -2974,6 +3045,120 @@ function placeSubmission({ submissionId, startDate, endDate = null, payRate = nu
   return { placement, submission: byId("submissions", submissionId) };
 }
 
+/* ------------------------------------------------------------- pipelines
+ *
+ * A recruiter's own categories. They choose what the categories are - by skill,
+ * by site, by shift, by "people I would put in front of anyone" - and they hold
+ * resources who are not out working. That is the whole distinction from the
+ * submission board: submissions are what is out with a client, a pipeline is
+ * what a recruiter has in reserve and does not want to search for twice.
+ */
+
+/* What somebody is doing right now. This decides which word applies to them:
+ * on assignment they are an active consultant, otherwise they are a resource. */
+function workStatus(contactId) {
+  const today = iso(new Date());
+  const c = byId("contacts", contactId) || {};
+  const live = where("placements", (pl) => pl.contactId === contactId &&
+      ["active", "pending"].includes(pl.status) &&
+      pl.startDate <= today && (!pl.endDate || pl.endDate >= today))
+    .sort((a, b) => (a.endDate || "9999").localeCompare(b.endDate || "9999"))[0] || null;
+  if (live) {
+    const left = live.endDate ? daysUntil(live.endDate) : null;
+    return { code: "on_assignment", placement: live, freeIn: left,
+             word: "active consultant",
+             label: live.endDate ? "on assignment to " + day(live.endDate)
+                                 : "on assignment, open ended" };
+  }
+  const soon = where("placements", (pl) => pl.contactId === contactId &&
+      ["active", "pending"].includes(pl.status) && pl.startDate > today)
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))[0] || null;
+  if (soon) {
+    return { code: "starting", placement: soon, freeIn: null,
+             word: "active consultant", label: "starts " + day(soon.startDate) };
+  }
+  // On our payroll but not out: the bench. Ours already, and earning nothing.
+  if (c.onPayroll) {
+    return { code: "bench", placement: null, freeIn: 0, word: "employee",
+             label: "on the bench" };
+  }
+  return { code: "resource", placement: null, freeIn: 0, word: "resource",
+           label: null };
+}
+
+const pipelinesOwnedBy = (ownerId) => where("pipelines", (pl) => pl.ownerId === ownerId)
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+function pipelineMembers(pipelineId) {
+  return where("pipelineMembers", (m) => m.pipelineId === pipelineId)
+    .map((m) => {
+      const contact = byId("contacts", m.contactId);
+      if (!contact) return null;
+      return { ...m, contact, status: workStatus(m.contactId),
+               quiet: daysSince(lastTouch(m.contactId)),
+               out: board({ contactId: m.contactId, openOnly: true }) };
+    })
+    .filter(Boolean)
+    // The ones free soonest first: a pipeline is a list to work, not a filing
+    // cabinet, and the person who is available is the one to call.
+    .sort((a, b) => (a.status.freeIn ?? 9999) - (b.status.freeIn ?? 9999) ||
+                    a.contact.fullName.localeCompare(b.contact.fullName));
+}
+
+function createPipeline(name, notes = null, projectId = null) {
+  const clean = (name || "").trim();
+  if (!clean) throw new Error("a category needs a name - it is how you will find it again");
+  const me = actingUser();
+  if (pipelinesOwnedBy(me.id).some((pl) => pl.name.toLowerCase() === clean.toLowerCase())) {
+    throw new Error(`you already have a category called "${clean}"`);
+  }
+  return insert("pipelines", {
+    ownerId: me.id, name: clean, projectId, notes,
+    createdAt: new Date().toISOString(),
+  }, "created a pipeline category");
+}
+
+function renamePipeline(pipelineId, name, notes) {
+  const pl = byId("pipelines", pipelineId);
+  if (!pl) throw new Error("that category is not on file");
+  const clean = (name || "").trim();
+  if (!clean) throw new Error("a category needs a name");
+  if (pipelinesOwnedBy(pl.ownerId).some((x) =>
+        x.id !== pipelineId && x.name.toLowerCase() === clean.toLowerCase())) {
+    throw new Error(`there is already a category called "${clean}"`);
+  }
+  return update("pipelines", pipelineId, { name: clean, notes: notes ?? pl.notes },
+    "renamed a pipeline category");
+}
+
+function addToPipeline(pipelineId, contactId, note = null) {
+  const pl = byId("pipelines", pipelineId);
+  if (!pl) throw new Error("that category is not on file");
+  const contact = byId("contacts", contactId);
+  if (!contact) throw new Error("that person is not on file");
+  if (!contact.isCandidate) {
+    throw new Error(`${contact.fullName} is not marked as a candidate - mark them as ` +
+      "one on their record first");
+  }
+  if (where("pipelineMembers", (m) => m.pipelineId === pipelineId &&
+                                      m.contactId === contactId).length) {
+    throw new Error(`${contact.fullName} is already in ${pl.name}`);
+  }
+  return insert("pipelineMembers", {
+    pipelineId, contactId, note, addedAt: new Date().toISOString(),
+  }, `added to ${pl.name}`);
+}
+
+/* Dropping somebody out of a category. The person is untouched - this removes a
+ * tag, not a record - and the removal is audited like everything else. */
+function dropFromPipeline(pipelineId, contactId) {
+  const m = where("pipelineMembers", (x) => x.pipelineId === pipelineId &&
+                                            x.contactId === contactId)[0];
+  if (!m) return null;
+  const pl = byId("pipelines", pipelineId);
+  return remove("pipelineMembers", m.id, `dropped from ${pl ? pl.name : "a category"}`);
+}
+
 /* ------------------------------------------------------------ the numbers */
 
 /* How many submissions ever reached each stage, read off the history rather than
@@ -3118,16 +3303,24 @@ function attempt(fn) {
   catch (e) { alert(e.message); return null; }
 }
 
-/* Our own consultants come first. Somebody already on the payroll being put
- * against a new project is a redeployment: no onboarding, no screening, and
- * they are already earning. It is the cheapest seat there is to fill, so the
- * list should not bury them under a hundred strangers. */
+/* Ordered by how soon each person is actually free, because that is the question
+ * the list is being asked. Somebody on our bench is a redeployment - no
+ * onboarding, no screening, and they are already costing us - which makes them
+ * the cheapest seat on the desk. Somebody with eight months left on an
+ * assignment is a different conversation, and the label says which. */
 const candidateOptions = () => where("contacts", (c) => c.isCandidate && !c.archivedAt)
-  .sort((a, b) => (Number(!!b.onPayroll) - Number(!!a.onPayroll)) ||
-                  a.fullName.localeCompare(b.fullName))
-  .map((c) => ({ value: c.id,
-                 label: c.fullName + (c.onPayroll ? " (our consultant)" : "") +
-                        (c.headline ? ` — ${c.headline}` : "") }));
+  .map((c) => ({ contact: c, status: workStatus(c.id) }))
+  .sort((a, b) => {
+    const rank = (r) => r.status.code === "bench" ? 0
+      : r.status.code === "resource" ? 1
+      : (r.status.freeIn ?? 9999) <= 45 ? 2 : 3;
+    return rank(a) - rank(b) || a.contact.fullName.localeCompare(b.contact.fullName);
+  })
+  .map(({ contact: c, status }) => ({
+    value: c.id,
+    label: c.fullName + (status.label ? ` (${status.label})` : "") +
+           (c.headline ? ` — ${c.headline}` : ""),
+  }));
 
 const openProjectOptions = () => where("projects", (p) => !p.archivedAt &&
     ["open", "draft"].includes(p.status))
@@ -3143,8 +3336,8 @@ async function submitFlow({ projectId = null, contactId = null } = {}) {
   if (!contactId) {
     fields.push({ name: "contactId", label: "Resource", type: "select",
                   options: candidateOptions(), wide: true,
-                  hint: "somebody already on our payroll is a redeployment, "
-                        + "which is the cheapest seat you will fill all month" });
+                  hint: "on the bench means a redeployment - ours already, and "
+                        + "the cheapest seat you will fill all month" });
   }
   if (!projectId) {
     fields.push({ name: "projectId", label: "For which project", type: "select",
@@ -3357,11 +3550,11 @@ function subCard(r) {
     r.loss ? el("div", { class: "scnote" }, r.loss.label) : null);
 }
 
-function pipelineView() {
+function submissionsView() {
   const me = actingUser();
-  const mineOnly = UI.pipeScope === undefined || UI.pipeScope === null
-    ? me.role !== "admin" : UI.pipeScope === "mine";
-  const showClosed = !!UI.pipeClosed;
+  const mineOnly = UI.subScope === undefined || UI.subScope === null
+    ? me.role !== "admin" : UI.subScope === "mine";
+  const showClosed = !!UI.subClosed;
   const rows = board({ ownerId: mineOnly ? me.id : null, openOnly: !showClosed });
   const stages = STAGES.filter((st) => showClosed || st.open);
   const f = funnel(mineOnly ? me.id : null);
@@ -3375,15 +3568,16 @@ function pipelineView() {
   return el("div", { class: "pane" },
     el("div", { class: "deskhead" },
       el("div", {},
-        el("h2", { class: "dtitle" }, "Pipeline"),
+        el("h2", { class: "dtitle" }, "Submissions"),
         el("p", { class: "dsub" },
-          "Everybody we have out, and how long they have been sitting there. " +
-          "The buttons on a submission are the moves the rules allow from where it is.")),
+          "Every resource we have out with a client, and how long they have been " +
+          "sitting there. The buttons on a submission are the moves the rules allow " +
+          "from where it is.")),
       el("div", { class: "segs" },
         seg([["mine", "Mine"], ["all", "Everyone"]], mineOnly ? "mine" : "all",
-            (k) => { UI.pipeScope = k; }),
+            (k) => { UI.subScope = k; }),
         seg([["open", "In play"], ["all", "Everything"]], showClosed ? "all" : "open",
-            (k) => { UI.pipeClosed = k === "all"; }),
+            (k) => { UI.subClosed = k === "all"; }),
         el("button", { class: "send", onclick: () => submitFlow() },
           "Submit a resource"))),
 
@@ -3582,6 +3776,201 @@ function submissionView(id) {
               : "Submitted"),
             el("td", { class: "muted" }, (byId("users", e.actorId) || {}).name || "\u2014"),
             el("td", { class: "muted" }, e.reason || ""))))))]));
+}
+
+/* ------------------------------------------------------------- pipelines
+ *
+ * A recruiter's own categories, which they name themselves. This screen is the
+ * other half of recruiting from the submission board: submissions are what is
+ * out with a client, and this is what a recruiter has in reserve.
+ */
+
+/* What to call somebody's situation in one chip. outCount is how many live
+ * submissions they have: being out with a client is not being on assignment, but
+ * it is not "available" either, and a recruiter about to ring them should see
+ * the difference before they do. */
+const statusChip = (st, outCount = 0) => {
+  if (st.code === "on_assignment") {
+    const warn = st.freeIn !== null && st.freeIn <= 45;
+    return el("span", { class: "pill" + (warn ? " warn" : " good") },
+      st.freeIn === null ? "on assignment" : `free in ${st.freeIn}d`);
+  }
+  if (st.code === "starting") return el("span", { class: "pill good" }, st.label);
+  if (st.code === "bench") return el("span", { class: "pill warn" }, "on the bench");
+  if (outCount) return el("span", { class: "pill" }, "out with a client");
+  return el("span", { class: "pill" }, "available");
+};
+
+async function newPipelineFlow() {
+  const answer = await askFor("New category", [
+    { name: "name", label: "Call it", type: "text", wide: true,
+      placeholder: "Reno controls bench, PLC people I trust, night shift…" },
+    { name: "notes", label: "What goes in it", type: "textarea", wide: true,
+      placeholder: "For you, in six months, when you cannot remember why you " +
+                   "made this one." },
+  ], { submitLabel: "Create it",
+       note: "Your own category, named however you think about the work. It holds " +
+             "resources you know are good and who are not out working, so you do " +
+             "not go looking for them twice." });
+  if (!answer) return;
+  const pl = attempt(() => createPipeline(answer.name, answer.notes || null));
+  if (pl) noteSaving(`Created ${pl.name}.`, "good");
+}
+
+async function renamePipelineFlow(pipelineId) {
+  const pl = byId("pipelines", pipelineId);
+  const answer = await askFor(`Edit ${pl.name}`, [
+    { name: "name", label: "Call it", type: "text", wide: true, value: pl.name },
+    { name: "notes", label: "What goes in it", type: "textarea", wide: true,
+      value: pl.notes || "" },
+  ], { submitLabel: "Save" });
+  if (!answer) return;
+  attempt(() => renamePipeline(pipelineId, answer.name, answer.notes || null));
+}
+
+async function addToPipelineFlow(pipelineId, contactId = null) {
+  const pl = pipelineId ? byId("pipelines", pipelineId) : null;
+  const me = actingUser();
+  const mine = pipelinesOwnedBy(me.id);
+  const fields = [];
+
+  if (!pipelineId) {
+    if (!mine.length) {
+      alert("You have no categories yet. Make one first, on the Pipelines screen.");
+      return;
+    }
+    fields.push({ name: "pipelineId", label: "Which category", type: "select", wide: true,
+      options: mine.map((x) => ({ value: x.id, label: x.name })) });
+  }
+  if (!contactId) {
+    const already = new Set(where("pipelineMembers",
+      (m) => m.pipelineId === pipelineId).map((m) => m.contactId));
+    const options = candidateOptions().filter((o) => !already.has(o.value));
+    if (!options.length) {
+      alert("Everybody on file is already in this one.");
+      return;
+    }
+    fields.push({ name: "contactId", label: "Who", type: "select", wide: true,
+                  options });
+  }
+  fields.push({ name: "note", label: "Why you are keeping them", type: "textarea",
+    wide: true,
+    placeholder: "Free after October. Day shift only. Would not send back to Globex." });
+
+  const contact = contactId ? byId("contacts", contactId) : null;
+  const answer = await askFor(
+    contact ? `Keep ${contact.fullName} in a category` : `Add to ${pl.name}`, fields,
+    { submitLabel: "Add",
+      note: "The note is the point. It is what you will have forgotten by the time " +
+            "this person becomes the answer to something." });
+  if (!answer) return;
+  const out = attempt(() => addToPipeline(
+    pipelineId || answer.pipelineId, contactId || answer.contactId,
+    answer.note || null));
+  if (out) noteSaving("Added.", "good");
+}
+
+function pipelinesView() {
+  const me = actingUser();
+  const mineOnly = UI.pipeWho === undefined || UI.pipeWho === null
+    ? me.role !== "admin" : UI.pipeWho === "mine";
+  const pipes = mineOnly ? pipelinesOwnedBy(me.id)
+    : [...S.pipelines].sort((a, b) =>
+        ((byId("users", a.ownerId) || {}).name || "").localeCompare(
+          (byId("users", b.ownerId) || {}).name || "") ||
+        a.name.localeCompare(b.name));
+
+  return el("div", { class: "pane" },
+    el("div", { class: "deskhead" },
+      el("div", {},
+        el("h2", { class: "dtitle" }, "Pipelines"),
+        el("p", { class: "dsub" },
+          "Your own categories, named however you think about the work. They hold " +
+          "resources you know are good and who are not out working — so when a " +
+          "project lands you go to a list, not to a search.")),
+      el("div", { class: "segs" },
+        el("div", { class: "deskswitch" },
+          ...[["mine", "Mine"], ["all", "Everyone"]].map(([k, label]) =>
+            el("button", { class: "seg" + ((mineOnly ? "mine" : "all") === k ? " on" : ""),
+                           onclick: () => { UI.pipeWho = k; render(); } }, label))),
+        el("button", { class: "send", onclick: () => newPipelineFlow() },
+          "New category"))),
+
+    !pipes.length
+      ? el("div", { class: "banner" },
+          el("b", {}, mineOnly ? "You have no categories yet. " : "Nobody has one yet. "),
+          "A category is whatever grouping you actually work from — a site, a skill, " +
+          "a shift, people you would put in front of anyone. Make one and tag people " +
+          "into it from here or from their record.")
+      : null,
+
+    ...pipes.map((pl) => {
+      const members = pipelineMembers(pl.id);
+      const owner = byId("users", pl.ownerId);
+      const project = pl.projectId ? byId("projects", pl.projectId) : null;
+      // Free to work on something means not on assignment and not already out
+      // with a client, plus anyone rolling off soon enough to matter.
+      const free = members.filter((m) =>
+        (m.status.code === "on_assignment" &&
+         m.status.freeIn !== null && m.status.freeIn <= 45) ||
+        (m.status.code !== "on_assignment" && m.status.code !== "starting" &&
+         !m.out.length)).length;
+
+      return el("div", { class: "card" },
+        el("div", { class: "pipehead" },
+          el("div", {},
+            el("h3", {}, pl.name),
+            el("div", { class: "meta" },
+              `${members.length} ${members.length === 1 ? "person" : "people"}` +
+              (free ? ` · ${free} free or coming free` : " · nobody free") +
+              (owner && !mineOnly ? " · " + owner.name : "") +
+              (project ? " · for " + project.name : ""))),
+          pl.ownerId === me.id
+            ? el("div", { class: "rowbtns", style: "margin:0" },
+                el("button", { class: "linkbtn",
+                  onclick: () => addToPipelineFlow(pl.id) }, "Add a resource"),
+                el("button", { class: "linkbtn",
+                  onclick: () => renamePipelineFlow(pl.id) }, "Edit"))
+            : null),
+        pl.notes ? el("p", { class: "meta", style: "margin:6px 0 0" }, pl.notes) : null,
+
+        members.length
+          ? el("table", { class: "grid", style: "margin-top:12px" },
+              el("thead", {},
+                el("tr", {}, ...["Resource", "Right now", "Last spoken to",
+                  "Out with a client", "Why you kept them", ""]
+                  .map((h) => el("th", {}, h)))),
+              el("tbody", {}, ...members.map((m) => el("tr", {},
+                el("td", {},
+                  el("button", { class: "linkbtn",
+                    onclick: () => go("contact", m.contact.id) }, m.contact.fullName),
+                  m.contact.headline
+                    ? el("div", { class: "meta" }, m.contact.headline) : null),
+                el("td", {}, statusChip(m.status, m.out.length),
+                  m.status.label && m.status.code === "on_assignment"
+                    ? el("div", { class: "meta" }, m.status.label) : null),
+                el("td", {}, ageChip(m.quiet, 21)),
+                el("td", { class: "muted" },
+                  m.out.length
+                    ? m.out.map((s) => `${s.account ? s.account.name : ""} (${s.stageLabel})`)
+                        .join(", ")
+                    : "—"),
+                el("td", { class: "muted" }, m.note || ""),
+                el("td", {},
+                  el("div", { class: "rowbtns", style: "margin:0" },
+                    el("button", { class: "linkbtn",
+                      onclick: () => submitFlow({ contactId: m.contact.id }) },
+                      "Submit"),
+                    pl.ownerId === me.id
+                      ? el("button", { class: "linkbtn danger", onclick: () => {
+                          if (!confirm(`Drop ${m.contact.fullName} out of ${pl.name}? ` +
+                              "Their record is untouched — this only removes the tag.")) return;
+                          attempt(() => dropFromPipeline(pl.id, m.contact.id));
+                        } }, "Drop")
+                      : null)))))) 
+          : el("p", { class: "muted", style: "margin:10px 0 0" },
+              "Nobody in this one yet."));
+    }));
 }
 
 /* --------------------------------------------------------------- interviews
@@ -4457,7 +4846,8 @@ function go(view, sel) {
 
 const NAV = [
   ["Workspace", [["home", "My desk"]]],
-  ["Recruiting", [["pipeline", "Pipeline"], ["interviews", "Interviews"]]],
+  ["Recruiting", [["submissions", "Submissions"], ["interviews", "Interviews"],
+                  ["pipelines", "Pipelines"]]],
   ["Records", [["accounts", "Accounts"], ["projects", "Projects"],
                ["contacts", "Contacts"], ["documents", "Documents"]]],
   ["Time and money", [["timesheet", "My week"], ["approvals", "Approvals"],
@@ -4486,7 +4876,7 @@ function render() {
         // Each person's desk defaults to their own view, not whoever was here
         // before. Their week and their filters go with them too.
         UI.desk = null; UI.scope = null; UI.who = null; UI.shownRows = null;
-        UI.pipeScope = null; UI.pipeClosed = false;
+        UI.subScope = null; UI.subClosed = false; UI.pipeWho = null;
         audit("users", "update", null, me, "switched acting user");
         commit(); render();
       } }, ...S.users.map((u) => el("option",
@@ -4517,7 +4907,8 @@ function render() {
   try {
     body =
       UI.view === "home" ? homeView() :
-      UI.view === "pipeline" ? pipelineView() :
+      UI.view === "submissions" ? submissionsView() :
+      UI.view === "pipelines" ? pipelinesView() :
       UI.view === "submission" ? submissionView(UI.sel) :
       UI.view === "interviews" ? interviewsView() :
       UI.view === "accounts" ? accountsView() :

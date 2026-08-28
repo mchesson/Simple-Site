@@ -1466,6 +1466,62 @@ export async function getPipeline(ownerId, name) {
       order by pm.added_at desc`, [ownerId, name]);
 }
 
+/* A recruiter's categories with everybody in them, and what each person is
+ * actually doing. The status is the point: a category full of people on
+ * assignment is a category with nothing in it to sell, and a bench employee in
+ * one is the cheapest seat on the desk. */
+export async function listPipelines(ownerId = null) {
+  return rows(
+    `select pl.id, pl.name, pl.notes, pl.created_at,
+            pl.owner_id, u.full_name as owner_name,
+            pl.project_id, p.name as project_name,
+            coalesce((
+              select jsonb_agg(m order by m->>'full_name')
+                from (
+                  select jsonb_build_object(
+                    'contact_id', c.id, 'full_name', c.full_name,
+                    'headline', c.headline, 'skills', c.skills,
+                    'note', pm.note, 'added_at', pm.added_at,
+                    'on_payroll', c.on_payroll,
+                    'status', case
+                      when live.id is not null then 'on_assignment'
+                      when soon.id is not null then 'starting'
+                      when c.on_payroll then 'bench'
+                      when out_now.n > 0 then 'out_with_a_client'
+                      else 'available' end,
+                    'free_on', live.end_date,
+                    'starts_on', soon.start_date,
+                    'submissions_out', out_now.n,
+                    'last_touch', (select max(a.occurred_at) from activity a
+                                    where a.contact_id = c.id)) as m
+                    from pipeline_member pm
+                    join contact c on c.id = pm.contact_id and c.archived_at is null
+                    left join lateral (
+                      select pl2.id, pl2.end_date from placement pl2
+                       where pl2.contact_id = c.id
+                         and pl2.status in ('active','pending')
+                         and pl2.start_date <= current_date
+                         and (pl2.end_date is null or pl2.end_date >= current_date)
+                       order by pl2.end_date nulls last limit 1) live on true
+                    left join lateral (
+                      select pl3.id, pl3.start_date from placement pl3
+                       where pl3.contact_id = c.id
+                         and pl3.status in ('active','pending')
+                         and pl3.start_date > current_date
+                       order by pl3.start_date limit 1) soon on true
+                    left join lateral (
+                      select count(*)::int as n from submission s
+                        join submission_stage st on st.code = s.stage
+                       where s.contact_id = c.id and st.is_open) out_now on true
+                   where pm.pipeline_id = pl.id) members
+            ), '[]'::jsonb) as members
+       from pipeline pl
+       join app_user u on u.id = pl.owner_id
+       left join project p on p.id = pl.project_id
+      where ($1::uuid is null or pl.owner_id = $1)
+      order by u.full_name, pl.name`, [ownerId]);
+}
+
 export async function recentEvents(limit = 50) {
   return rows(
     `select e.id, e.kind, e.subject_type, e.subject_id, e.payload, e.trace_id,

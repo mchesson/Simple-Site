@@ -112,21 +112,28 @@ const daysSince = (when) => when
 const daysUntil = (when) => when
   ? Math.round((new Date(when + "T12:00:00").getTime() - Date.now()) / DAY) : null;
 
-/* Three words for a person, and they are not interchangeable.
+/* Words for a person, and they are not interchangeable.
  *
- *   candidate   Somebody we could place. A role on a contact record, alongside
- *               manager - the same human can be both.
- *   resource    The internal word for a person put against a project's need.
- *               A project has a resource need; we submit a resource to fill it.
- *               This is how the desk talks among itself.
- *   consultant  A person who is working: on our payroll, on an assignment.
- *               This is the word for the person themselves, and the word to use
- *               anywhere they would read it.
+ *   candidate           Somebody we could place. A role on a contact record,
+ *                       alongside manager - the same human can be both.
+ *   resource            The internal word for a person put against a project's
+ *                       need. A project has a resource need; we submit a
+ *                       resource to fill it. This is how the desk talks among
+ *                       itself, and it covers anyone not currently out working.
+ *   active consultant   Somebody on assignment. Also called an employee, since
+ *   / employee          a W-2 contractor of ours is exactly that. This is the
+ *                       word for the person themselves and for anyone on
+ *                       assignment right now.
  *
- * So a candidate is submitted as a resource and becomes a consultant on the day
- * they start. Somebody already on the bench is a consultant being submitted as
- * a resource again, which is why the submit action says resource and not
- * consultant - it has to be true in both cases.
+ * A resource becomes an active consultant on the day they start, and goes back
+ * to being a resource when the assignment ends. That is why the submit action
+ * says resource: it has to be true whether the person is new to us or coming
+ * off an assignment.
+ *
+ * A PIPELINE is not the submission board. It is a recruiter's own set of named
+ * categories - they choose the categories - holding resources they know are
+ * good but who are not out working. Submissions are what is out with clients;
+ * a pipeline is what a recruiter has in reserve. Do not use one word for both.
  *
  * "Somebody" is still the right word when it means a colleague of ours, and is
  * left alone in those places.

@@ -542,3 +542,15 @@ input[type=number].fi{font-family:var(--mono); font-variant-numeric:tabular-nums
             max-height:92dvh}
   .askbtns .send, .askbtns .ghost{flex:1; min-height:44px}
 }
+
+/* ------------------------------------------------------- pipeline categories */
+
+.pipehead{display:flex; align-items:flex-start; gap:14px; flex-wrap:wrap}
+.pipehead > div:first-child{flex:1; min-width:0}
+.chiprow{display:flex; flex-wrap:wrap; gap:6px}
+.linkbtn.danger{color:var(--bad)}
+
+@media (max-width:860px){
+  .pipehead{gap:8px}
+  .pipehead .rowbtns{width:100%}
+}

@@ -83,7 +83,8 @@ function go(view, sel) {
 
 const NAV = [
   ["Workspace", [["home", "My desk"]]],
-  ["Recruiting", [["pipeline", "Pipeline"], ["interviews", "Interviews"]]],
+  ["Recruiting", [["submissions", "Submissions"], ["interviews", "Interviews"],
+                  ["pipelines", "Pipelines"]]],
   ["Records", [["accounts", "Accounts"], ["projects", "Projects"],
                ["contacts", "Contacts"], ["documents", "Documents"]]],
   ["Time and money", [["timesheet", "My week"], ["approvals", "Approvals"],
@@ -112,7 +113,7 @@ function render() {
         // Each person's desk defaults to their own view, not whoever was here
         // before. Their week and their filters go with them too.
         UI.desk = null; UI.scope = null; UI.who = null; UI.shownRows = null;
-        UI.pipeScope = null; UI.pipeClosed = false;
+        UI.subScope = null; UI.subClosed = false; UI.pipeWho = null;
         audit("users", "update", null, me, "switched acting user");
         commit(); render();
       } }, ...S.users.map((u) => el("option",
@@ -143,7 +144,8 @@ function render() {
   try {
     body =
       UI.view === "home" ? homeView() :
-      UI.view === "pipeline" ? pipelineView() :
+      UI.view === "submissions" ? submissionsView() :
+      UI.view === "pipelines" ? pipelinesView() :
       UI.view === "submission" ? submissionView(UI.sel) :
       UI.view === "interviews" ? interviewsView() :
       UI.view === "accounts" ? accountsView() :
