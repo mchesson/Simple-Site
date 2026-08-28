@@ -154,33 +154,372 @@ end $$ language plpgsql;
 create trigger project_location_check before insert or update on project
   for each row execute function project_location_matches();
 
+-- Margin defined once, in the database, so every caller gets the same number.
+-- Burden is a percentage of pay, not of bill: getting this backwards overstates
+-- gross margin on every low-pay/high-bill placement.
+create or replace function gross_margin(pay numeric, bill numeric, burden_pct numeric)
+returns numeric language sql immutable as $$
+  select bill - pay - (pay * coalesce(burden_pct,0) / 100.0)
+$$;
+
+create or replace function gross_margin_pct(pay numeric, bill numeric, burden_pct numeric)
+returns numeric language sql immutable as $$
+  select case when bill is null or bill = 0 then null
+         else gross_margin(pay, bill, burden_pct) / bill * 100.0 end
+$$;
+
 -- ---------------------------------------------------------------- submissions
+
+-- A submission is the record of putting a person in front of a client for a
+-- project. Its stage is the single most-looked-at number on a recruiter's desk,
+-- so the rules about how a stage may move are data rather than code: the two
+-- tables below are the state machine, and the trigger further down is the only
+-- thing that enforces it. The application reads the same tables to decide which
+-- buttons to draw, which means the screen and the database cannot disagree
+-- about what is allowed.
+
+create table submission_stage (
+  code     text primary key,
+  label    text not null,
+  sort     int  not null,
+  -- Still in play. Drives the desk counts and the duplicate guard.
+  is_open  boolean not null default true,
+  -- Where a submission may start. Nothing may be created half way down.
+  is_entry boolean not null default false,
+  -- We won it. Reaching this requires a real placement, see the guard.
+  is_won   boolean not null default false
+);
+
+insert into submission_stage (code, label, sort, is_open, is_entry, is_won) values
+  ('submitted',     'Submitted',     10, true,  true,  false),
+  ('client_review', 'With client',   20, true,  false, false),
+  ('interview',     'Interviewing',  30, true,  false, false),
+  ('offer',         'Offer out',     40, true,  false, false),
+  ('placed',        'Placed',        50, false, false, true),
+  ('rejected',      'Rejected',      60, false, false, false),
+  ('withdrawn',     'Withdrawn',     70, false, false, false);
+
+-- Why we lost, in a fixed list so the desk can count it. side records whose
+-- decision it was, because "they went with someone cheaper" and "our candidate
+-- took another offer" are different problems with different fixes.
+create table loss_reason (
+  code  text primary key,
+  label text not null,
+  side  text not null check (side in ('client','candidate','us')),
+  sort  int  not null default 0
+);
+
+insert into loss_reason (code, label, side, sort) values
+  ('rate_too_high',        'Rate too high',                        'client',    10),
+  ('skills_gap',           'Not the right skills',                 'client',    20),
+  ('someone_else_filled',  'Client filled it elsewhere',           'client',    30),
+  ('client_hired_direct',  'Client hired directly',                'client',    40),
+  ('project_cancelled',    'Project cancelled or put on hold',     'client',    50),
+  ('interview_poor',       'Interviewed badly',                    'client',    60),
+  ('took_other_offer',     'Took another offer',                   'candidate', 70),
+  ('declined_rate',        'Declined our rate',                    'candidate', 80),
+  ('unresponsive',         'Went dark on us',                      'candidate', 90),
+  ('counter_offered',      'Counter offered by current employer',  'candidate', 100),
+  ('failed_screening',     'Failed background or drug screening',  'candidate', 110),
+  ('submitted_too_late',   'We were too late',                     'us',        120),
+  ('wrong_submission',     'We submitted the wrong person',        'us',        130),
+  ('no_reason_given',      'No reason given',                      'client',    140);
 
 create table submission (
   id           uuid primary key default gen_random_uuid(),
   project_id   uuid not null references project(id),
   contact_id   uuid not null references contact(id),
-  stage        text not null default 'submitted'
-               check (stage in ('submitted','client_review','interview','offer','placed','rejected','withdrawn')),
+  stage        text not null default 'submitted' references submission_stage(code),
+  -- When the stage last moved. Every "waiting on the client" number on the desk
+  -- is measured from here, so the guard maintains it rather than the caller.
+  stage_since  timestamptz not null default now(),
   submitted_by uuid references app_user(id),
   pay_rate     numeric(12,4),
   bill_rate    numeric(12,4),
+  -- Burden as a percentage of pay, same convention as placement_rate. It sits on
+  -- the submission so the margin a recruiter is shown before submitting is the
+  -- one they will be held to, rather than a number a view invented.
+  burden_pct   numeric(6,4) not null default 0 check (burden_pct >= 0),
+  -- Set when the stage goes to rejected or withdrawn. The guard refuses the move
+  -- without it: a loss nobody wrote a reason for teaches the desk nothing.
+  loss_reason_code text references loss_reason(code),
+  notes        text,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
-  unique (project_id, contact_id)
+  unique (project_id, contact_id),
+  constraint rates_are_positive
+    check ((pay_rate is null or pay_rate >= 0) and (bill_rate is null or bill_rate >= 0))
+);
+create index submission_project_idx on submission (project_id);
+create index submission_contact_idx on submission (contact_id);
+create index submission_stage_idx   on submission (stage, stage_since);
+
+-- Which moves are legal, what the button for each one says, and what the move
+-- costs the person making it. A row here is permission; no row is a refusal.
+create table submission_stage_flow (
+  from_stage   text not null references submission_stage(code),
+  to_stage     text not null references submission_stage(code),
+  label        text not null,
+  -- The move has to be explained. The text lands in submission_event.
+  needs_reason boolean not null default false,
+  sort         int not null default 0,
+  primary key (from_stage, to_stage),
+  constraint not_to_itself check (from_stage <> to_stage)
 );
 
--- Append only. The stage column above is a cache of the newest row here.
+insert into submission_stage_flow (from_stage, to_stage, label, needs_reason, sort) values
+  -- The straight road.
+  ('submitted',     'client_review', 'Client has it',      false, 10),
+  ('client_review', 'interview',     'Interview booked',   false, 20),
+  ('interview',     'offer',         'Offer out',          false, 30),
+  ('offer',         'placed',        'Placed',             false, 40),
+  -- Skipping ahead. Clients do this, so the machine has to allow it.
+  ('submitted',     'interview',     'Straight to interview', false, 50),
+  ('client_review', 'offer',         'Offer without interview', true, 60),
+  -- Back a step. A second round, or an offer the client pulled back to talk.
+  ('interview',     'client_review', 'Back with the client', true, 70),
+  ('offer',         'interview',     'Another interview round', true, 80),
+  -- Losing it, from anywhere it is still live.
+  ('submitted',     'rejected',      'Rejected',           true, 100),
+  ('client_review', 'rejected',      'Rejected',           true, 101),
+  ('interview',     'rejected',      'Rejected',           true, 102),
+  ('offer',         'rejected',      'Rejected',           true, 103),
+  ('submitted',     'withdrawn',     'Withdrawn',          true, 110),
+  ('client_review', 'withdrawn',     'Withdrawn',          true, 111),
+  ('interview',     'withdrawn',     'Withdrawn',          true, 112),
+  ('offer',         'withdrawn',     'Withdrawn',          true, 113),
+  -- A start that never happened. Rare, and worth being able to record honestly
+  -- rather than deleting the submission and losing the history.
+  ('placed',        'withdrawn',     'Never started',      true, 120),
+  -- Reviving one. Clients come back weeks later and ask about someone.
+  ('rejected',      'client_review', 'Client came back',   true, 130),
+  ('withdrawn',     'submitted',     'Back in play',       true, 131);
+
+-- The whole history of a submission, one row per move, never edited. The stage
+-- column above is a cache of the newest row here, and the trigger writes both in
+-- the same statement so they cannot drift.
 create table submission_event (
   id            bigserial primary key,
   submission_id uuid not null references submission(id) on delete cascade,
-  from_stage    text,
-  to_stage      text not null,
+  from_stage    text references submission_stage(code),
+  to_stage      text not null references submission_stage(code),
   reason        text,
   actor_id      uuid references app_user(id),
   occurred_at   timestamptz not null default now()
 );
 create index submission_event_sub_idx on submission_event (submission_id, occurred_at);
+
+-- --------------------------------------------------------- interviews
+
+-- An interview stage with no date on it is just a word. Rounds are numbered
+-- because a second and third conversation is normal, and each one has its own
+-- outcome: the client's verdict on that round, not on the submission.
+create table interview (
+  id             uuid primary key default gen_random_uuid(),
+  submission_id  uuid not null references submission(id) on delete cascade,
+  round          int  not null default 1 check (round > 0),
+  scheduled_at   timestamptz not null,
+  duration_mins  int not null default 60 check (duration_mins > 0),
+  mode           text not null default 'video'
+                 check (mode in ('phone','video','onsite','panel')),
+  where_text     text,
+  -- Client-side attendees. Often people we have no contact record for, so this
+  -- is text on purpose rather than a join we would have to fake.
+  interviewers   text,
+  status         text not null default 'scheduled'
+                 check (status in ('scheduled','completed','no_show','cancelled','rescheduled')),
+  outcome        text not null default 'pending'
+                 check (outcome in ('pending','advance','reject','hold')),
+  feedback       text,
+  prep_notes     text,
+  arranged_by    uuid references app_user(id),
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now(),
+  unique (submission_id, round)
+);
+create index interview_when_idx on interview (scheduled_at)
+  where status = 'scheduled';
+
+-- --------------------------------------------------- the rules, enforced
+
+-- Two recruiters working the same person into the same client is the call
+-- nobody wants to make. The unique constraint on the submission table only
+-- catches a repeat on the same project; this catches the same person going to
+-- the same account twice while an earlier submission is still live.
+--
+-- The same recruiter doing it is allowed: one person genuinely being put up for
+-- two different roles at one client is ordinary work.
+create or replace function submission_not_already_out() returns trigger as $$
+declare
+  clash record;
+begin
+  -- Reviving a dead submission months later is the other way this happens: the
+  -- client asks about somebody a different recruiter has since put forward. So
+  -- the check runs again whenever a closed submission comes back into play.
+  if tg_op = 'UPDATE' then
+    if new.stage = old.stage then return new; end if;
+    if (select is_open from submission_stage where code = old.stage)
+       or not (select is_open from submission_stage where code = new.stage) then
+      return new;
+    end if;
+  end if;
+
+  select s.id, s.project_id, s.stage, s.created_at, p.name as project_name,
+         u.full_name as recruiter
+    into clash
+    from submission s
+    join project p on p.id = s.project_id
+    join submission_stage st on st.code = s.stage
+    left join app_user u on u.id = s.submitted_by
+   where s.contact_id = new.contact_id
+     and s.id is distinct from new.id
+     and st.is_open
+     and p.account_id = (select account_id from project where id = new.project_id)
+     and s.submitted_by is distinct from new.submitted_by
+   order by s.created_at
+   limit 1;
+
+  if clash.id is not null then
+    raise exception
+      'that person is already out to this client - % submitted them for % on %',
+      coalesce(clash.recruiter, 'somebody'), clash.project_name,
+      to_char(clash.created_at, 'FMMonth FMDD');
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger submission_duplicate_check before insert or update on submission
+  for each row execute function submission_not_already_out();
+
+-- The state machine. Nothing else in the system moves a stage, and nothing can
+-- get around this by writing SQL directly, which is the point of putting it
+-- here rather than in the application.
+--
+-- The reason for a move travels in the same transaction-local setting the audit
+-- trail uses, so a caller that has already said why it is doing something does
+-- not have to say it twice.
+create or replace function submission_stage_guard() returns trigger as $$
+declare
+  st    submission_stage;
+  flow  submission_stage_flow;
+  why   text := nullif(btrim(coalesce(current_setting('ts.reason', true), '')), '');
+  legal text;
+begin
+  if tg_op = 'INSERT' then
+    select * into st from submission_stage where code = new.stage;
+    if not st.is_entry then
+      raise exception
+        'a submission starts at %, not at % - move it there afterwards',
+        (select code from submission_stage where is_entry order by sort limit 1),
+        new.stage;
+    end if;
+    new.stage_since := now();
+    return new;   -- the history row is written by the after trigger below
+  end if;
+
+  -- An update that leaves the stage alone is not our business.
+  if new.stage = old.stage then
+    -- ... except that nobody may quietly rewrite how it got here.
+    if new.stage_since is distinct from old.stage_since then
+      new.stage_since := old.stage_since;
+    end if;
+    return new;
+  end if;
+
+  select * into flow from submission_stage_flow
+   where from_stage = old.stage and to_stage = new.stage;
+
+  if flow.from_stage is null then
+    select string_agg(f.label || ' (' || f.to_stage || ')', ', ' order by f.sort)
+      into legal
+      from submission_stage_flow f where f.from_stage = old.stage;
+    raise exception 'a submission at % cannot go to %. From here you can: %',
+      old.stage, new.stage, coalesce(legal, 'nothing - it is finished');
+  end if;
+
+  if flow.needs_reason and why is null then
+    raise exception 'moving this submission to % needs a reason', new.stage;
+  end if;
+
+  -- A loss with no reason code teaches the desk nothing, so it is refused.
+  select * into st from submission_stage where code = new.stage;
+  if not st.is_open and not st.is_won and new.loss_reason_code is null then
+    raise exception
+      'say why we lost this one - set loss_reason_code (see the loss_reason table)';
+  end if;
+
+  -- "Placed" is a claim about the real world: somebody is starting work. It is
+  -- only true once the placement exists, and the placement is what payroll and
+  -- billing hang off, so the word cannot get ahead of the record.
+  if st.is_won and not exists (
+       select 1 from placement pl where pl.submission_id = new.id) then
+    raise exception
+      'create the placement first - a submission is not placed until somebody has a start date';
+  end if;
+
+  -- Coming back into play drops the old loss reason; keeping it would leave a
+  -- live submission carrying an explanation of how it died.
+  if st.is_open then
+    new.loss_reason_code := null;
+  end if;
+
+  new.stage_since := now();
+  new.updated_at  := now();
+  return new;
+end $$ language plpgsql;
+create trigger submission_stage_check before insert or update on submission
+  for each row execute function submission_stage_guard();
+
+-- The history row, written once the submission itself is on disk. Splitting this
+-- off from the guard is not tidiness: on an insert the row does not exist yet,
+-- so a history row written from a before trigger has nothing to point at.
+create or replace function submission_stage_log() returns trigger as $$
+declare
+  why text := nullif(btrim(coalesce(current_setting('ts.reason', true), '')), '');
+begin
+  if tg_op = 'INSERT' then
+    insert into submission_event (submission_id, from_stage, to_stage, reason, actor_id)
+      values (new.id, null, new.stage, why, audit_actor_id());
+  elsif new.stage is distinct from old.stage then
+    insert into submission_event (submission_id, from_stage, to_stage, reason, actor_id)
+      values (new.id, old.stage, new.stage, why, audit_actor_id());
+  end if;
+  return null;
+end $$ language plpgsql;
+create trigger submission_stage_history after insert or update on submission
+  for each row execute function submission_stage_log();
+
+-- History is history.
+create or replace function submission_event_append_only() returns trigger as $$
+begin
+  raise exception 'the submission history cannot be changed';
+end $$ language plpgsql;
+create trigger submission_event_no_edit before update or delete on submission_event
+  for each row execute function submission_event_append_only();
+
+-- Booking an interview is what puts a submission in the interview stage. Doing
+-- it here rather than asking the caller to remember means the stage can never
+-- claim less than the calendar knows.
+create or replace function interview_moves_the_stage() returns trigger as $$
+declare
+  sub  submission;
+  from_sort int; to_sort int;
+begin
+  select * into sub from submission where id = new.submission_id for update;
+  select sort into from_sort from submission_stage where code = sub.stage;
+  select sort into to_sort   from submission_stage where code = 'interview';
+
+  if not (select is_open from submission_stage where code = sub.stage) then
+    raise exception 'that submission is closed (%) - reopen it before booking anything',
+      sub.stage;
+  end if;
+
+  if from_sort < to_sort then
+    update submission set stage = 'interview' where id = sub.id;
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger interview_stage_sync after insert on interview
+  for each row execute function interview_moves_the_stage();
 
 -- ----------------------------------------------------------------- placements
 
@@ -190,12 +529,36 @@ create table placement (
   contact_id   uuid not null references contact(id),
   status       text not null default 'active'
                check (status in ('pending','active','ended','cancelled')),
+  -- The submission this came out of, when it came out of one. A placement can
+  -- exist without it - a redeployment, a rehire, a conversion done by hand -
+  -- but when it is set it is the join between the recruiting side of the
+  -- business and the money side, and it is what lets a submission say "placed".
+  submission_id uuid unique references submission(id),
   start_date   date not null,
   end_date     date,
   recruiter_id uuid references app_user(id),
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
 );
+
+-- A placement that names a submission has to be the same person on the same
+-- project. Without this the join between recruiting and payroll could quietly
+-- point at somebody else, and "placed" would be attesting to the wrong thing.
+create or replace function placement_matches_submission() returns trigger as $$
+declare sub submission;
+begin
+  if new.submission_id is null then return new; end if;
+  select * into sub from submission where id = new.submission_id;
+  if sub.project_id <> new.project_id or sub.contact_id <> new.contact_id then
+    raise exception
+      'that placement does not match its submission - the submission is % on project %',
+      (select full_name from contact where id = sub.contact_id),
+      (select name from project where id = sub.project_id);
+  end if;
+  return new;
+end $$ language plpgsql;
+create trigger placement_submission_check before insert or update on placement
+  for each row execute function placement_matches_submission();
 
 -- Rates are effective-dated and never edited in place. A correction supersedes
 -- its predecessor; the exclusion constraint makes two rates of the same type
@@ -219,20 +582,6 @@ create table placement_rate (
   constraint no_overlapping_rates
     exclude using gist (placement_id with =, rate_type with =, validity with &&)
 );
-
--- Margin defined once, in the database, so every caller gets the same number.
--- Burden is a percentage of pay, not of bill: getting this backwards overstates
--- gross margin on every low-pay/high-bill placement.
-create or replace function gross_margin(pay numeric, bill numeric, burden_pct numeric)
-returns numeric language sql immutable as $$
-  select bill - pay - (pay * coalesce(burden_pct,0) / 100.0)
-$$;
-
-create or replace function gross_margin_pct(pay numeric, bill numeric, burden_pct numeric)
-returns numeric language sql immutable as $$
-  select case when bill is null or bill = 0 then null
-         else gross_margin(pay, bill, burden_pct) / bill * 100.0 end
-$$;
 
 -- ---------------------------------------------------- agreements & paperwork
 
@@ -993,6 +1342,50 @@ create table pipeline_member (
   added_at    timestamptz not null default now(),
   primary key (pipeline_id, contact_id)
 );
+
+-- --------------------------------------------------------- reading it back
+
+-- One row per live submission with the numbers the desk sorts by, so the board,
+-- the assistant and any ad-hoc query all count the same way.
+create or replace view submission_board as
+select s.id, s.stage, st.label as stage_label, st.sort as stage_sort,
+       st.is_open, st.is_won,
+       s.stage_since,
+       greatest(0, (current_date - s.stage_since::date)) as days_in_stage,
+       greatest(0, (current_date - s.created_at::date))  as days_since_submitted,
+       s.pay_rate, s.bill_rate, s.burden_pct,
+       gross_margin(s.pay_rate, s.bill_rate, s.burden_pct) as gm,
+       round(gross_margin_pct(s.pay_rate, s.bill_rate, s.burden_pct), 1) as gm_pct,
+       s.loss_reason_code, lr.label as loss_reason_label,
+       s.project_id, p.name as project_name, p.delivery_type, p.owner_id as project_owner_id,
+       p.account_id, a.name as account_name,
+       s.contact_id, c.full_name as contact_name, c.headline,
+       s.submitted_by, u.full_name as submitted_by_name,
+       (select count(*) from interview i where i.submission_id = s.id) as interview_count,
+       (select min(i.scheduled_at) from interview i
+         where i.submission_id = s.id and i.status = 'scheduled'
+           and i.scheduled_at >= now()) as next_interview_at,
+       (select max(act.occurred_at) from activity act where act.contact_id = s.contact_id)
+         as contact_last_touch
+  from submission s
+  join submission_stage st on st.code = s.stage
+  join project p on p.id = s.project_id
+  join account a on a.id = p.account_id
+  join contact c on c.id = s.contact_id
+  left join app_user u on u.id = s.submitted_by
+  left join loss_reason lr on lr.code = s.loss_reason_code;
+
+-- How many submissions ever reached each stage. Read off the event log rather
+-- than the current stage, so a submission that has since been rejected still
+-- counts towards the interviews it got. That is the difference between a funnel
+-- and a snapshot.
+create or replace view submission_funnel as
+select st.code as stage, st.label, st.sort,
+       (select count(distinct e.submission_id) from submission_event e
+         where e.to_stage = st.code) as reached,
+       (select count(*) from submission s where s.stage = st.code) as sitting_here
+  from submission_stage st
+ where st.is_open or st.is_won;
 
 -- ----------------------------------------------------- history & observability
 

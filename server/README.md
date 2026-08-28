@@ -88,6 +88,57 @@ burden the spread looks like $40 but the gross margin is $25.70 - 24.48%.
 Computing it the other way overstates margin on every placement, and it
 overstates it most where the pay rate is lowest.
 
+## The pipeline
+
+A submission is one person put forward for one project. Which stages it may move
+between is **data, not code**: `submission_stage` holds the stages and
+`submission_stage_flow` holds the legal moves, one row per move, carrying the
+label a button should show and whether the person clicking has to explain
+themselves. A trigger enforces exactly those rows, and the application reads the
+same two tables to decide which buttons to draw — so the screen and the database
+cannot disagree about what is allowed, and adding a stage is an insert rather
+than a deployment.
+
+Four rules the database keeps rather than trusting a caller to remember:
+
+- **A submission starts at `submitted`.** Nothing may be created half way down
+  the funnel, because a submission that appears at `offer` has no history and
+  the funnel silently under-counts everything above it.
+- **A loss needs a coded reason.** Moving to `rejected` or `withdrawn` without
+  `loss_reason_code` is refused. A loss nobody wrote down teaches the desk
+  nothing, and the reasons are a fixed list so they can be counted.
+- **`placed` is a placement, not a word.** The stage cannot say placed until a
+  `placement` row references the submission. `place_submission` does the three
+  writes in one transaction — placement, opening rate, then the stage — and a
+  placement whose start date has arrived is created `active` rather than waiting
+  for somebody to notice.
+- **Two recruiters cannot work the same person into the same client.** The
+  unique constraint on `(project_id, contact_id)` only catches a repeat on one
+  project; a trigger catches the same person going to the same *account* while
+  another recruiter's submission is still open, and it re-checks when a closed
+  submission is revived. The same recruiter putting somebody up for a second
+  role at that client is ordinary work and is allowed.
+
+`submission_event` is the append-only history, written by the trigger rather
+than by the caller — including the row for the submission's own creation — with
+the reason taken from the same transaction-local setting the audit trail uses.
+It refuses UPDATE and DELETE.
+
+Interviews carry a round number, a date, a mode, attendees and an outcome.
+Inserting one moves the submission into the interview stage by itself, and never
+drags a stage backwards, so booking a second round while an offer is out leaves
+the offer alone. Recording an outcome deliberately does **not** move the stage:
+a rejection needs a coded reason, so the next move stays a decision a person
+makes.
+
+Two views read it back. `submission_board` is one row per submission with the
+numbers a desk sorts by — days in stage, margin at the submitted rates, the next
+booked interview, when the person was last spoken to. `submission_funnel` counts
+what each stage **ever reached**, read off the event log rather than the current
+stage, so a candidate later rejected still counts towards the interviews they
+got. That is the difference between "we do not get interviews" and "we get
+interviews and lose them".
+
 ## Time, purchase orders and invoices
 
 A purchase order is burned by what we have **invoiced**, not by what our people
@@ -200,9 +251,10 @@ until an invoice is issued.
 `agent.js` rather than the SDK tool runner — because the point of this build is
 that every step is observable, and the loop is where the instrumentation hangs.
 
-Forty-two tools cover accounts, sites, contacts, projects, activity, documents,
-pipelines, timesheets, approvals, unlocks, invoices, PO burn-down and the audit
-trail. Two of them matter more than the rest:
+Fifty-two tools cover accounts, sites, contacts, projects, submissions,
+interviews, activity, documents, pipelines, timesheets, approvals, unlocks,
+invoices, PO burn-down and the audit trail. Two of them matter more than the
+rest:
 
 - `sql_query` runs a SELECT when no purpose-built tool fits. The connection
   holds a `ts_readonly` role with `SELECT` and nothing else, so a write is
@@ -244,7 +296,7 @@ it, because that would invalidate the cache every day.
 npm test
 ```
 
-100 tests against a real Postgres database built from the same `schema.sql` the
+139 tests against a real Postgres database built from the same `schema.sql` the
 application uses — the constraints are where most of the design lives, and a
 mock would not catch them. The agent loop is exercised with a scripted stand-in
 for the Anthropic client, so tool dispatch, trace capture, the iteration cap,
@@ -259,6 +311,16 @@ in force on a given day, and every column of the burn-down at each stage. The
 audit trail is tested by writing straight past the application - a raw insert is
 recorded the same as one through the API - and the lock from both sides, through
 the repo and by direct SQL.
+
+The pipeline is tested the same way, from both sides of the application: a
+submission created at `offer` by raw SQL, a jump to `placed`, a stage moved by
+`update submission set stage=...` at a psql prompt, an attempt to rewrite the
+history, a loss with a well-written explanation but no code, a placement naming
+the wrong person, a second recruiter on somebody already out, and the same check
+firing again when a rejected submission is revived behind them. Each of those is
+asserted on the error text as well as the refusal, because an error a recruiter
+cannot act on is most of a bug: the machine tells you what you *can* do from
+where you are.
 
 **What is not covered:** no test in this suite makes a live Claude API call.
 The request shape is asserted against the documented parameters, but the round

@@ -144,8 +144,70 @@ route("PATCH", "/api/projects/:id", async (p, _q, body) =>
 
 route("POST", "/api/activity", async (_p, _q, body) =>
   repo.logActivity({ ...body, actorId: (await actorId()) }));
+// ------------------------------------------------------------- submissions
+
+route("GET", "/api/stage-machine", async () => repo.stageMachine());
+
+route("GET", "/api/submissions", async (_p, q) =>
+  repo.submissionBoard({
+    ownerId: q.get("owner_id"), accountId: q.get("account_id"),
+    projectId: q.get("project_id"), contactId: q.get("contact_id"),
+    stage: q.get("stage"),
+    openOnly: q.get("include_closed") !== "1",
+    staleDays: q.get("stale_days") ? Number(q.get("stale_days")) : null,
+  }));
+
+route("GET", "/api/submissions/funnel", async (_p, q) => {
+  const [funnel, losses] = await Promise.all([
+    repo.submissionFunnel(),
+    repo.lossBreakdown({ days: Number(q.get("days") || 90),
+                         ownerId: q.get("owner_id") || null }),
+  ]);
+  return { funnel, losses };
+});
+
+route("GET", "/api/submissions/:id", async (p) => repo.submissionHistory(p.id));
+
+route("POST", "/api/submissions", async (_p, _q, body) =>
+  repo.submitCandidate({
+    projectId: body.project_id, contactId: body.contact_id,
+    payRate: body.pay_rate ?? null, billRate: body.bill_rate ?? null,
+    burdenPct: body.burden_pct ?? 0, notes: body.notes ?? null,
+  }, (await actorId())));
+
 route("POST", "/api/submissions/:id/advance", async (p, _q, body) =>
-  repo.advanceSubmission(p.id, body.stage, body.reason, (await actorId())));
+  repo.advanceSubmission(p.id, body.stage, body.reason,
+    { lossReasonCode: body.loss_reason_code ?? null }, (await actorId())));
+
+route("POST", "/api/submissions/:id/place", async (p, _q, body) =>
+  repo.placeSubmission({
+    submissionId: p.id, startDate: body.start_date, endDate: body.end_date ?? null,
+    payRate: body.pay_rate ?? null, billRate: body.bill_rate ?? null,
+    burdenPct: body.burden_pct ?? null,
+  }, (await actorId())));
+
+route("POST", "/api/submissions/:id/interviews", async (p, _q, body) =>
+  repo.scheduleInterview({
+    submissionId: p.id, scheduledAt: body.scheduled_at,
+    durationMins: body.duration_mins ?? 60, mode: body.mode ?? "video",
+    whereText: body.where_text ?? null, interviewers: body.interviewers ?? null,
+    prepNotes: body.prep_notes ?? null,
+  }, (await actorId())));
+
+route("PATCH", "/api/interviews/:id", async (p, _q, body) =>
+  repo.recordInterviewOutcome(p.id, {
+    status: body.status ?? "completed", outcome: body.outcome ?? null,
+    feedback: body.feedback ?? null,
+  }, (await actorId())));
+
+route("GET", "/api/interviews", async (_p, q) => {
+  const ownerId = q.get("owner_id") || null;
+  const [upcoming, awaiting] = await Promise.all([
+    repo.upcomingInterviews({ days: Number(q.get("days") || 14), ownerId }),
+    repo.interviewsAwaitingFeedback({ ownerId }),
+  ]);
+  return { upcoming, awaiting_feedback: awaiting };
+});
 
 route("GET", "/api/documents", async (_p, q) =>
   repo.searchDocuments({

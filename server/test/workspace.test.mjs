@@ -249,6 +249,417 @@ describe("accounts, sites and ownership", () => {
 
 // ------------------------------------------------------- timesheets & money
 
+// -------------------------------------------------------- the pipeline
+
+describe("a submission can only move the way the machine allows", () => {
+  let jo, sub;
+
+  before(async () => {
+    jo = await repo.insertRecord("contact", {
+      full_name: "Jo Nakamura", email: "jo@example.com", is_candidate: true,
+      skills: ["PLC", "SCADA"], recruiter_id: dev.id,
+    }, dev.id);
+    sub = await repo.submitCandidate({
+      projectId: project.id, contactId: jo.id,
+      payRate: 56, billRate: 90, burdenPct: 22,
+    }, dev.id);
+  });
+
+  test("submitting works out the margin before anybody commits to the rate", () => {
+    // 90 bill, 56 pay, burden 22% of pay = 12.32. 90 - 56 - 12.32 = 21.68.
+    assert.equal(Number(sub.gm), 21.68);
+    assert.ok(Math.abs(Number(sub.gm_pct) - 24.09) < 0.01);
+  });
+
+  test("a thin margin is flagged back rather than silently accepted", async () => {
+    const thin = await repo.submitCandidate({
+      projectId: project.id, contactId: dana.id,
+      payRate: 80, billRate: 90, burdenPct: 22,
+    }, dev.id);
+    assert.ok(thin.advisories.some((a) => a.includes("gross margin")),
+      `expected a margin advisory, got ${JSON.stringify(thin.advisories)}`);
+    // Advisory, not a refusal: the row exists.
+    assert.ok(thin.id);
+  });
+
+  test("it starts at submitted and writes its own first history row", async () => {
+    const h = await repo.submissionHistory(sub.id);
+    assert.equal(h.stage, "submitted");
+    assert.equal(h.events.length, 1);
+    assert.equal(h.events[0].from_stage, null);
+    assert.equal(h.events[0].to_stage, "submitted");
+  });
+
+  test("a submission cannot be created part way down the funnel", async () => {
+    await assert.rejects(
+      () => pool.query(
+        `insert into submission (project_id, contact_id, stage) values ($1,$2,'offer')`,
+        [project.id, marcus.id]),
+      /starts at submitted/);
+  });
+
+  test("skipping to placed is refused, and the error says what is allowed", async () => {
+    await assert.rejects(
+      () => repo.advanceSubmission(sub.id, "placed", "client said yes", {}, dev.id),
+      (e) => /cannot go to placed/.test(e.message) &&
+             /client_review/.test(e.message));
+  });
+
+  test("the same refusal applies to SQL written straight at the table", async () => {
+    await assert.rejects(
+      () => pool.query(`update submission set stage='placed' where id=$1`, [sub.id]),
+      /cannot go to placed/);
+  });
+
+  test("a move that needs a reason is refused without one", async () => {
+    await assert.rejects(
+      () => repo.advanceSubmission(sub.id, "withdrawn", null,
+        { lossReasonCode: "unresponsive" }, dev.id),
+      /needs a reason/);
+  });
+
+  test("a loss is refused without a coded reason, however well explained", async () => {
+    await assert.rejects(
+      () => repo.advanceSubmission(sub.id, "rejected",
+        "the client said she was not right for it", {}, dev.id),
+      /say why we lost this one/);
+  });
+
+  test("the legal path forward moves the clock and records who and why", async () => {
+    await repo.advanceSubmission(sub.id, "client_review",
+      "sent to Dana with the line 3 write-up", {}, dev.id);
+    const h = await repo.submissionHistory(sub.id);
+    assert.equal(h.stage, "client_review");
+    assert.equal(h.days_in_stage, 0);
+    const last = h.events.at(-1);
+    assert.equal(last.from_stage, "submitted");
+    assert.equal(last.reason, "sent to Dana with the line 3 write-up");
+    assert.equal(last.actor_name, "Devon Okafor");
+  });
+
+  test("the history cannot be rewritten afterwards", async () => {
+    await assert.rejects(
+      () => pool.query(`update submission_event set reason='something else'
+                         where submission_id=$1`, [sub.id]),
+      /history cannot be changed/);
+    await assert.rejects(
+      () => pool.query(`delete from submission_event where submission_id=$1`, [sub.id]),
+      /history cannot be changed/);
+  });
+
+  test("what a submission can do next comes from the database, not the screen", async () => {
+    const moves = await repo.movesFor(sub.id);
+    const codes = moves.map((m) => m.to_stage).sort();
+    assert.deepEqual(codes, ["interview", "offer", "rejected", "withdrawn"]);
+    const rejected = moves.find((m) => m.to_stage === "rejected");
+    assert.equal(rejected.needs_reason, true);
+    assert.equal(rejected.needs_loss_reason, true);
+    const interview = moves.find((m) => m.to_stage === "interview");
+    assert.equal(interview.needs_loss_reason, false);
+  });
+});
+
+describe("interviews are a date and an outcome, not a word", () => {
+  let sub, iv;
+
+  before(async () => {
+    const ravi = await repo.insertRecord("contact", {
+      full_name: "Ravi Menon", email: "ravi@example.com", is_candidate: true,
+    }, dev.id);
+    sub = await repo.submitCandidate({
+      projectId: project.id, contactId: ravi.id, payRate: 62, billRate: 100, burdenPct: 22,
+    }, dev.id);
+    iv = await repo.scheduleInterview({
+      submissionId: sub.id, scheduledAt: "2026-09-04T16:00:00-05:00",
+      mode: "panel", interviewers: "Dana Reyes, Priya Raman", durationMins: 45,
+    }, dev.id);
+  });
+
+  test("booking one carries the submission into the interview stage by itself", async () => {
+    const h = await repo.submissionHistory(sub.id);
+    assert.equal(h.stage, "interview");
+    // submitted, then the move the booking caused
+    assert.deepEqual(h.events.map((e) => e.to_stage), ["submitted", "interview"]);
+  });
+
+  test("rounds number themselves", async () => {
+    const second = await repo.scheduleInterview({
+      submissionId: sub.id, scheduledAt: "2026-09-11T16:00:00-05:00", mode: "video",
+    }, dev.id);
+    assert.equal(iv.round, 1);
+    assert.equal(second.round, 2);
+  });
+
+  test("a second round does not drag the stage backwards", async () => {
+    await repo.advanceSubmission(sub.id, "offer", null, {}, dev.id);
+    await repo.scheduleInterview({
+      submissionId: sub.id, scheduledAt: "2026-09-18T16:00:00-05:00", mode: "phone",
+    }, dev.id);
+    const after = await one(`select stage from submission where id=$1`, [sub.id]);
+    assert.equal(after.stage, "offer");
+  });
+
+  test("recording an outcome hands back the decision instead of taking it", async () => {
+    const out = await repo.recordInterviewOutcome(iv.id,
+      { outcome: "reject", feedback: "Not deep enough on Ignition." }, dev.id);
+    assert.equal(out.interview.outcome, "reject");
+    // The submission has not moved: a rejection needs a coded reason from a person.
+    const still = await one(`select stage from submission where id=$1`, [sub.id]);
+    assert.equal(still.stage, "offer");
+    assert.ok(out.next_moves.some((m) => m.to_stage === "rejected"));
+  });
+
+  test("an interview that has been and gone with no outcome is surfaced", async () => {
+    await pool.query(`alter table submission disable trigger submission_stage_check`);
+    const past = await repo.scheduleInterview({
+      submissionId: sub.id, scheduledAt: "2026-08-01T16:00:00-05:00", mode: "phone",
+    }, dev.id);
+    await pool.query(`alter table submission enable trigger submission_stage_check`);
+    const waiting = await repo.interviewsAwaitingFeedback({});
+    assert.ok(waiting.some((w) => w.id === past.id),
+      "an interview in the past with a pending outcome should be chased");
+  });
+
+  test("nothing can be booked onto a closed submission", async () => {
+    const gone = await repo.submitCandidate({
+      projectId: project.id, contactId: marcus.id }, dev.id);
+    await repo.advanceSubmission(gone.id, "withdrawn", "took another offer",
+      { lossReasonCode: "took_other_offer" }, dev.id);
+    await assert.rejects(
+      () => repo.scheduleInterview({
+        submissionId: gone.id, scheduledAt: "2026-09-30T16:00:00-05:00" }, dev.id),
+      /closed/);
+  });
+});
+
+describe("placed is a placement, not a word", () => {
+  let sub;
+
+  before(async () => {
+    const nia = await repo.insertRecord("contact", {
+      full_name: "Nia Fenwick", email: "nia@example.com", is_candidate: true,
+    }, dev.id);
+    sub = await repo.submitCandidate({
+      projectId: project.id, contactId: nia.id, payRate: 52, billRate: 86, burdenPct: 22,
+    }, dev.id);
+    await repo.advanceSubmission(sub.id, "client_review", null, {}, dev.id);
+    await repo.advanceSubmission(sub.id, "offer", "client skipped the interview", {}, dev.id);
+  });
+
+  test("the stage cannot claim placed until a placement exists", async () => {
+    await assert.rejects(
+      () => pool.query(`update submission set stage='placed' where id=$1`, [sub.id]),
+      /create the placement first/);
+  });
+
+  test("a placement naming the wrong person is refused", async () => {
+    await assert.rejects(
+      () => pool.query(
+        `insert into placement (project_id, contact_id, start_date, submission_id)
+         values ($1,$2,'2026-09-21',$3)`, [project.id, marcus.id, sub.id]),
+      /does not match its submission/);
+  });
+
+  test("placing one writes the placement, its opening rate and the stage together",
+    async () => {
+      const out = await repo.placeSubmission({
+        submissionId: sub.id, startDate: "2026-09-21",
+      }, dev.id);
+      assert.equal(out.submission.stage, "placed");
+      assert.equal(out.placement.submission_id, sub.id);
+      const rate = await one(
+        `select pay_rate, bill_rate, burden_pct, effective_from
+           from placement_rate where placement_id = $1`, [out.placement.id]);
+      // The rates default to the ones the submission was made at.
+      assert.equal(Number(rate.pay_rate), 52);
+      assert.equal(Number(rate.bill_rate), 86);
+      assert.equal(Number(rate.burden_pct), 22);
+    });
+
+  test("somebody starting work is on our payroll from that moment", async () => {
+    const pl = await one(`select contact_id from placement where submission_id=$1`, [sub.id]);
+    const c = await one(`select on_payroll from contact where id=$1`, [pl.contact_id]);
+    assert.equal(c.on_payroll, true);
+  });
+
+  test("a placement with no rates is refused - payroll has nothing to run on",
+    async () => {
+      const other = await repo.insertRecord("contact", {
+        full_name: "Ash Whitlock", email: "ash@example.com", is_candidate: true }, dev.id);
+      const bare = await repo.submitCandidate({
+        projectId: project.id, contactId: other.id }, dev.id);
+      await repo.advanceSubmission(bare.id, "client_review", null, {}, dev.id);
+      await repo.advanceSubmission(bare.id, "offer", "no interview needed", {}, dev.id);
+      await assert.rejects(
+        () => repo.placeSubmission({ submissionId: bare.id, startDate: "2026-10-01" }, dev.id),
+        /needs a pay rate and a bill rate/);
+    });
+
+  test("it cannot be placed twice", async () => {
+    await assert.rejects(
+      () => repo.placeSubmission({ submissionId: sub.id, startDate: "2026-10-05" }, dev.id),
+      /already has a placement/);
+  });
+
+  test("a newly placed consultant can be allocated time straight away", async () => {
+    const pl = await one(`select contact_id from placement where submission_id=$1`, [sub.id]);
+    const targets = await repo.allocationTargets(pl.contact_id, "2026-09-27");
+    assert.ok(targets.length >= 1,
+      "a placement that has started should be an allocation target");
+    assert.equal(Number(targets[0].bill_rate), 86);
+  });
+});
+
+describe("two recruiters cannot work the same person into the same client", () => {
+  let bree, first;
+
+  before(async () => {
+    bree = await repo.insertRecord("contact", {
+      full_name: "Bree Coleman", email: "bree@example.com", is_candidate: true }, dev.id);
+    first = await repo.submitCandidate({
+      projectId: project.id, contactId: bree.id, payRate: 60, billRate: 95 }, dev.id);
+  });
+
+  test("a second recruiter is stopped, and told who has her and on what", async () => {
+    const second = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 6 controls", owner_id: rae.id }, rae.id);
+    await assert.rejects(
+      () => repo.submitCandidate({
+        projectId: second.id, contactId: bree.id, payRate: 60, billRate: 95 }, rae.id),
+      (e) => /already out to this client/.test(e.message) &&
+             /Devon Okafor/.test(e.message) &&
+             /Plant data platform/.test(e.message));
+  });
+
+  test("the same recruiter putting her up for a second role is ordinary work", async () => {
+    const third = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 7 controls", owner_id: dev.id }, dev.id);
+    const ok = await repo.submitCandidate({
+      projectId: third.id, contactId: bree.id, payRate: 60, billRate: 95 }, dev.id);
+    assert.equal(ok.stage, "submitted");
+  });
+
+  test("reviving a dead submission is checked again, not waved through", async () => {
+    await repo.advanceSubmission(first.id, "rejected", "client filled it internally",
+      { lossReasonCode: "client_hired_direct" }, dev.id);
+    const others = await rows(
+      `select s.id from submission s join project p on p.id = s.project_id
+        where s.contact_id = $1 and p.account_id = $2 and s.id <> $3`,
+      [bree.id, globex.id, first.id]);
+    for (const o of others) {
+      await repo.advanceSubmission(o.id, "withdrawn", "parking her for now",
+        { lossReasonCode: "unresponsive" }, dev.id);
+    }
+    // Nobody has her now, so Rae may take her.
+    const raeProject = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 8 controls", owner_id: rae.id }, rae.id);
+    await repo.submitCandidate({
+      projectId: raeProject.id, contactId: bree.id, payRate: 60, billRate: 95 }, rae.id);
+    // And now Devon cannot bring his own back from the dead behind her.
+    await assert.rejects(
+      () => repo.advanceSubmission(first.id, "client_review", "client came back to me",
+        {}, dev.id),
+      (e) => /already out to this client/.test(e.message) &&
+             /Rae Lambert/.test(e.message));
+  });
+
+  test("a person who is not a candidate cannot be submitted", async () => {
+    const managerOnly = await repo.insertRecord("contact", {
+      full_name: "Priya Raman", email: "priya@globex.com", is_manager: true,
+      account_id: globex.id }, mark.id);
+    await assert.rejects(
+      () => repo.submitCandidate({
+        projectId: project.id, contactId: managerOnly.id }, dev.id),
+      /not marked as a candidate/);
+  });
+});
+
+describe("the funnel counts what was reached, not where things ended up", () => {
+  test("a rejected candidate still counts towards the interviews they got", async () => {
+    const funnel = await repo.submissionFunnel();
+    const at = (code) => funnel.find((f) => f.stage === code);
+    // Ravi was interviewed twice and ended at offer; Jo never got past client_review.
+    assert.ok(at("interview").reached >= 1);
+    assert.ok(at("submitted").reached > at("interview").reached,
+      "more submissions should have been submitted than interviewed");
+    // sitting_here is the snapshot, reached is the history: they differ.
+    assert.notEqual(at("submitted").reached, at("submitted").sitting_here);
+  });
+
+  test("losses are grouped by whose decision it was", async () => {
+    const losses = await repo.lossBreakdown({ days: 365 });
+    assert.ok(losses.length >= 2);
+    const sides = new Set(losses.map((l) => l.side));
+    assert.ok(sides.has("client") || sides.has("candidate"));
+    for (const l of losses) assert.ok(l.label && l.losses >= 1);
+  });
+
+  test("the board carries the numbers a desk sorts by", async () => {
+    const board = await repo.submissionBoard({ openOnly: false });
+    assert.ok(board.length > 0);
+    for (const b of board) {
+      assert.ok(b.stage_label, "every row needs a readable stage");
+      assert.ok(typeof b.days_in_stage === "number");
+      assert.ok(b.account_name && b.project_name && b.contact_name);
+    }
+    const withRates = board.find((b) => b.pay_rate && b.bill_rate);
+    assert.ok(withRates.gm_pct !== null, "margin should be computed on the board");
+  });
+
+  test("the board can be narrowed to what is still in play", async () => {
+    const open = await repo.submissionBoard({ openOnly: true });
+    const all = await repo.submissionBoard({ openOnly: false });
+    assert.ok(open.length < all.length);
+    for (const b of open) assert.equal(b.is_open, true);
+  });
+});
+
+describe("the assistant works the pipeline through the same rules", () => {
+  test("it is told which moves are legal rather than guessing", async () => {
+    const tools = buildTools({ userId: dev.id });
+    const machine = await tools.find((t) => t.name === "stage_machine").run({});
+    assert.equal(machine.stages.length, 7);
+    assert.ok(machine.movesFrom.submitted.length >= 4);
+    assert.ok(machine.lossReasons.length > 5);
+  });
+
+  test("an illegal move comes back as a readable refusal, not a stack trace", async () => {
+    const tools = buildTools({ userId: dev.id });
+    const ash = await one(`select id from contact where full_name = 'Ash Whitlock'`);
+    const sub = await one(`select id from submission where contact_id = $1`, [ash.id]);
+    const out = await tools.find((t) => t.name === "advance_submission")
+      .run({ submission_id: sub.id, to_stage: "placed" });
+    assert.equal(out.error, "refused");
+    assert.match(out.message, /create the placement first/);
+  });
+
+  test("submitting through a tool resolves names and reports the margin", async () => {
+    const tools = buildTools({ userId: dev.id });
+    await repo.insertRecord("contact", {
+      full_name: "Tomas Vidal", email: "tomas@example.com", is_candidate: true }, dev.id);
+    const out = await tools.find((t) => t.name === "submit_candidate").run({
+      contact_name: "Tomas Vidal", project_name: "Line 7 controls",
+      pay_rate: 55, bill_rate: 92, burden_pct: 22 });
+    assert.ok(out.id, JSON.stringify(out));
+    assert.ok(Number(out.gm_pct) > 20);
+  });
+
+  test("a tool asked for a submission with no name says what it needs", async () => {
+    const tools = buildTools({ userId: dev.id });
+    const out = await tools.find((t) => t.name === "get_submission").run({});
+    assert.equal(out.error, "missing_information");
+    assert.ok(out.needs.length);
+  });
+
+  test("the duplicate refusal reaches the assistant as an explanation", async () => {
+    const tools = buildTools({ userId: dev.id });
+    const out = await tools.find((t) => t.name === "submit_candidate").run({
+      contact_name: "Bree Coleman", project_name: "Plant data platform" });
+    assert.equal(out.error, "refused");
+    assert.match(out.message, /already out to this client/);
+  });
+});
+
 describe("a week is allocated across projects, and approved a project at a time",
 () => {
   let dana, priya, controls, pl1, pl2, poA, poB, ts;
@@ -1108,5 +1519,37 @@ describe("conversations", () => {
     assert.ok(history.some((m) => m.role === "assistant" &&
       Array.isArray(m.content) && m.content.some((b) => b.type === "tool_use")));
     agent.setClient(null);
+  });
+});
+
+describe("a placement's status follows its start date", () => {
+  test("one starting today is active, not waiting for somebody to notice", async () => {
+    const c = await repo.insertRecord("contact", {
+      full_name: "Ines Duarte", email: "ines@example.com", is_candidate: true }, dev.id);
+    const p = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 9 controls", owner_id: dev.id }, dev.id);
+    const sub = await repo.submitCandidate({
+      projectId: p.id, contactId: c.id, payRate: 50, billRate: 80 }, dev.id);
+    await repo.advanceSubmission(sub.id, "client_review", null, {}, dev.id);
+    await repo.advanceSubmission(sub.id, "offer", "straight to offer", {}, dev.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const out = await repo.placeSubmission({
+      submissionId: sub.id, startDate: today }, dev.id);
+    assert.equal(out.placement.status, "active");
+  });
+
+  test("one starting later is pending until it does", async () => {
+    const c = await repo.insertRecord("contact", {
+      full_name: "Omar Reyes", email: "omar@example.com", is_candidate: true }, dev.id);
+    const p = await repo.insertRecord("project", {
+      account_id: globex.id, name: "Line 10 controls", owner_id: dev.id }, dev.id);
+    const sub = await repo.submitCandidate({
+      projectId: p.id, contactId: c.id, payRate: 50, billRate: 80 }, dev.id);
+    await repo.advanceSubmission(sub.id, "client_review", null, {}, dev.id);
+    await repo.advanceSubmission(sub.id, "offer", "straight to offer", {}, dev.id);
+    const later = new Date(Date.now() + 30 * 864e5).toISOString().slice(0, 10);
+    const out = await repo.placeSubmission({
+      submissionId: sub.id, startDate: later }, dev.id);
+    assert.equal(out.placement.status, "pending");
   });
 });

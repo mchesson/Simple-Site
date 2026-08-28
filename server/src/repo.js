@@ -7,6 +7,7 @@
 
 import { rows, one, tx, query } from "./db.js";
 import { currentTrace, step } from "./trace.js";
+import { withReason, withActing } from "./context.js";
 
 // Columns a caller is allowed to set, per table. An allow-list rather than a
 // deny-list: a new column is invisible to the API until it is named here, which
@@ -22,8 +23,12 @@ const WRITABLE = {
   project: ["account_id","location_id","name","delivery_type","status","openings",
             "bill_rate_min","bill_rate_max","pay_rate_min","pay_rate_max","start_date",
             "end_date","description","skills","owner_id"],
-  submission: ["project_id","contact_id","stage","submitted_by","pay_rate","bill_rate"],
-  placement: ["project_id","contact_id","status","start_date","end_date","recruiter_id"],
+  submission: ["project_id","contact_id","stage","submitted_by","pay_rate","bill_rate",
+               "burden_pct","loss_reason_code","notes"],
+  placement: ["project_id","contact_id","status","start_date","end_date","recruiter_id",
+              "submission_id"],
+  interview: ["submission_id","round","scheduled_at","duration_mins","mode","where_text",
+              "interviewers","status","outcome","feedback","prep_notes","arranged_by"],
   agreement: ["account_id","location_id","kind","status","effective_from","effective_to","terms_notes"],
   rate_verification: ["project_id","contact_id","placement_id","status","pay_rate","bill_rate",
                       "start_date","end_date","confirmed_by","confirmed_at"],
@@ -48,7 +53,7 @@ const WRITABLE = {
 };
 
 const HAS_UPDATED_AT = new Set(["account","location","contact","project","submission",
-  "placement","agreement","rate_verification","sow","purchase_order","timesheet",
+  "placement","interview","agreement","rate_verification","sow","purchase_order","timesheet",
   "timesheet_entry","invoice","conversation"]);
 
 function pick(table, data) {
@@ -313,11 +318,11 @@ export async function getContact(id) {
               left join project  p on p.id = ac.project_id
               left join account  a on a.id = ac.account_id
              where ac.contact_id = $1 order by ac.occurred_at desc limit 50`, [id]),
-      rows(`select s.id, s.stage, s.updated_at, p.id as project_id, p.name as project_name,
-                   a.name as account_name
-              from submission s join project p on p.id = s.project_id
-              join account a on a.id = p.account_id
-             where s.contact_id = $1 order by s.updated_at desc`, [id]),
+      rows(`select id, stage, stage_label, is_open, days_in_stage, project_id,
+                   project_name, account_name, account_id, pay_rate, bill_rate, gm_pct,
+                   loss_reason_label, submitted_by_name, next_interview_at
+              from submission_board
+             where contact_id = $1 order by is_open desc, days_in_stage`, [id]),
       rows(`select id, kind, title, sharepoint_url, created_at from document
              where contact_id = $1 and archived_at is null order by created_at desc`, [id]),
       rows(`select pl.id, pl.name, u.full_name as owner
@@ -396,10 +401,8 @@ export async function getProject(id) {
       where p.id = $1`, [id]);
   if (!p) return null;
   const [submissions, placements, pos, sows, docs, verifications] = await Promise.all([
-    rows(`select s.id, s.stage, s.pay_rate, s.bill_rate, s.updated_at,
-                 c.id as contact_id, c.full_name
-            from submission s join contact c on c.id = s.contact_id
-           where s.project_id = $1 order by s.updated_at desc`, [id]),
+    rows(`select * from submission_board
+           where project_id = $1 order by stage_sort, days_in_stage desc`, [id]),
     rows(`select pl.id, pl.status, pl.start_date, pl.end_date, c.full_name,
                  c.id as contact_id,
                  (select jsonb_agg(jsonb_build_object(
@@ -425,22 +428,332 @@ export async function getProject(id) {
            documents: docs, rate_verifications: verifications };
 }
 
-// Moving a submission forward appends to the event log and updates the cached
-// stage in the same transaction, so the two can never disagree.
-export async function advanceSubmission(submissionId, toStage, reason, actorId = null) {
-  return tx(async (t) => {
-    const cur = await t.one(`select * from submission where id=$1 for update`, [submissionId]);
-    if (!cur) throw new Error("submission not found");
+// ------------------------------------------------------- submissions
+
+// The stage machine, read out of the database rather than restated here. The UI
+// draws its buttons from this, which is why there is no list of stages anywhere
+// in the application code: one source of truth, and it is the one that enforces.
+export async function stageMachine() {
+  const [stages, flows, losses] = await Promise.all([
+    rows(`select code, label, sort, is_open, is_entry, is_won
+            from submission_stage order by sort`),
+    rows(`select from_stage, to_stage, label, needs_reason, sort
+            from submission_stage_flow order by from_stage, sort`),
+    rows(`select code, label, side, sort from loss_reason order by sort`),
+  ]);
+  const movesFrom = {};
+  for (const f of flows) (movesFrom[f.from_stage] ||= []).push(f);
+  return { stages, flows, movesFrom, lossReasons: losses };
+}
+
+// What this submission can do next, with the labels the buttons should carry and
+// whether the person clicking has to explain themselves.
+export async function movesFor(submissionId) {
+  const sub = await one(`select stage from submission where id = $1`, [submissionId]);
+  if (!sub) throw new Error("that submission is not on file");
+  const moves = await rows(
+    `select f.to_stage, f.label, f.needs_reason, st.is_open, st.is_won
+       from submission_stage_flow f
+       join submission_stage st on st.code = f.to_stage
+      where f.from_stage = $1 order by f.sort`, [sub.stage]);
+  // A move to a closed, unwon stage is a loss, and a loss needs a coded reason.
+  return moves.map((m) => ({ ...m, needs_loss_reason: !m.is_open && !m.is_won }));
+}
+
+// Putting somebody forward. The margin is worked out here and handed back with
+// the row, because a recruiter deciding whether to submit at a rate wants to see
+// what it leaves before they commit, not afterwards.
+export async function submitCandidate(
+  { projectId, contactId, payRate = null, billRate = null, burdenPct = 0, notes = null },
+  actorId = null,
+) {
+  if (!projectId || !contactId) throw new Error("a submission needs a project and a person");
+
+  const project = await one(
+    `select p.*, a.name as account_name from project p
+       join account a on a.id = p.account_id where p.id = $1`, [projectId]);
+  if (!project) throw new Error("that project is not on file");
+  if (project.archived_at) throw new Error("that project is archived");
+  if (!["open", "draft"].includes(project.status)) {
+    throw new Error(`that project is ${project.status} - reopen it before submitting anybody`);
+  }
+
+  const contact = await one(`select * from contact where id = $1`, [contactId]);
+  if (!contact) throw new Error("that person is not on file");
+  if (!contact.is_candidate) {
+    throw new Error(`${contact.full_name} is not marked as a candidate - ` +
+      "mark them as one first, which is a change to their record, not a new person");
+  }
+
+  return withActing(actorId, undefined, () => tx(async (t) => {
     const row = await t.one(
-      `update submission set stage=$2, updated_at=now() where id=$1 returning *`,
-      [submissionId, toStage]);
+      `insert into submission (project_id, contact_id, submitted_by, pay_rate, bill_rate,
+                               burden_pct, notes)
+       values ($1,$2,$3,$4,$5,$6,$7) returning *`,
+      [projectId, contactId, actorId, payRate, billRate, burdenPct, notes]);
+
+    // The submission is an interaction with this person as a candidate, so it
+    // belongs on their timeline under that hat.
     await t.query(
-      `insert into submission_event (submission_id, from_stage, to_stage, reason, actor_id)
-       values ($1,$2,$3,$4,$5)`, [submissionId, cur.stage, toStage, reason || null, actorId]);
+      `insert into activity (contact_id, account_id, project_id, as_role, kind, body, actor_id)
+       values ($1,$2,$3,'candidate','submission',$4,$5)`,
+      [contactId, project.account_id, projectId,
+       `Submitted to ${project.account_name} for ${project.name}` +
+         (billRate ? ` at ${billRate} an hour` : ""), actorId]);
+
+    await recordEvent(t, "submission.created", "submission", row.id,
+                      { project_id: projectId, contact_id: contactId }, actorId);
+
+    const margin = await t.one(
+      `select gross_margin($1,$2,$3) as gm, gross_margin_pct($1,$2,$3) as gm_pct`,
+      [payRate, billRate, burdenPct]);
+
+    // Advisory, not a refusal: a rate outside the project's range may be exactly
+    // what the recruiter means to do, but they should know they are doing it.
+    const notes_out = [];
+    if (billRate && project.bill_rate_max && billRate > project.bill_rate_max) {
+      notes_out.push(`that bill rate is above the ${project.bill_rate_max} ceiling on this project`);
+    }
+    if (billRate && project.bill_rate_min && billRate < project.bill_rate_min) {
+      notes_out.push(`that bill rate is below the ${project.bill_rate_min} floor on this project`);
+    }
+    if (margin.gm_pct !== null && margin.gm_pct < 15) {
+      notes_out.push(`that leaves ${Number(margin.gm_pct).toFixed(1)}% gross margin`);
+    }
+    return { ...row, gm: margin.gm, gm_pct: margin.gm_pct, advisories: notes_out };
+  }));
+}
+
+// Moving a stage. The database decides whether the move is legal, writes the
+// history row and stamps the clock; this function's only job is to hand it the
+// reason and turn a constraint violation into something a person can read.
+export async function advanceSubmission(submissionId, toStage, reason = null,
+                                        { lossReasonCode = null } = {}, actorId = null) {
+  if (!toStage) throw new Error("say which stage to move it to");
+  return withActing(actorId, reason || undefined, () => tx(async (t) => {
+    const before = await t.one(
+      `select * from submission where id = $1 for update`, [submissionId]);
+    if (!before) throw new Error("that submission is not on file");
+    if (before.stage === toStage) {
+      throw new Error(`it is already at ${toStage}`);
+    }
+    const after = await t.one(
+      `update submission set stage = $2, loss_reason_code = coalesce($3, loss_reason_code)
+        where id = $1 returning *`, [submissionId, toStage, lossReasonCode]);
     await recordEvent(t, "submission.advanced", "submission", submissionId,
-                      { from: cur.stage, to: toStage }, actorId);
-    return row;
-  });
+                      { from: before.stage, to: toStage, reason,
+                        loss_reason: after.loss_reason_code }, actorId);
+    return { before, after };
+  }));
+}
+
+// Booking a conversation with the client. The stage follows automatically -
+// there is a trigger for it - so nobody has to remember two steps.
+export async function scheduleInterview(
+  { submissionId, scheduledAt, durationMins = 60, mode = "video", whereText = null,
+    interviewers = null, prepNotes = null },
+  actorId = null,
+) {
+  if (!submissionId || !scheduledAt) {
+    throw new Error("an interview needs a submission and a date and time");
+  }
+  return withActing(actorId, "interview booked", () => tx(async (t) => {
+    const next = await t.one(
+      `select coalesce(max(round), 0) + 1 as round from interview where submission_id = $1`,
+      [submissionId]);
+    const row = await t.one(
+      `insert into interview (submission_id, round, scheduled_at, duration_mins, mode,
+                             where_text, interviewers, prep_notes, arranged_by)
+       values ($1,$2,$3,$4,$5,$6,$7,$8,$9) returning *`,
+      [submissionId, next.round, scheduledAt, durationMins, mode, whereText,
+       interviewers, prepNotes, actorId]);
+    const sub = await t.one(
+      `select s.*, c.full_name, p.name as project_name, a.name as account_name
+         from submission s join contact c on c.id = s.contact_id
+         join project p on p.id = s.project_id join account a on a.id = p.account_id
+        where s.id = $1`, [submissionId]);
+    await t.query(
+      `insert into activity (contact_id, account_id, project_id, as_role, kind, body, actor_id)
+       values ($1,(select account_id from project where id=$2),$2,'candidate','interview',$3,$4)`,
+      [sub.contact_id, sub.project_id,
+       `Round ${next.round} ${mode} interview with ${sub.account_name} booked for ` +
+         new Date(scheduledAt).toISOString().slice(0, 16).replace("T", " "), actorId]);
+    await recordEvent(t, "interview.scheduled", "submission", submissionId,
+                      { round: next.round, scheduled_at: scheduledAt, mode }, actorId);
+    return { ...row, submission: sub };
+  }));
+}
+
+// What the client said. Recording an outcome deliberately does not move the
+// stage: a rejection needs a coded reason, and asking for that is a separate
+// decision by a person rather than something inferred from a dropdown.
+export async function recordInterviewOutcome(
+  interviewId, { status = "completed", outcome = null, feedback = null }, actorId = null,
+) {
+  return withActing(actorId, "interview outcome recorded", () => tx(async (t) => {
+    const before = await t.one(`select * from interview where id = $1 for update`, [interviewId]);
+    if (!before) throw new Error("that interview is not on file");
+    const after = await t.one(
+      `update interview set status = $2, outcome = coalesce($3, outcome),
+              feedback = coalesce($4, feedback), updated_at = now()
+        where id = $1 returning *`, [interviewId, status, outcome, feedback]);
+    await recordEvent(t, "interview.outcome", "submission", before.submission_id,
+                      { round: before.round, status, outcome }, actorId);
+    const moves = await movesFor(before.submission_id);
+    return { interview: after, next_moves: moves };
+  }));
+}
+
+// The moment recruiting hands over to payroll and billing. One transaction:
+// the placement, its opening rate, and only then the word "placed".
+export async function placeSubmission(
+  { submissionId, startDate, endDate = null, payRate = null, billRate = null,
+    burdenPct = null, effectiveFrom = null },
+  actorId = null,
+) {
+  if (!submissionId || !startDate) {
+    throw new Error("a placement needs the submission and a start date");
+  }
+  return withActing(actorId, "placed", () => tx(async (t) => {
+    const sub = await t.one(`select * from submission where id = $1 for update`, [submissionId]);
+    if (!sub) throw new Error("that submission is not on file");
+
+    const existing = await t.one(
+      `select id from placement where submission_id = $1`, [submissionId]);
+    if (existing) throw new Error("that submission already has a placement");
+
+    const pay    = payRate  ?? sub.pay_rate;
+    const bill   = billRate ?? sub.bill_rate;
+    const burden = burdenPct ?? sub.burden_pct ?? 0;
+    if (pay === null || bill === null) {
+      throw new Error("a placement needs a pay rate and a bill rate - " +
+        "they are what payroll and the invoice are built from");
+    }
+
+    // A start date that has already arrived means the assignment is running.
+    // Deriving the status beats one somebody has to remember to change, and
+    // doing it in SQL keeps it on the database's calendar rather than the
+    // caller's timezone.
+    const placement = await t.one(
+      `insert into placement (project_id, contact_id, submission_id, status,
+                              start_date, end_date, recruiter_id)
+       values ($1,$2,$3,
+               case when $4::date <= current_date then 'active' else 'pending' end,
+               $4,$5,$6) returning *`,
+      [sub.project_id, sub.contact_id, submissionId, startDate, endDate,
+       sub.submitted_by || actorId]);
+
+    await t.query(
+      `insert into placement_rate (placement_id, rate_type, pay_rate, bill_rate,
+                                   burden_pct, effective_from)
+       values ($1,'standard',$2,$3,$4,$5)`,
+      [placement.id, pay, bill, burden, effectiveFrom || startDate]);
+
+    // Now the submission may say it. The guard checks the placement exists.
+    const after = await t.one(
+      `update submission set stage = 'placed' where id = $1 returning *`, [submissionId]);
+
+    // Somebody starting work is a consultant of ours from that day.
+    await t.query(
+      `update contact set on_payroll = true, updated_at = now()
+        where id = $1 and on_payroll = false`, [sub.contact_id]);
+
+    await recordEvent(t, "submission.placed", "placement", placement.id,
+                      { submission_id: submissionId, start_date: startDate,
+                        pay_rate: pay, bill_rate: bill }, actorId);
+    return { submission: after, placement };
+  }));
+}
+
+// The board. One query behind every pipeline screen and every "what is out
+// there" question the assistant gets asked.
+export async function submissionBoard(
+  { ownerId = null, accountId = null, projectId = null, contactId = null,
+    stage = null, openOnly = true, staleDays = null, limit = 300 } = {},
+) {
+  return rows(
+    `select * from submission_board
+      where ($1::uuid is null or submitted_by = $1 or project_owner_id = $1)
+        and ($2::uuid is null or account_id = $2)
+        and ($3::uuid is null or project_id = $3)
+        and ($4::uuid is null or contact_id = $4)
+        and ($5::text is null or stage = $5)
+        and (not $6::boolean or is_open)
+        and ($7::int is null or days_in_stage >= $7)
+      order by stage_sort, days_in_stage desc
+      limit $8`,
+    [ownerId, accountId, projectId, contactId, stage, openOnly, staleDays, limit]);
+}
+
+export async function submissionFunnel() {
+  return rows(`select * from submission_funnel order by sort`);
+}
+
+// Everything that ever happened to one submission, in one list, so the story
+// reads in order instead of across three screens.
+export async function submissionHistory(submissionId) {
+  const sub = await one(`select * from submission_board where id = $1`, [submissionId]);
+  if (!sub) throw new Error("that submission is not on file");
+  const [events, interviews] = await Promise.all([
+    rows(`select e.*, u.full_name as actor_name
+            from submission_event e left join app_user u on u.id = e.actor_id
+           where e.submission_id = $1 order by e.id`, [submissionId]),
+    rows(`select i.*, u.full_name as arranged_by_name
+            from interview i left join app_user u on u.id = i.arranged_by
+           where i.submission_id = $1 order by i.round`, [submissionId]),
+  ]);
+  const moves = await movesFor(submissionId);
+  return { ...sub, events, interviews, next_moves: moves };
+}
+
+// Interviews coming up. A recruiter's morning: who is talking to whom, and
+// which ones have happened and nobody has written down the answer.
+export async function upcomingInterviews({ days = 14, ownerId = null } = {}) {
+  return rows(
+    `select i.id, i.round, i.scheduled_at, i.duration_mins, i.mode, i.where_text,
+            i.interviewers, i.status, i.outcome, i.prep_notes,
+            b.contact_name, b.contact_id, b.project_name, b.project_id,
+            b.account_name, b.stage, b.submitted_by, b.submitted_by_name, b.id as submission_id
+       from interview i join submission_board b on b.id = i.submission_id
+      where i.status = 'scheduled'
+        and i.scheduled_at >= now() - interval '2 days'
+        and i.scheduled_at <= now() + ($1::int * interval '1 day')
+        and ($2::uuid is null or b.submitted_by = $2 or b.project_owner_id = $2)
+      order by i.scheduled_at`, [days, ownerId]);
+}
+
+// Interviews that have been and gone with nobody recording what happened. The
+// feedback nobody chased is how a submission dies quietly.
+export async function interviewsAwaitingFeedback({ ownerId = null } = {}) {
+  return rows(
+    `select i.id, i.round, i.scheduled_at, i.mode,
+            b.contact_name, b.project_name, b.account_name, b.id as submission_id,
+            b.submitted_by, b.stage,
+            greatest(0, (current_date - i.scheduled_at::date)) as days_ago
+       from interview i join submission_board b on b.id = i.submission_id
+      where i.scheduled_at < now() and i.outcome = 'pending'
+        and i.status in ('scheduled','completed')
+        and b.is_open
+        and ($1::uuid is null or b.submitted_by = $1 or b.project_owner_id = $1)
+      order by i.scheduled_at`, [ownerId]);
+}
+
+// Why we lose. Grouped by whose decision it was, because the fix is different:
+// client reasons are a sales and rate conversation, candidate reasons are a
+// closing conversation, and ours are a process problem.
+export async function lossBreakdown({ days = 90, ownerId = null } = {}) {
+  return rows(
+    `select lr.side, lr.code, lr.label, count(*)::int as losses,
+            count(*) filter (where s.stage = 'withdrawn')::int as withdrawn,
+            round(avg(greatest(0, (s.stage_since::date - s.created_at::date))), 1)
+              as avg_days_to_loss
+       from submission s
+       join loss_reason lr on lr.code = s.loss_reason_code
+       join project p on p.id = s.project_id
+      where s.stage_since >= now() - ($1::int * interval '1 day')
+        and ($2::uuid is null or s.submitted_by = $2 or p.owner_id = $2)
+      group by lr.side, lr.code, lr.label, lr.sort
+      order by losses desc, lr.sort`, [days, ownerId]);
 }
 
 export async function poBurndown({ projectId = null, accountName = null,
@@ -475,6 +788,7 @@ export async function allocationTargets(contactId, weekEnding) {
               on po.project_id = p.id and po.status = 'open'
        left join lateral (select * from rate_in_force(pl.id, $2::date)) r on true
       where pl.contact_id = $1
+        and pl.status <> 'cancelled'
         and pl.start_date <= $2::date
         and (pl.end_date is null or pl.end_date >= $2::date - 6)
       order by a.name, p.name, po.po_number`,

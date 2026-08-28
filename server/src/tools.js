@@ -534,6 +534,306 @@ export function buildTools(ctx) {
       },
     },
 
+    // ---------------------------------------------------------- submissions
+    {
+      name: "submission_board",
+      description:
+        "The pipeline: who is out where, at which stage, and how long it has sat there. " +
+        "Use this for 'what is out with the client', 'my pipeline', 'what is stale', " +
+        "'who have we got at Globex'. Default is only submissions still in play.",
+      input_schema: {
+        type: "object",
+        properties: {
+          mine: { type: "boolean", description: "Only the current user's submissions." },
+          account_name: { type: "string" },
+          project_name: { type: "string" },
+          contact_name: { type: "string" },
+          stage: { type: "string",
+                   description: "One stage code. Call stage_machine if unsure of the codes." },
+          include_closed: { type: "boolean",
+                            description: "Include placed, rejected and withdrawn." },
+          stale_days: { type: "integer",
+                        description: "Only ones that have not moved in this many days." },
+        },
+      },
+      run: async (i) => {
+        let accountId = null, projectId = null, contactId = null;
+        if (i.account_name) {
+          const r = await resolve("account", i.account_name);
+          if (!r.match) return ambiguous("account", i.account_name, r.candidates);
+          accountId = r.match.id;
+        }
+        if (i.project_name) {
+          const r = await resolve("project", i.project_name);
+          if (!r.match) return ambiguous("project", i.project_name, r.candidates);
+          projectId = r.match.id;
+        }
+        if (i.contact_name) {
+          const r = await resolve("contact", i.contact_name);
+          if (!r.match) return ambiguous("person", i.contact_name, r.candidates);
+          contactId = r.match.id;
+        }
+        const board = await repo.submissionBoard({
+          ownerId: i.mine ? actor() : null, accountId, projectId, contactId,
+          stage: i.stage || null, openOnly: !i.include_closed,
+          staleDays: i.stale_days ?? null,
+        });
+        return { count: board.length, submissions: board };
+      },
+    },
+    {
+      name: "stage_machine",
+      description:
+        "The stages a submission can be at, which moves are legal from each one, and the " +
+        "coded reasons a loss can be recorded under. Read this before moving anything if " +
+        "you are unsure what is allowed - the database enforces exactly this and nothing else.",
+      input_schema: { type: "object", properties: {} },
+      run: async () => repo.stageMachine(),
+    },
+    {
+      name: "get_submission",
+      description:
+        "One submission in full: where it is, how it got there, every interview, and the " +
+        "moves available next. Use this before advancing anything.",
+      input_schema: {
+        type: "object",
+        properties: {
+          submission_id: { type: "string" },
+          contact_name: { type: "string", description: "With project_name, to look one up." },
+          project_name: { type: "string" },
+        },
+      },
+      run: async (i) => {
+        let id = i.submission_id || null;
+        if (!id) {
+          if (!i.contact_name) return need("which submission - a person and a project");
+          const c = await resolve("contact", i.contact_name);
+          if (!c.match) return ambiguous("person", i.contact_name, c.candidates);
+          const found = await repo.submissionBoard({ contactId: c.match.id, openOnly: false });
+          if (!found.length) return { error: "not_found",
+            message: `${c.match.name} has not been submitted anywhere.` };
+          const narrowed = i.project_name
+            ? found.filter((s) => s.project_name.toLowerCase()
+                .includes(i.project_name.toLowerCase()))
+            : found;
+          if (narrowed.length !== 1) {
+            return { error: "ambiguous",
+                     message: "Say which project.",
+                     candidates: narrowed.map((s) => ({ submission_id: s.id,
+                       project: s.project_name, account: s.account_name, stage: s.stage })) };
+          }
+          id = narrowed[0].id;
+        }
+        return repo.submissionHistory(id);
+      },
+    },
+    {
+      name: "submit_candidate",
+      description:
+        "Put a candidate forward for a project. Returns the gross margin the rates leave " +
+        "and flags a rate outside the project's range. Refuses if another recruiter " +
+        "already has that person live at the same client - do not try to work around it, " +
+        "tell the user who has them.",
+      input_schema: {
+        type: "object",
+        properties: {
+          contact_name: { type: "string" }, contact_id: { type: "string" },
+          project_name: { type: "string" }, project_id: { type: "string" },
+          pay_rate: { type: "number", description: "What we pay them, per hour." },
+          bill_rate: { type: "number", description: "What the client pays us, per hour." },
+          burden_pct: { type: "number",
+                        description: "Employer burden as a percentage of pay. Ask if unknown." },
+          notes: { type: "string", description: "Why this person, for whoever reads it next." },
+        },
+      },
+      run: async (i) => {
+        let contactId = i.contact_id || null, projectId = i.project_id || null;
+        if (!contactId && i.contact_name) {
+          const r = await resolve("contact", i.contact_name);
+          if (!r.match) return ambiguous("person", i.contact_name, r.candidates);
+          contactId = r.match.id;
+        }
+        if (!projectId && i.project_name) {
+          const r = await resolve("project", i.project_name);
+          if (!r.match) return ambiguous("project", i.project_name, r.candidates);
+          projectId = r.match.id;
+        }
+        const missing = [];
+        if (!contactId) missing.push("who to submit");
+        if (!projectId) missing.push("which project");
+        if (missing.length) return need(...missing);
+        try {
+          return await repo.submitCandidate({
+            projectId, contactId, payRate: i.pay_rate ?? null, billRate: i.bill_rate ?? null,
+            burdenPct: i.burden_pct ?? 0, notes: i.notes || null,
+          }, actor());
+        } catch (e) { return { error: "refused", message: e.message }; }
+      },
+    },
+    {
+      name: "advance_submission",
+      description:
+        "Move a submission to another stage. Only moves the stage machine allows go " +
+        "through; call stage_machine or get_submission to see which those are. Some moves " +
+        "need a reason and a loss needs a coded reason as well - the error will say so.",
+      input_schema: {
+        type: "object",
+        properties: {
+          submission_id: { type: "string" },
+          to_stage: { type: "string" },
+          reason: { type: "string", description: "In the user's own words." },
+          loss_reason_code: { type: "string",
+            description: "Required for rejected and withdrawn. Codes from stage_machine." },
+        },
+        required: ["submission_id", "to_stage"],
+      },
+      run: async (i) => {
+        if (!i.submission_id) return need("which submission");
+        if (!i.to_stage) return need("which stage to move it to");
+        try {
+          const r = await repo.advanceSubmission(i.submission_id, i.to_stage, i.reason || null,
+            { lossReasonCode: i.loss_reason_code || null }, actor());
+          return { moved: true, from: r.before.stage, to: r.after.stage,
+                   next_moves: await repo.movesFor(i.submission_id) };
+        } catch (e) { return { error: "refused", message: e.message }; }
+      },
+    },
+    {
+      name: "schedule_interview",
+      description:
+        "Book an interview on a submission. This moves the submission into the interview " +
+        "stage by itself. Rounds are numbered automatically.",
+      input_schema: {
+        type: "object",
+        properties: {
+          submission_id: { type: "string" },
+          scheduled_at: { type: "string",
+            description: "ISO 8601 with a timezone, for example 2026-09-03T15:00:00-07:00." },
+          duration_mins: { type: "integer" },
+          mode: { type: "string", enum: ["phone", "video", "onsite", "panel"] },
+          where_text: { type: "string", description: "A link, a room, or a site address." },
+          interviewers: { type: "string", description: "Who from the client is attending." },
+          prep_notes: { type: "string", description: "What the candidate should know." },
+        },
+        required: ["submission_id", "scheduled_at"],
+      },
+      run: async (i) => {
+        const missing = [];
+        if (!i.submission_id) missing.push("which submission");
+        if (!i.scheduled_at) missing.push("when the interview is");
+        if (missing.length) return need(...missing);
+        try {
+          return await repo.scheduleInterview({
+            submissionId: i.submission_id, scheduledAt: i.scheduled_at,
+            durationMins: i.duration_mins ?? 60, mode: i.mode || "video",
+            whereText: i.where_text || null, interviewers: i.interviewers || null,
+            prepNotes: i.prep_notes || null,
+          }, actor());
+        } catch (e) { return { error: "refused", message: e.message }; }
+      },
+    },
+    {
+      name: "record_interview_outcome",
+      description:
+        "Write down what happened at an interview. This does not move the submission on " +
+        "its own: it hands back the moves available so the next step stays a decision " +
+        "somebody makes, with a reason attached.",
+      input_schema: {
+        type: "object",
+        properties: {
+          interview_id: { type: "string" },
+          status: { type: "string",
+                    enum: ["completed", "no_show", "cancelled", "rescheduled"] },
+          outcome: { type: "string", enum: ["advance", "reject", "hold", "pending"] },
+          feedback: { type: "string", description: "What the client actually said." },
+        },
+        required: ["interview_id"],
+      },
+      run: async (i) => {
+        if (!i.interview_id) return need("which interview");
+        try {
+          return await repo.recordInterviewOutcome(i.interview_id, {
+            status: i.status || "completed", outcome: i.outcome || null,
+            feedback: i.feedback || null,
+          }, actor());
+        } catch (e) { return { error: "refused", message: e.message }; }
+      },
+    },
+    {
+      name: "upcoming_interviews",
+      description:
+        "Interviews booked in the next couple of weeks, and separately the ones that have " +
+        "already happened where nobody has recorded the outcome. Good answer to 'what is " +
+        "on this week' and 'what am I waiting on'.",
+      input_schema: {
+        type: "object",
+        properties: {
+          days: { type: "integer", description: "How far ahead to look. Default 14." },
+          mine: { type: "boolean" },
+        },
+      },
+      run: async (i) => {
+        const ownerId = i.mine ? actor() : null;
+        const [upcoming, awaiting] = await Promise.all([
+          repo.upcomingInterviews({ days: i.days ?? 14, ownerId }),
+          repo.interviewsAwaitingFeedback({ ownerId }),
+        ]);
+        return { upcoming, awaiting_feedback: awaiting };
+      },
+    },
+    {
+      name: "place_submission",
+      description:
+        "Turn a submission into a placement: creates the placement and its opening rate, " +
+        "then marks the submission placed. This is the handover to payroll and billing, so " +
+        "it needs a start date and both rates. Rates default to the ones on the submission.",
+      input_schema: {
+        type: "object",
+        properties: {
+          submission_id: { type: "string" },
+          start_date: { type: "string", description: "YYYY-MM-DD." },
+          end_date: { type: "string", description: "YYYY-MM-DD, if the assignment has one." },
+          pay_rate: { type: "number" }, bill_rate: { type: "number" },
+          burden_pct: { type: "number" },
+        },
+        required: ["submission_id", "start_date"],
+      },
+      run: async (i) => {
+        const missing = [];
+        if (!i.submission_id) missing.push("which submission");
+        if (!i.start_date) missing.push("the start date");
+        if (missing.length) return need(...missing);
+        try {
+          return await repo.placeSubmission({
+            submissionId: i.submission_id, startDate: i.start_date,
+            endDate: i.end_date || null, payRate: i.pay_rate ?? null,
+            billRate: i.bill_rate ?? null, burdenPct: i.burden_pct ?? null,
+          }, actor());
+        } catch (e) { return { error: "refused", message: e.message }; }
+      },
+    },
+    {
+      name: "submission_funnel",
+      description:
+        "How many submissions ever reached each stage, and how many are sitting at each " +
+        "one now, plus why we have been losing. Counts what was reached rather than where " +
+        "things ended up, so a rejected candidate still counts towards the interviews " +
+        "they got.",
+      input_schema: {
+        type: "object",
+        properties: {
+          loss_days: { type: "integer", description: "Window for the loss reasons. Default 90." },
+          mine: { type: "boolean" },
+        },
+      },
+      run: async (i) => {
+        const [funnel, losses] = await Promise.all([
+          repo.submissionFunnel(),
+          repo.lossBreakdown({ days: i.loss_days ?? 90, ownerId: i.mine ? actor() : null }),
+        ]);
+        return { funnel, losses };
+      },
+    },
     // ------------------------------------------------- documents & paperwork
     {
       name: "search_documents",

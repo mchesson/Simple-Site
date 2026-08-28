@@ -133,6 +133,19 @@ const tess = await q(
    values ('Tess Alvarez','tess.a@example.com',true,'Project manager, PMP, ERP rollouts',
      '{"PMP","ERP","Change management"}','Remote',$1) returning *`, [sam.id]);
 
+const ben = await q(
+  `insert into contact (full_name, email, is_candidate, headline, skills, location_text,
+                        recruiter_id)
+   values ('Ben Osei','ben.osei@example.com',true,
+     'Programme manager, finance transformation','{"ERP","Finance","PMO"}','Remote',$1)
+   returning *`, [sam.id]);
+const nia = await q(
+  `insert into contact (full_name, email, is_candidate, headline, skills, location_text,
+                        recruiter_id, source)
+   values ('Nia Fenwick','nia.f@example.com',true,'Controls technician, day shift only',
+     '{"PLC","Allen-Bradley","Maintenance"}','Sparks, NV',$1,'Referral') returning *`,
+  [dev.id]);
+
 // -- projects ----------------------------------------------------------------
 const dataPlatform = await q(
   `insert into project (account_id, location_id, name, delivery_type, status, openings,
@@ -162,23 +175,44 @@ const perm = await q(
   [initech.id, mark.id]);
 
 // -- submissions and placements ---------------------------------------------
-const sub1 = await q(
-  `insert into submission (project_id, contact_id, stage, submitted_by, pay_rate, bill_rate)
-   values ($1,$2,'placed',$3,68,108) returning *`, [dataPlatform.id, marcus.id, dev.id]);
-await client.query(
-  `insert into submission_event (submission_id, from_stage, to_stage, actor_id) values
-   ($1,null,'submitted',$2), ($1,'submitted','client_review',$2),
-   ($1,'client_review','interview',$2), ($1,'interview','offer',$2),
-   ($1,'offer','placed',$2)`, [sub1.id, dev.id]);
-await q(`insert into submission (project_id, contact_id, stage, submitted_by)
-         values ($1,$2,'interview',$3) returning *`, [controls.id, jo.id, dev.id]);
-await q(`insert into submission (project_id, contact_id, stage, submitted_by)
-         values ($1,$2,'client_review',$3) returning *`, [erp.id, tess.id, sam.id]);
+//
+// Submissions are walked through the stage machine rather than dropped in at
+// their final stage, because the machine will not have it any other way: a
+// submission starts at submitted and every move writes its own history row.
+// The upside is that the demo data has a truthful history instead of a
+// hand-written one that says whatever the seed felt like saying.
+
+const move = async (subId, stage, actorId, reason = null, lossCode = null) => {
+  await client.query(
+    `select set_config('ts.actor_id',$1,false), set_config('ts.reason',$2,false)`,
+    [actorId || "", reason || "demo data"]);
+  await client.query(
+    `update submission set stage = $2, loss_reason_code = coalesce($3, loss_reason_code)
+      where id = $1`, [subId, stage, lossCode]);
+};
+const walk = async (subId, stages, actorId, reason = null, lossCode = null) => {
+  for (const st of stages) await move(subId, st, actorId, reason, lossCode);
+};
+
+const submit = (projectId, contactId, actorId, pay, bill, burden = 22, notes = null) => q(
+  `insert into submission (project_id, contact_id, submitted_by, pay_rate, bill_rate,
+                           burden_pct, notes)
+   values ($1,$2,$3,$4,$5,$6,$7) returning *`,
+  [projectId, contactId, actorId, pay, bill, burden, notes]);
+
+// Marcus: the one that went all the way. Placed, on payroll, being invoiced.
+const sub1 = await submit(dataPlatform.id, marcus.id, dev.id, 68, 108, 22,
+  "Ran the historian migration at his last two sites.");
+await walk(sub1.id, ["client_review", "interview", "offer"], dev.id);
 
 const pl = await q(
-  `insert into placement (project_id, contact_id, status, start_date, recruiter_id)
-   values ($1,$2,'active','2026-06-01',$3) returning *`,
-  [dataPlatform.id, marcus.id, dev.id]);
+  `insert into placement (project_id, contact_id, submission_id, status, start_date,
+                          recruiter_id)
+   values ($1,$2,$3,'active','2026-06-01',$4) returning *`,
+  [dataPlatform.id, marcus.id, sub1.id, dev.id]);
+// Only now may the submission say "placed" - the guard checks the placement is real.
+await move(sub1.id, "placed", dev.id);
+
 // The original rate, then a correction that supersedes it rather than overwriting.
 const r1 = await q(
   `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct,
@@ -188,6 +222,95 @@ await client.query(
   `insert into placement_rate (placement_id, pay_rate, bill_rate, burden_pct,
                                effective_from, supersedes_id)
    values ($1,68,108,22,'2026-08-01',$2)`, [pl.id, r1.id]);
+
+// Jo: interviewed on site eleven days ago and nobody has chased the feedback.
+const sub2 = await submit(controls.id, jo.id, dev.id, 56, 90, 22,
+  "Strong on Allen-Bradley. Free from the second week of September.");
+await walk(sub2.id, ["client_review"], dev.id);
+await q(
+  `insert into interview (submission_id, scheduled_at, duration_mins, mode, where_text,
+                          interviewers, prep_notes, arranged_by)
+   values ($1, now() - interval '11 days', 90, 'onsite',
+     'Reno plant, gate 2 - ask for the controls office',
+     'Dana Reyes (engineering manager), Priya Shah (controls lead)',
+     'They will ask about the line 3 outage. Walk them through the rollback.',
+     $2) returning *`, [sub2.id, dev.id]);
+
+// Tess: offer out on the ERP programme, waiting on the client's paperwork.
+const sub3 = await submit(erp.id, tess.id, sam.id, null, 140, 0,
+  "Ran the same cutover at a manufacturer of similar size.");
+await walk(sub3.id, ["client_review", "interview"], sam.id);
+await q(
+  `insert into interview (submission_id, scheduled_at, duration_mins, mode, interviewers,
+                          status, outcome, feedback, arranged_by)
+   values ($1, now() - interval '9 days', 60, 'video', 'Walter Kang (programme director)',
+     'completed', 'advance',
+     'Walter wants her. Asked us to hold the rate while finance signs the requisition.',
+     $2) returning *`, [sub3.id, sam.id]);
+await move(sub3.id, "offer", sam.id, "Walter confirmed verbally, requisition in finance");
+
+// Walter's finance director wants one more conversation before signing, so
+// there is a second round booked while the offer is still out. Booking it does
+// not drag her stage backwards - the trigger only ever moves a stage forward.
+await q(
+  `insert into interview (submission_id, round, scheduled_at, duration_mins, mode,
+                          interviewers, prep_notes, arranged_by)
+   values ($1, 2, date_trunc('hour', now() + interval '3 days') + interval '9 hours',
+     30, 'video', 'Renata Cole (finance director)',
+     'Half an hour on the programme budget. She signs the requisition.', $2) returning *`,
+  [sub3.id, sam.id]);
+
+// Ben: lost on rate. This is the row the loss breakdown is built from.
+const sub4 = await submit(erp.id, ben.id, sam.id, null, 155, 0,
+  "Stronger on finance transformation, lighter on change management.");
+await walk(sub4.id, ["client_review"], sam.id);
+await move(sub4.id, "rejected", sam.id,
+  "Walter said 155 was 20 dollars over what finance would sign off", "rate_too_high");
+
+// Nia: just gone out this morning, nothing has happened yet.
+await submit(controls.id, nia.id, dev.id, 52, 86, 22,
+  "Day shift only. Wants to be close to home.");
+
+// Age the demo data. The stage machine stamps every move with the time it
+// happened, which is right, and it means a freshly seeded database has a
+// pipeline where nothing has been waiting for anything - so the screens that
+// exist to show you what has gone stale have nothing to show.
+//
+// This is the one place in the system that steps around a guard, it does it by
+// switching the triggers off in the open rather than by finding a gap in them,
+// and it puts them straight back. Nothing outside this script may do this: the
+// grants do not allow it, and the whole point of the guard is that a normal
+// caller cannot move a clock.
+const backdate = async (subId, createdDaysAgo, stageDaysAgo) => {
+  await client.query(
+    `update submission
+        set created_at  = now() - ($2::int * interval '1 day'),
+            stage_since = now() - ($3::int * interval '1 day'),
+            updated_at  = now() - ($3::int * interval '1 day')
+      where id = $1`, [subId, createdDaysAgo, stageDaysAgo]);
+  // Spread the history rows across the life of the submission, in order, so the
+  // story reads as something that happened over weeks rather than in one second.
+  await client.query(
+    `with ordered as (
+       select id, row_number() over (order by id) - 1 as n,
+              count(*) over () as total
+         from submission_event where submission_id = $1)
+     update submission_event e
+        set occurred_at = now() - (($2::numeric -
+              (($2::numeric - $3::numeric) * o.n / greatest(o.total - 1, 1)))
+              * interval '1 day')
+       from ordered o where o.id = e.id`,
+    [subId, createdDaysAgo, stageDaysAgo]);
+};
+
+await client.query(`alter table submission disable trigger submission_stage_check;
+                    alter table submission_event disable trigger submission_event_no_edit;`);
+await backdate(sub1.id, 80, 74);   // Marcus, placed and working since June
+await backdate(sub2.id, 17, 11);   // Jo, interviewed 11 days ago, no feedback chased
+await backdate(sub3.id, 20, 6);    // Tess, offer out for nearly a week
+await backdate(sub4.id, 32, 30);   // Ben, lost a month ago
+await client.query(`alter table submission enable trigger submission_stage_check;
+                    alter table submission_event enable trigger submission_event_no_edit;`);
 
 await q(`insert into rate_verification (project_id, contact_id, placement_id, status,
                                         pay_rate, bill_rate, start_date, confirmed_by,

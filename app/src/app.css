@@ -440,3 +440,105 @@ table.grid tr.urgent td:first-child{padding-left:10px}
 }
 .segs{display:flex; gap:8px; margin-left:auto; flex-wrap:wrap}
 @media (max-width:860px){ .segs{margin-left:0; width:100%} .segs .deskswitch{flex:1} }
+
+/* ============================================================ pipeline
+   The board is one grid with two layouts: columns per stage on a desktop,
+   and one column of stacked stages on a phone. Same DOM either way, so a
+   card cannot be built twice and drift. */
+
+.board{
+  display:grid; gap:12px; align-items:start;
+  grid-template-columns:repeat(var(--cols,4), minmax(15rem, 1fr));
+  min-width:min-content;
+}
+.bcol{
+  background:var(--panel-2); border:1px solid var(--line); border-radius:11px;
+  padding:9px; display:flex; flex-direction:column; gap:8px;
+}
+.bhead{
+  display:flex; align-items:center; gap:8px; padding:2px 4px 6px;
+  font-size:12px; letter-spacing:.05em; text-transform:uppercase;
+  color:var(--ink-2); font-weight:600; border-bottom:1px solid var(--line);
+}
+.bcount{
+  margin-left:auto; font-family:var(--mono); font-variant-numeric:tabular-nums;
+  background:var(--panel); border:1px solid var(--line); border-radius:20px;
+  padding:0 7px; font-size:11.5px; letter-spacing:0;
+}
+.bempty{color:var(--ink-3); text-align:center; padding:10px 0; font-size:13px}
+
+.subcard{
+  display:block; width:100%; text-align:left; cursor:pointer;
+  background:var(--panel); border:1px solid var(--line); border-radius:9px;
+  padding:10px 11px; font:inherit; color:inherit;
+}
+.subcard:hover{border-color:var(--accent)}
+.subcard.stale{box-shadow:inset 3px 0 0 var(--warn)}
+.sctop{display:flex; align-items:center; gap:8px; margin-bottom:3px}
+.sctop strong{font-weight:600; font-size:14.5px}
+.sctop .pill{margin-left:auto}
+.scmeta{color:var(--ink-2); font-size:12.5px; line-height:1.4}
+.scfoot{display:flex; align-items:center; gap:8px; margin-top:8px; font-size:12.5px}
+.scnote{
+  margin-top:7px; padding-top:7px; border-top:1px dashed var(--line);
+  font-size:12.5px; color:var(--ink-2);
+}
+.scnote.warnnote{color:var(--warn)}
+
+.rowbtns{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:12px}
+.ghost.danger{color:var(--bad)}
+.ghost.danger:hover{border-color:var(--bad)}
+.needs{
+  display:block; font-size:11px; color:var(--ink-3); font-weight:400;
+  letter-spacing:.02em;
+}
+.kpi.clickable{cursor:pointer; text-align:left; font:inherit; color:inherit}
+.kpi.clickable:hover{border-color:var(--accent)}
+.banner.warn{border-left-color:var(--bad)}
+.pill.muted{color:var(--ink-3)}
+.err{color:var(--bad)}
+
+/* ---------------------------------------------------------------- dialogs */
+
+dialog.ask{
+  border:1px solid var(--line); border-radius:var(--radius); background:var(--panel);
+  color:var(--ink); padding:0; max-width:min(34rem, calc(100vw - 2rem));
+  width:100%; box-shadow:0 20px 60px rgba(0,0,0,.22);
+  /* A long form on a short screen scrolls inside the dialog rather than
+     running off the bottom of it with the buttons out of reach. */
+  max-height:calc(100dvh - 2rem); overflow:auto;
+}
+dialog.ask::backdrop{background:rgba(20,18,16,.45)}
+dialog.ask form{padding:18px 20px 16px}
+dialog.ask h3{margin:0 0 4px; font-size:17px; font-weight:620; letter-spacing:-.01em}
+.askmeta{margin:0 0 14px; color:var(--ink-2); font-size:13.5px}
+.fields{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+.field{display:flex; flex-direction:column; gap:4px; min-width:0}
+.field.wide{grid-column:1 / -1}
+.flab{font-size:12px; letter-spacing:.04em; text-transform:uppercase;
+      color:var(--ink-2); font-weight:600}
+.fhint{font-size:12px; color:var(--ink-3)}
+.fi{
+  background:var(--bg); border:1px solid var(--line); border-radius:8px;
+  padding:8px 10px; font:inherit; font-size:14.5px; color:var(--ink); width:100%;
+  min-height:38px;
+}
+.fi:focus{border-color:var(--accent); outline:none; background:var(--panel)}
+textarea.fi{resize:vertical; line-height:1.5}
+input[type=number].fi{font-family:var(--mono); font-variant-numeric:tabular-nums}
+.livenote{
+  margin-top:14px; padding:10px 12px; border-radius:9px; background:var(--panel-2);
+  border:1px solid var(--line); font-size:13.5px; color:var(--ink-2);
+}
+.livenote b{color:var(--ink)}
+.askbtns{display:flex; justify-content:flex-end; gap:9px; margin-top:16px}
+
+@media (max-width:860px){
+  /* One stage at a time, full width - a column of 15rem cards side by side is
+     unreadable on a phone and a horizontal scroller hides the later stages. */
+  .board{grid-template-columns:1fr; min-width:0}
+  .fields{grid-template-columns:1fr}
+  dialog.ask{max-width:100%; margin:auto auto 0; border-radius:14px 14px 0 0;
+            max-height:92dvh}
+  .askbtns .send, .askbtns .ghost{flex:1; min-height:44px}
+}
