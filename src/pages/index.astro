@@ -1,140 +1,88 @@
 ---
 import Base from '../layouts/Base.astro';
-import PillarCards from '../components/PillarCards.astro';
+import Banner from '../components/Banner.astro';
+import Steps from '../components/Steps.astro';
+import IndustryRow from '../components/IndustryRow.astro';
 import StoryGrid from '../components/StoryGrid.astro';
-import Cta from '../components/Cta.astro';
-import { pillars, throughLine, differentiators, engagementModels } from '../data/pillars';
-import { site } from '../data/site';
+import CareersStrip from '../components/CareersStrip.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { services } from '../data/site';
 import { getStories } from '../lib';
 
-const stories = await getStories();
-const latest = stories.slice(0, 6);
+const stories = (await getStories()).slice(0, 3);
 ---
 <Base>
-  <section class="hero">
-    <div class="wrap">
-      <p class="hero__tagline">{site.tagline}</p>
-      <h1>Complex programs don’t wait.</h1>
-      <p class="lede">
-        For more than a decade, Technical Source has delivered the specialists and project teams behind
-        complex, project-based programs in technically demanding environments.
-      </p>
-      <div class="btn-row">
-        <a class="btn btn--light" href="#programs">Find your program <span aria-hidden="true">↓</span></a>
-        <a class="btn btn--outline-light" href="/contact">Talk to us</a>
-      </div>
+  <Banner tagline>
+    <h1>The teams behind <br /><span class="hl">complex technical projects.</span></h1>
+    <p class="banner-sub">When the work is complex and the schedule is tight, we bring the expertise to get it right and the accountability to see it through.</p>
+    <div class="row">
+      <a class="btn btn-green" href="/contact">Get Project Support</a>
+      <a class="btn btn-outline-light" href="/careers">Explore Careers</a>
     </div>
-  </section>
+  </Banner>
 
-  {pillars.map((p) => (
-    <aside class="welcome" data-for-pillar={p.id} style={`--c:${p.accent}`}>
-      <div class="wrap welcome__inner">
-        <p><span class="welcome__dot" aria-hidden="true"></span>Picking up where you left off: <strong>{p.label}</strong></p>
-        <div class="welcome__actions">
-          <a href={`/${p.id}`}>Go to {p.label} <span aria-hidden="true">→</span></a>
-          <button type="button" data-set-pillar="">Show all programs</button>
-        </div>
+  <section class="sec">
+    <div class="wrap grid g2 services">
+      <div>
+        <span class="eyebrow">Services</span>
+        <h2>Flexible ways to deliver your project</h2>
+        <p class="lede">Bring us in for one phase or the whole project. We scale with the work.</p>
+        <a class="btn btn-outline" href="/services">Our Services</a>
       </div>
-    </aside>
-  ))}
-
-  <section class="section" id="programs">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Where are you building?</p>
-        <h2>Three program types. One execution partner.</h2>
-        <p>Choose your world and we’ll show you where we work in your program, the roles we deliver and the results behind them.</p>
-      </div>
-      <PillarCards />
-    </div>
-  </section>
-
-  <section class="section section--dark">
-    <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">What ties it together</p>
-        <h2>We show up where execution matters most.</h2>
-        <p>{site.positioning} Every program we take on shares four traits.</p>
-      </div>
-      <div class="grid grid--4">
-        {throughLine.map((t) => (
-          <div class="card"><h3>{t.title}</h3><p>{t.body}</p></div>
+      <div class="grid stack">
+        {services.map((s) => (
+          <a class="card service" href={`/services#${s.id}`}><h3>{s.name}</h3><p>{s.body}</p></a>
         ))}
       </div>
     </div>
   </section>
 
-  <section class="section">
-    <div class="wrap split">
-      <div class="section-head">
-        <p class="eyebrow">How we win</p>
-        <h2>Industry-first. Not résumé-first.</h2>
-        <p>We start with your program, not the job description, and we stay in it until the work is delivered.</p>
-        <a class="btn btn--ghost" href="/about">About Technical Source</a>
-      </div>
-      <ol class="diffs">
-        {differentiators.map((d, i) => (
-          <li><span class="n">{String(i + 1).padStart(2, '0')}</span><div><h3>{d.title}</h3><p>{d.body}</p></div></li>
-        ))}
-      </ol>
-    </div>
-  </section>
-
-  <section class="section section--mist">
+  <section class="sec">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">How we engage</p>
-        <h2>From specialists to managed teams to delivered outcomes.</h2>
-        <p>Most clients start with staff augmentation. As trust builds, we take on more of the accountability.</p>
-      </div>
-      <ol class="tiers">
-        {engagementModels.map((m, i) => (
-          <li class="card"><span class="chip">{m.status}</span><h3>{m.tier}</h3><p>{m.body}</p></li>
-        ))}
-      </ol>
-      <p class="more"><a href="/how-we-engage">See how each model works <span aria-hidden="true">→</span></a></p>
+      <span class="eyebrow">Our approach</span>
+      <h2>How we work</h2>
+      <Steps />
     </div>
   </section>
 
-  <section class="section">
+  <IndustryRow />
+
+  <section class="sec dark">
+    <div class="wrap grid g2 why">
+      <div class="photo" aria-hidden="true"></div>
+      <div>
+        <span class="eyebrow">Why Technical Source</span>
+        <h2>We understand the work before we propose a plan.</h2>
+        <p class="muted-light">Our people specialize by industry. They know the regulations, the technology and the pace your project runs at, and they stay accountable until the work is done.</p>
+        <p class="stat">10+</p>
+        <p class="muted-light">years supporting complex technical projects</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
     <div class="wrap">
-      <div class="section-head row">
-        <div>
-          <p class="eyebrow">News & insights</p>
-          <h2>From the programs we support</h2>
-        </div>
-        <a class="btn btn--ghost" href="/news">All stories</a>
+      <div class="row head">
+        <div><span class="eyebrow">Insights</span><h2>News & insights</h2></div>
+        <a class="btn btn-outline" href="/insights">All Insights</a>
       </div>
-      <StoryGrid stories={latest} sortByVisitor />
+      <StoryGrid stories={stories} sortByVisitor />
     </div>
   </section>
 
-  <Cta />
+  <CareersStrip />
+  <CtaBand />
 </Base>
 
 <style>
-  .welcome { background: var(--mist); border-bottom: 1px solid var(--line); }
-  .welcome.is-active { display: block; }
-  .welcome__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.75rem 1.5rem; padding-block: 0.9rem; }
-  .welcome p { margin: 0; display: flex; align-items: center; gap: 0.6rem; }
-  .welcome__dot { width: 0.7rem; height: 0.7rem; border-radius: 50%; background: var(--c); flex: none; }
-  .welcome__actions { display: flex; gap: 1.25rem; align-items: center; }
-  .welcome a { font-weight: 600; }
-  .welcome button {
-    background: none; border: 0; padding: 0; font: inherit; font-size: 0.9rem; color: var(--muted);
-    text-decoration: underline; text-underline-offset: 0.18em; cursor: pointer;
-  }
-  .split { display: grid; gap: 3rem; grid-template-columns: 1fr 1.4fr; align-items: start; }
-  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
-  .diffs { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.75rem; }
-  .diffs li { display: grid; grid-template-columns: 3.25rem 1fr; gap: 1rem; padding-bottom: 1.75rem; border-bottom: 1px solid var(--line); }
-  .diffs li:last-child { border-bottom: 0; padding-bottom: 0; }
-  .diffs .n { font-family: var(--font-head); font-size: 1.9rem; line-height: 1; background: var(--blue-aqua); -webkit-background-clip: text; background-clip: text; color: transparent; }
-  .diffs h3 { margin-bottom: 0.3rem; }
-  .diffs p { color: var(--muted); margin: 0; }
-  .tiers { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 18rem), 1fr)); }
-  .tiers .chip { margin-bottom: 0.9rem; }
-  .tiers li:first-child .chip { background: var(--ink); color: var(--energy); border-color: var(--ink); }
-  .more { margin: 1.75rem 0 0; font-weight: 600; }
-  .row { max-width: none; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1rem; }
+  .services { gap: 3rem; align-items: start; }
+  .stack { gap: 1rem; }
+  .service { text-decoration: none; color: inherit; transition: border-color .15s; }
+  .service:hover { border-color: var(--blue); color: inherit; }
+  .why { gap: 3rem; align-items: center; }
+  .why .photo { min-height: 20rem; }
+  .muted-light { color: #CCC; }
+  .stat { font-family: var(--font-head); font-size: 3rem; line-height: 1.1; color: var(--energy); margin: 1.5rem 0 0; }
+  .head { justify-content: space-between; align-items: end; }
+  .head h2 { margin: 0; }
 </style>

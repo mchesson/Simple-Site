@@ -1,14 +1,13 @@
 ---
 import Base from '../layouts/Base.astro';
-import PillarCards from '../components/PillarCards.astro';
+import Banner from '../components/Banner.astro';
+import IndustryRow from '../components/IndustryRow.astro';
 ---
 <Base title="Page not found">
-  <section class="section">
-    <div class="wrap">
-      <p class="eyebrow">404</p>
-      <h1>That page has moved.</h1>
-      <p class="lede">Our site has a new structure. Start with your program type:</p>
-      <div style="margin-top:2rem"><PillarCards /></div>
-    </div>
-  </section>
+  <Banner compact>
+    <h1>We couldn’t find <span class="hl">that page.</span></h1>
+    <p class="banner-sub">Our website has a new look. Try one of these instead.</p>
+    <div class="row"><a class="btn btn-green" href="/">Home</a><a class="btn btn-outline-light" href="/services">Services</a></div>
+  </Banner>
+  <IndustryRow />
 </Base>

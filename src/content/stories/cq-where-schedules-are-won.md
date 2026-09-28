@@ -1,25 +1,25 @@
 ---
 title: "Commissioning and qualification: where pharma schedules are won or lost"
 date: 2026-09-08
-summary: "C&Q sits at the end of the CapEx lifecycle, which is exactly why talent gaps there hit the launch date hardest."
-pillar: life-sciences
+summary: "C&Q comes late in a capital project, which is exactly why gaps there hit the launch date hardest."
+industry: life-sciences
 type: insight
-audience: [buyers, talent]
+audience: [clients, candidates]
 sample: true
 linkedin: |
-  In a greenfield pharma program, commissioning and qualification is where every upstream delay lands. Staffing C&Q early, with people who know GMP, is one of the cheapest schedule insurance policies there is.
+  In a pharma capital project, commissioning and qualification is where upstream delays land. Planning C&Q resources early, with people who know GMP, is one of the simplest ways to protect the launch date.
 ---
 
-In a greenfield pharma program, commissioning, qualification and validation come late in the lifecycle. That position makes them the phase where upstream delays add up and where a thin bench of specialists turns directly into a slipped launch.
+In a pharmaceutical capital project, commissioning, qualification and validation come late. That makes them the phase where earlier delays add up, and where a shortage of experienced people turns directly into a later launch.
 
-## Why the talent constraint shows up here
+## Why it matters
 
-CQV and CSV engineers who can execute IQ/OQ/PQ inside a GMP framework are in short supply, and the work can't be learned on the job. When the phase starts, the team needs to be ready.
+CQV and CSV work inside a GMP framework takes experience that can't be learned on the job. When the phase starts, the expertise needs to be ready.
 
-## What program owners can do
+## What project leaders can do
 
-- Plan the C&Q workforce by phase, not by requisition.
+- Plan C&Q resources by phase, not by requisition.
 - Bring validation leadership in during engineering, not after mechanical completion.
-- Capture knowledge at every transition so turnover doesn't reset the schedule.
+- Capture knowledge at each transition so turnover doesn't reset the schedule.
 
 *Sample story for the prototype. Replace with approved copy before launch.*

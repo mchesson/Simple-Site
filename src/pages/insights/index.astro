@@ -1,0 +1,62 @@
+---
+import Base from '../../layouts/Base.astro';
+import Banner from '../../components/Banner.astro';
+import StoryGrid from '../../components/StoryGrid.astro';
+import { getIndustries, getStories } from '../../lib';
+const [stories, industries] = await Promise.all([getStories(), getIndustries()]);
+const filters = [{ id: 'all', label: 'All' }, ...industries.map((i) => ({ id: i.id, label: i.data.name })), { id: 'company', label: 'Company News' }];
+---
+<Base title="Insights" description="News and insights from Technical Source.">
+  <Banner eyebrow="Insights" compact>
+    <h1>News & <span class="hl">insights</span></h1>
+    <p class="banner-sub">Company news and perspectives from the projects we support.</p>
+  </Banner>
+  <section class="sec">
+    <div class="wrap">
+      <div class="filters" role="group" aria-label="Filter by industry">
+        {filters.map((f) => <button type="button" data-filter={f.id} aria-pressed={f.id === 'all' ? 'true' : 'false'}>{f.label}</button>)}
+      </div>
+      <StoryGrid stories={stories} id="stories" />
+      <p class="empty" hidden>No stories here yet.</p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('#stories > li'));
+  const empty = document.querySelector<HTMLElement>('.empty')!;
+  function show(filter: string) {
+    let n = 0;
+    cards.forEach((c) => {
+      const on = filter === 'all' || c.dataset.industry === filter;
+      c.classList.toggle('is-hidden', !on);
+      if (on) n++;
+    });
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    empty.hidden = n > 0;
+  }
+  buttons.forEach((b) =>
+    b.addEventListener('click', () => {
+      const f = b.dataset.filter!;
+      show(f);
+      const url = new URL(location.href);
+      if (f === 'all') url.searchParams.delete('industry');
+      else url.searchParams.set('industry', f);
+      history.replaceState(null, '', url);
+    }),
+  );
+  const param = new URLSearchParams(location.search).get('industry');
+  if (param && buttons.some((b) => b.dataset.filter === param)) show(param);
+</script>
+
+<style>
+  .filters { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .filters button {
+    font: 600 .92rem var(--font-body); cursor: pointer; padding: .5rem 1rem; border-radius: 999px;
+    border: 1px solid var(--line); background: #fff; color: var(--ink);
+  }
+  .filters button:hover { border-color: var(--blue); }
+  .filters button[aria-pressed='true'] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .empty { color: var(--muted); margin-top: 1.5rem; }
+</style>

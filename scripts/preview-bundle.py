@@ -6,6 +6,7 @@ and internal links become hash routes (#/life-sciences).
 Usage: npm run build && python3 scripts/preview-bundle.py [out.html]
 """
 import base64, json, pathlib, re, sys
+from html import unescape
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DIST = ROOT / 'dist'
@@ -46,10 +47,13 @@ for route, f in page_files():
     head = html.split('</head>')[0]
     css_files += [c for c in re.findall(r'href="(/_astro/[^"]+\.css)"', head) if c not in css_files]
     inline_styles += [s for s in re.findall(r'<style[^>]*>(.*?)</style>', head, re.S) if s not in inline_styles]
-    main = re.search(r'<main id="main">(.*)</main>', html, re.S).group(1)
-    title = re.search(r'<title>(.*?)</title>', html).group(1)
-    pillar = re.search(r'<body[^>]*data-pillar="([^"]+)"', html)
-    pages[route] = {'title': title, 'pillar': pillar.group(1) if pillar else '', 'html': rewrite_links(main)}
+    m = re.search(r'<main id="main">(.*)</main>', html, re.S)
+    if not m:  # redirect stubs for old WordPress URLs
+        continue
+    main = m.group(1)
+    title = unescape(re.search(r'<title>(.*?)</title>', html).group(1))
+    industry = re.search(r'<body[^>]*data-industry="([^"]+)"', html)
+    pages[route] = {'title': title, 'industry': industry.group(1) if industry else '', 'html': rewrite_links(main)}
 
 css = '\n'.join((DIST / c.lstrip('/')).read_text() for c in css_files) + '\n'.join(inline_styles)
 
@@ -67,6 +71,7 @@ css = re.sub(r',?\s*url\(/_astro/[^)]+\.woff\)\s*format\("woff"\)', '', css)
 
 # --- Shell: header and footer from the homepage
 home = (DIST / 'index.html').read_text()
+industries = re.search(r'<html[^>]*data-industries="([^"]*)"', home).group(1)
 body = re.search(r'<body[^>]*>(.*)</body>', home, re.S).group(1)
 body = re.sub(r'<script.*?</script>', '', body, flags=re.S)
 body = re.sub(r'<main id="main">.*</main>', '<main id="main"></main>', body, flags=re.S)
@@ -76,7 +81,7 @@ runtime = (ROOT / 'scripts' / 'preview-runtime.js').read_text()
 pages_json = json.dumps(pages).replace('</', '<\\/')
 
 OUT.write_text(f'''<!doctype html>
-<html lang="en"><head><meta charset="utf-8">
+<html lang="en" data-industries="{industries}"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Technical Source | Site preview</title>
 <link rel="icon" href="{data_uri(DIST / 'favicon.svg')}">

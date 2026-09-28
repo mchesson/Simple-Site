@@ -3,7 +3,7 @@
 const { chromium } = require('playwright');
 const out = process.argv[2] || 'shots';
 const base = process.env.BASE || 'http://localhost:4321';
-const pages = ['/', '/life-sciences', '/data-centers', '/news', '/news/cq-where-schedules-are-won', '/how-we-engage', '/careers'];
+const pages = ['/', '/services', '/industries', '/industries/life-sciences', '/company', '/insights', '/insights/cq-where-schedules-are-won', '/careers', '/contact'];
 (async () => {
   const b = await chromium.launch();
   for (const [name, vp] of [['desk', { width: 1366, height: 900 }], ['mob', { width: 390, height: 844 }]]) {

@@ -1,0 +1,120 @@
+---
+import Base from '../../layouts/Base.astro';
+import Banner from '../../components/Banner.astro';
+import Steps from '../../components/Steps.astro';
+import StoryGrid from '../../components/StoryGrid.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import { services } from '../../data/site';
+import { getIndustries, getStories } from '../../lib';
+
+export async function getStaticPaths() {
+  const industries = await getIndustries();
+  return industries.map((industry) => ({ params: { id: industry.id }, props: { industry, industries } }));
+}
+
+const { industry, industries } = Astro.props;
+const d = industry.data;
+const stories = (await getStories()).filter((s) => s.data.industry?.id === industry.id).slice(0, 3);
+const others = industries.filter((i) => i.id !== industry.id);
+// Show the `highlight` part of the headline in green.
+const at = d.highlight ? d.headline.lastIndexOf(d.highlight) : -1;
+const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headline, ''];
+---
+<Base title={d.name} description={d.summary} industry={industry.id}>
+  <Banner eyebrow={d.name} compact>
+    <h1>{lead}{hl && <><br /><span class="hl">{hl}</span></>}</h1>
+    <p class="banner-sub">{d.intro}</p>
+    <div class="row">
+      <a class="btn btn-green" href={`/contact?industry=${industry.id}`}>Get Project Support</a>
+      <a class="btn btn-outline-light" href={`/careers?industry=${industry.id}`}>Careers in {d.name}</a>
+    </div>
+  </Banner>
+
+  <section class="sec">
+    <div class="wrap">
+      <span class="eyebrow">What we support</span>
+      <h2>Projects we help deliver</h2>
+      <div class="grid g3 focus">
+        {d.focus.map((f) => (
+          <div class="card" style={`--c:${d.color}`}><span class="chev"></span><h3>{f.title}</h3><p>{f.body}</p></div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="sec mist">
+    <div class="wrap grid g2 two">
+      <div>
+        <span class="eyebrow">Expertise we bring</span>
+        <h2>People who know the work</h2>
+        <p class="lede">Specialists with direct experience in {d.name.toLowerCase()} projects, the standards they have to meet and the pace they run at.</p>
+      </div>
+      <ul class="checks expertise">{d.expertise.map((e) => <li>{e}</li>)}</ul>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <span class="eyebrow">How we can help</span>
+      <h2>Support that fits your project</h2>
+      <div class="grid g3">
+        {services.map((s) => (
+          <a class="card svc" href={`/services#${s.id}`}><h3>{s.name}</h3><p>{s.body}</p></a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="sec mist">
+    <div class="wrap">
+      <span class="eyebrow">Our approach</span>
+      <h2>How we work</h2>
+      <Steps />
+    </div>
+  </section>
+
+  {stories.length > 0 && (
+    <section class="sec">
+      <div class="wrap">
+        <div class="row head">
+          <div><span class="eyebrow">Insights</span><h2>{d.name} insights</h2></div>
+          <a class="btn btn-outline" href={`/insights?industry=${industry.id}`}>All {d.name} Insights</a>
+        </div>
+        <StoryGrid stories={stories} />
+      </div>
+    </section>
+  )}
+
+  <CtaBand />
+
+  {others.length > 0 && (
+    <section class="sec other">
+      <div class="wrap">
+        <span class="eyebrow">Other industries</span>
+        <div class="grid g2">
+          {others.map((o) => (
+            <a class="card oth" href={`/industries/${o.id}`} style={`--c:${o.data.color}`}>
+              <span class="chev"></span><h3>{o.data.name}</h3><p>{o.data.short}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    </section>
+  )}
+</Base>
+
+<style>
+  .focus { margin-top: 1.5rem; grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 1000px) { .focus { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 640px) { .focus { grid-template-columns: 1fr; } }
+  .focus .chev { margin-bottom: 1rem; }
+  .two { gap: 3rem; align-items: center; }
+  .expertise { gap: .9rem; }
+  .expertise li { font-size: 1.05rem; color: var(--ink); font-weight: 600; }
+  .svc, .oth { text-decoration: none; color: inherit; transition: border-color .15s; }
+  .svc:hover, .oth:hover { border-color: var(--blue); color: inherit; }
+  .g3 { margin-top: 1.5rem; }
+  .head { justify-content: space-between; align-items: end; }
+  .head h2 { margin: 0; }
+  .oth .chev { margin-bottom: .8rem; }
+</style>

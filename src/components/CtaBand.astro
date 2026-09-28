@@ -1,0 +1,22 @@
+---
+interface Props { title?: string; body?: string; href?: string; label?: string }
+const {
+  title = 'Need support on your project?',
+  body = 'Whether you need one specialist or a full team, tell us what you’re working on and we’ll show you how we can help.',
+  href = '/contact',
+  label = 'Talk to Our Team',
+} = Astro.props;
+---
+<section class="banner cta">
+  <div class="photo" aria-hidden="true"></div>
+  <div class="wrap row inner">
+    <div><h2>{title}</h2><p>{body}</p></div>
+    <a class="btn btn-green" href={href}>{label}</a>
+  </div>
+</section>
+<style>
+  .cta > .photo { opacity: .35; }
+  .inner { justify-content: space-between; padding-block: 3.5rem; gap: 1.5rem; }
+  h2 { margin: 0 0 .3rem; }
+  p { margin: 0; color: #DDD; max-width: 44rem; }
+</style>

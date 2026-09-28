@@ -1,0 +1,17 @@
+---
+import { steps } from '../data/site';
+---
+<ol class="steps">
+  {steps.map((s) => <li><h3>{s.title}</h3><p>{s.body}</p></li>)}
+</ol>
+<style>
+  .steps { counter-reset: s; list-style: none; margin: 2rem 0 0; padding: 0; display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); }
+  li { position: relative; padding-top: 3.2rem; }
+  li::before {
+    counter-increment: s; content: '0' counter(s); position: absolute; top: 0; left: 0;
+    font: 500 2.2rem/1 var(--font-head); font-variant-numeric: lining-nums; color: var(--aqua-deep);
+  }
+  li::after { content: ''; position: absolute; top: 1rem; left: 3.6rem; right: -.6rem; height: 2px; background: linear-gradient(90deg, var(--energy), transparent); }
+  li:last-child::after { display: none; }
+  p { color: var(--muted); margin: 0; }
+</style>

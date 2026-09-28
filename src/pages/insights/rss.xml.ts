@@ -6,15 +6,15 @@ import { site } from '../../data/site';
 export async function GET(context: APIContext) {
   const stories = await getStories();
   return rss({
-    title: `${site.name} | News & Insights`,
+    title: `${site.name} | Insights`,
     description: site.description,
     site: context.site!,
     items: stories.map((s) => ({
       title: s.data.title,
       pubDate: s.data.date,
       description: s.data.summary,
-      link: `/news/${s.id}/`,
-      categories: [s.data.pillar, s.data.type, ...s.data.audience],
+      link: `/insights/${s.id}/`,
+      categories: [s.data.industry?.id ?? 'company', s.data.type, ...s.data.audience],
     })),
   });
 }

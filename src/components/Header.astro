@@ -1,77 +1,91 @@
 ---
-import Logo from './Logo.astro';
-import { pillars } from '../data/pillars';
+import { getIndustries } from '../lib';
+const industries = await getIndustries();
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
-  ...pillars.map((p) => ({ href: `/${p.id}`, label: p.label })),
-  { href: '/how-we-engage', label: 'How We Engage' },
-  { href: '/news', label: 'News' },
+  { href: '/company', label: 'Company' },
+  { href: '/services', label: 'Services' },
+  { href: '/insights', label: 'Insights' },
   { href: '/careers', label: 'Careers' },
 ];
+const current = (href: string) => (path.startsWith(href) ? 'page' : undefined);
 ---
 <header class="site-header">
   <div class="wrap bar">
-    <a href="/" class="brand" aria-label="Technical Source home"><Logo /></a>
-    <nav aria-label="Main" class="nav-desktop">
+    <a class="brand" href="/" aria-label="Technical Source home"><img src="/logo.svg" alt="Technical Source" width="204" height="46" /></a>
+
+    <nav class="nav-desktop" aria-label="Main">
       <ul>
-        {links.map((l) => (
-          <li><a href={l.href} aria-current={path.startsWith(l.href) ? 'page' : undefined}>{l.label}</a></li>
-        ))}
-        <li><a class="btn btn--primary" href="/contact">Talk to us</a></li>
+        <li><a href={links[0].href} aria-current={current(links[0].href)}>{links[0].label}</a></li>
+        <li class="dd">
+          <a href="/industries" aria-current={current('/industries')} aria-haspopup="true">Industries</a>
+          <div class="dd-menu">
+            {industries.map((i) => <a href={`/industries/${i.id}`}>{i.data.name}</a>)}
+            <a class="dd-all" href="/industries">All industries</a>
+          </div>
+        </li>
+        {links.slice(1).map((l) => <li><a href={l.href} aria-current={current(l.href)}>{l.label}</a></li>)}
+        <li><a class="btn btn-primary" href="/contact">Contact Us</a></li>
       </ul>
     </nav>
-    <details class="menu">
-      <summary><span class="visually-hidden">Menu</span><span class="burger" aria-hidden="true"></span></summary>
-      <nav aria-label="Main (mobile)">
-        <ul>
-          {links.map((l) => (
-            <li><a href={l.href} aria-current={path.startsWith(l.href) ? 'page' : undefined}>{l.label}</a></li>
-          ))}
-          <li><a class="btn btn--primary" href="/contact">Talk to us</a></li>
-        </ul>
+
+    <details class="nav-mobile">
+      <summary aria-label="Menu"><span class="burger" aria-hidden="true"></span></summary>
+      <nav class="panel" aria-label="Main (mobile)">
+        <a href="/company">Company</a>
+        <span class="label">Industries</span>
+        {industries.map((i) => <a class="sub" href={`/industries/${i.id}`}>{i.data.name}</a>)}
+        <a href="/services">Services</a>
+        <a href="/insights">Insights</a>
+        <a href="/careers">Careers</a>
+        <a class="btn btn-primary" href="/contact">Contact Us</a>
       </nav>
     </details>
   </div>
 </header>
 
 <style>
-  .site-header {
-    position: sticky; top: 0; z-index: 50;
-    background: rgb(255 255 255 / 92%); backdrop-filter: saturate(1.4) blur(10px);
-    border-bottom: 1px solid var(--line);
+  .site-header { position: sticky; top: 0; z-index: 50; background: #fff; border-bottom: 1px solid var(--line); }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 4.6rem; }
+  .brand img { height: 2.9rem; width: auto; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: .2rem; }
+  .nav-desktop a:not(.btn) {
+    display: block; padding: .55rem .75rem; border-radius: 6px; white-space: nowrap;
+    color: var(--ink); text-decoration: none; font-weight: 600; font-size: .93rem;
   }
-  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 4.75rem; }
-  .brand { text-decoration: none; }
-  ul { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 0.25rem; }
-  li a:not(.btn) {
-    display: block; padding: 0.5rem 0.7rem; border-radius: 8px;
-    color: var(--ink); text-decoration: none; font-size: 0.92rem; font-weight: 600; white-space: nowrap;
+  .nav-desktop a:not(.btn):hover { background: var(--mist); }
+  .nav-desktop a[aria-current='page'] { color: var(--blue); }
+  .nav-desktop .btn { margin-left: .5rem; }
+  .dd { position: relative; }
+  .dd > a::after { content: ' ▾'; font-size: .75em; color: var(--ash); }
+  .dd-menu {
+    display: none; position: absolute; top: 100%; left: 0; min-width: 17rem; padding: .5rem;
+    background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px rgb(0 0 0 / 10%);
   }
-  li a:not(.btn):hover { background: var(--mist); }
-  li a[aria-current='page'] { color: var(--blue); }
-  .btn { white-space: nowrap; margin-left: 0.5rem; padding: 0.6rem 1.1rem; font-size: 0.92rem; }
-  .menu { display: none; }
-  @media (max-width: 1240px) {
+  .dd:hover .dd-menu, .dd:focus-within .dd-menu { display: block; }
+  .dd-menu a { font-weight: 500 !important; }
+  .dd-menu .dd-all { border-top: 1px solid var(--line); margin-top: .3rem; padding-top: .7rem; color: var(--blue) !important; }
+
+  .nav-mobile { display: none; }
+  .nav-mobile summary { list-style: none; cursor: pointer; padding: .75rem; border-radius: 6px; }
+  .nav-mobile summary::-webkit-details-marker { display: none; }
+  .nav-mobile[open] summary { background: var(--mist); }
+  .burger, .burger::before, .burger::after { display: block; width: 1.4rem; height: 2px; background: var(--ink); content: ''; }
+  .burger { position: relative; }
+  .burger::before { position: absolute; top: -7px; }
+  .burger::after { position: absolute; top: 7px; }
+  .panel {
+    position: absolute; left: 0; right: 0; top: 100%; display: flex; flex-direction: column;
+    background: #fff; border-bottom: 1px solid var(--line); box-shadow: 0 12px 30px rgb(0 0 0 / 10%);
+    padding: .5rem var(--gutter) 1.5rem;
+  }
+  .panel a:not(.btn) { padding: .85rem 0; border-bottom: 1px solid var(--line); color: var(--ink); text-decoration: none; font-weight: 600; }
+  .panel .label { padding: .9rem 0 .2rem; font-size: .75rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--aqua-deep); }
+  .panel a.sub { padding-left: 1rem; font-weight: 500; }
+  .panel .btn { margin-top: 1rem; }
+  @media (max-width: 900px) {
     .nav-desktop { display: none; }
-    .menu { display: block; }
-    summary {
-      display: grid; place-items: center; width: 2.75rem; height: 2.75rem;
-      border-radius: 10px; cursor: pointer; list-style: none;
-    }
-    summary::-webkit-details-marker { display: none; }
-    .burger, .burger::before, .burger::after {
-      display: block; width: 1.35rem; height: 2px; background: var(--ink); content: '';
-    }
-    .burger { position: relative; }
-    .burger::before { position: absolute; top: -7px; }
-    .burger::after { position: absolute; top: 7px; }
-    .menu nav {
-      position: absolute; left: 0; right: 0; top: 100%;
-      background: #fff; border-bottom: 1px solid var(--line);
-      padding: 0.5rem var(--gutter) 1.25rem; box-shadow: var(--shadow);
-    }
-    .menu ul { flex-direction: column; align-items: stretch; gap: 0; }
-    .menu li a:not(.btn) { padding: 0.85rem 0.25rem; border-bottom: 1px solid var(--line); border-radius: 0; font-size: 1rem; }
-    .menu .btn { margin: 1rem 0 0; justify-content: center; }
+    .nav-mobile { display: block; }
+    .brand img { height: 2.5rem; }
   }
 </style>

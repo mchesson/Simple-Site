@@ -1,55 +1,74 @@
 ---
 import Base from '../layouts/Base.astro';
-import { pillars } from '../data/pillars';
+import Banner from '../components/Banner.astro';
+import { getIndustries } from '../lib';
+const industries = await getIndustries();
+const reasons = [
+  ['Work that matters', 'Join projects that build new facilities, bring capacity online and put new technology to work.'],
+  ['A team that knows your field', 'Work with people who understand your craft and the standards you work to.'],
+  ['Room to grow', 'We invest in your development and help you find the next project that fits.'],
+];
 ---
-<Base title="Careers" description="Join Technical Source. Hired, not submitted: we invest in our consultants and connect them to work worth doing.">
-  <section class="hero">
+<Base title="Careers" description="Build your career on meaningful projects with Technical Source.">
+  <Banner eyebrow="Careers" compact>
+    <h1>Build your career on <span class="hl">meaningful projects.</span></h1>
+    <p class="banner-sub">Join a team that knows your craft, invests in your growth and connects you to work worth doing.</p>
+    <div class="row"><a class="btn btn-green" href="#jobs">Search Jobs</a><a class="btn btn-outline-light" href="#network">Stay in Touch</a></div>
+  </Banner>
+
+  <section class="sec">
     <div class="wrap">
-      <p class="eyebrow">Careers</p>
-      <h1>Hired, not submitted.</h1>
-      <p class="lede">At Technical Source, you join a team that knows your craft, invests in your growth, and connects you to work worth doing.</p>
-      <div class="btn-row"><a class="btn btn--light" href="#jobs">See open roles <span aria-hidden="true">↓</span></a><a class="btn btn--outline-light" href="#network">Join the talent network</a></div>
+      <span class="eyebrow">Why Technical Source</span>
+      <h2>Why people work with us</h2>
+      <div class="grid g3 reasons">{reasons.map(([t, b]) => <div class="card"><h3>{t}</h3><p>{b}</p></div>)}</div>
     </div>
   </section>
-  <section class="section" id="jobs">
+
+  <section class="sec mist" id="jobs">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow">Open roles by program</p>
-        <h2>Find work in your field.</h2>
-        <p>Open roles will load here from Crelate, grouped by program type.</p>
-      </div>
-      <div class="grid grid--3">
-        {pillars.map((p) => (
-          <div class="card jobs" data-pillar={p.id} style={`--c:${p.accent}`}>
-            <span class="mark" aria-hidden="true"></span>
-            <h3>{p.label}</h3>
-            <p>{p.roles.slice(0, 4).join(' · ')}</p>
-            <span class="chip chip--sample">Crelate jobs feed: to be connected</span>
-          </div>
-        ))}
-      </div>
+      <span class="eyebrow">Open positions</span>
+      <h2>Search jobs</h2>
+      <form class="search" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
+        <input aria-label="Job title or keyword" placeholder="Job title, skill or keyword" />
+        <select aria-label="Industry" id="industry-select">
+          <option value="">All industries</option>
+          {industries.map((i) => <option value={i.id}>{i.data.name}</option>)}
+        </select>
+        <input aria-label="Location" placeholder="Location" />
+        <button class="btn btn-primary" type="submit">Search</button>
+        <p class="note" hidden>Prototype only: open positions will load here from Crelate.</p>
+      </form>
     </div>
   </section>
-  <section class="section section--mist" id="network">
+
+  <section class="sec" id="network">
     <div class="wrap narrow">
-      <p class="eyebrow">Talent network</p>
-      <h2>Not looking today? Stay in the loop.</h2>
-      <p>Specialists in our network hear about programs before roles are posted.</p>
+      <span class="eyebrow">Stay in touch</span>
+      <h2>Not looking right now?</h2>
+      <p class="lede">Share your details and we’ll reach out when a project fits your experience.</p>
       <form class="form" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
         <label>Name<input name="name" autocomplete="name" required /></label>
         <label>Email<input name="email" type="email" autocomplete="email" required /></label>
-        <label>Program area
-          <select name="pillar">{pillars.map((p) => <option value={p.id}>{p.label}</option>)}</select>
+        <label>Industry
+          <select name="industry">{industries.map((i) => <option value={i.id}>{i.data.name}</option>)}</select>
         </label>
-        <label>Your specialty<input name="specialty" placeholder="e.g. CQV Engineer, Commissioning Agent" /></label>
-        <button class="btn btn--primary" type="submit">Join the network</button>
-        <p class="note" hidden>Prototype only: nothing was sent. At launch, this creates a candidate in Crelate tagged by program and specialty.</p>
+        <label>Your specialty<input name="specialty" placeholder="e.g. Validation Engineer, Commissioning Agent" /></label>
+        <button class="btn btn-primary" type="submit">Submit</button>
+        <p class="note" hidden>Prototype only: nothing was sent. At launch this goes to Crelate.</p>
       </form>
     </div>
   </section>
 </Base>
+<script>
+  const sel = document.querySelector<HTMLSelectElement>('#industry-select');
+  const p = new URLSearchParams(location.search).get('industry') || document.documentElement.dataset.visitorIndustry;
+  if (sel && p && Array.from(sel.options).some((o) => o.value === p)) sel.value = p;
+</script>
 <style>
-  .jobs .mark { width: 2rem; height: 1.75rem; margin-bottom: 1rem; background: var(--c); clip-path: polygon(12.4% 0, 100% 50%, 12.4% 100%, 0 82.5%, 57% 50%, 0 17.5%); }
-  .jobs p { margin-bottom: 1rem; }
+  .reasons { margin-top: 1.5rem; }
+  .search { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
+  .search input, .search select { flex: 1 1 12rem; padding: .8rem .9rem; border: 1px solid var(--light); border-radius: 6px; font: inherit; background: #fff; }
+  .search .note { flex-basis: 100%; margin: 0; padding: .75rem 1rem; border-radius: 6px; background: #FFF6D6; color: #6B5300; font-size: .92rem; }
   .narrow { max-width: 42rem; }
+  .form { margin-top: 1.5rem; }
 </style>

@@ -1,0 +1,45 @@
+---
+import Base from '../../layouts/Base.astro';
+import Banner from '../../components/Banner.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import { getIndustries } from '../../lib';
+const industries = await getIndustries();
+---
+<Base title="Industries" description="Specialized expertise for life sciences, data centers and enterprise technology projects.">
+  <Banner eyebrow="Industries" compact>
+    <h1>Specialized expertise for industries where <span class="hl">precision matters.</span></h1>
+    <p class="banner-sub">Our people know the standards, the technology and the pace of the industries they work in.</p>
+  </Banner>
+
+  <section class="sec">
+    <div class="wrap list" data-industry-list>
+      {industries.map((i) => (
+        <a class="ind" href={`/industries/${i.id}`} data-industry={i.id} style={`--c:${i.data.color}`}>
+          <span class="chev"></span>
+          <div>
+            <h2>{i.data.name}<span class="yours">Your industry</span></h2>
+            <p>{i.data.summary}</p>
+          </div>
+          <span class="go">Learn more →</span>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <CtaBand />
+</Base>
+
+<style>
+  .list { display: grid; }
+  .ind {
+    display: grid; grid-template-columns: auto 1fr auto; gap: 1.5rem; align-items: center;
+    padding: 2rem 0; border-bottom: 1px solid var(--line); text-decoration: none; color: inherit;
+  }
+  .ind:first-child { border-top: 1px solid var(--line); }
+  .ind:hover h2 { color: var(--blue); }
+  .ind .chev { width: 2rem; height: 1.75rem; }
+  h2 { font-size: 1.7rem; margin-bottom: .3rem; }
+  p { color: var(--muted); margin: 0; max-width: 46rem; }
+  .go { color: var(--blue); font-weight: 600; white-space: nowrap; }
+  @media (max-width: 700px) { .ind { grid-template-columns: auto 1fr; } .go { grid-column: 2; } }
+</style>

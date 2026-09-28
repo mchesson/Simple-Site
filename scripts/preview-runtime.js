@@ -1,51 +1,49 @@
 // Runtime for the single-file preview (scripts/preview-bundle.py): a hash router
-// plus plain-JS ports of the site's page scripts (pillar memory, news filter,
-// LinkedIn copy button, contact preselect). Keep in sync with src/scripts/pillar.ts.
+// plus plain-JS ports of the site's page scripts (industry memory, insights
+// filter, LinkedIn copy button, form preselect). Keep in sync with
+// src/scripts/industry.ts and the <script> blocks in src/pages.
 (function () {
   const PAGES = JSON.parse(document.getElementById('pages').textContent);
   const main = document.getElementById('main');
-  const KEY = 'ts-pillar';
-  const PILLARS = ['life-sciences', 'data-centers', 'enterprise-technology'];
-  const isPillar = (v) => PILLARS.includes(v);
+  const KEY = 'ts-industry';
+  const valid = (document.documentElement.dataset.industries || '').split(' ').filter(Boolean);
+  const isIndustry = (v) => valid.includes(v);
   let memory = null; // fallback when storage is blocked
 
   function read() {
-    try { const v = localStorage.getItem(KEY); return isPillar(v) ? v : null; } catch { return memory; }
+    try { const v = localStorage.getItem(KEY); return isIndustry(v) ? v : null; } catch { return memory; }
   }
   function write(v) {
     memory = v;
     try { v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); } catch {}
   }
 
-  function applyPillar(pillar) {
-    document.documentElement.dataset.visitorPillar = pillar || '';
-    document.querySelectorAll('[data-for-pillar]').forEach((el) => {
-      el.classList.toggle('is-active', el.dataset.forPillar === (pillar || 'none'));
+  function applyIndustry(industry) {
+    document.documentElement.dataset.visitorIndustry = industry || '';
+    main.querySelectorAll('[data-industry-list] [data-industry]').forEach((el) => {
+      el.classList.toggle('is-yours', el.dataset.industry === industry);
     });
-    document.querySelectorAll('[data-pillar-sort]').forEach((list) => {
+    if (!industry) return;
+    main.querySelectorAll('[data-industry-sort]').forEach((list) => {
       const items = Array.from(list.children);
-      const original = items.slice().sort((a, b) => Number(a.dataset.order || 0) - Number(b.dataset.order || 0));
-      const sorted = pillar
-        ? [...original.filter((el) => el.dataset.pillar === pillar), ...original.filter((el) => el.dataset.pillar !== pillar)]
-        : original;
-      sorted.forEach((el) => list.appendChild(el));
-      items.forEach((el) => el.classList.toggle('is-yours', !!pillar && el.dataset.pillar === pillar));
+      [...items.filter((el) => el.dataset.industry === industry), ...items.filter((el) => el.dataset.industry !== industry)]
+        .forEach((el) => list.appendChild(el));
     });
   }
 
-  function initNews(q) {
+  function initFilters(q) {
     const buttons = Array.from(main.querySelectorAll('[data-filter]'));
     if (!buttons.length) return;
     const cards = Array.from(main.querySelectorAll('#stories > li'));
     const empty = main.querySelector('.empty');
     const show = (f) => {
       let n = 0;
-      cards.forEach((c) => { const on = f === 'all' || c.dataset.pillar === f; c.classList.toggle('is-hidden', !on); if (on) n++; });
+      cards.forEach((c) => { const on = f === 'all' || c.dataset.industry === f; c.classList.toggle('is-hidden', !on); if (on) n++; });
       buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === f)));
       if (empty) empty.hidden = n > 0;
     };
     buttons.forEach((b) => b.addEventListener('click', () => show(b.dataset.filter)));
-    const p = q.get('pillar');
+    const p = q.get('industry');
     if (p && buttons.some((b) => b.dataset.filter === p)) show(p);
   }
 
@@ -60,17 +58,18 @@
     });
   }
 
-  function initContact(q) {
-    const sel = main.querySelector('#pillar-select');
-    const p = q.get('pillar') || document.documentElement.dataset.visitorPillar;
+  function initSelect(q) {
+    const sel = main.querySelector('#industry-select');
+    const p = q.get('industry') || document.documentElement.dataset.visitorIndustry;
     if (sel && p && Array.from(sel.options).some((o) => o.value === p)) sel.value = p;
   }
 
   function parse() {
     const h = location.hash.slice(1) || '/';
-    if (!h.startsWith('/')) return null; // in-page anchor like #programs
-    const [path, query = ''] = h.split('?');
-    return { path: path.replace(/\/$/, '') || '/', q: new URLSearchParams(query) };
+    if (!h.startsWith('/')) return null; // in-page anchor like #jobs
+    const [pathAndAnchor, query = ''] = h.split('?');
+    const [path, anchor] = pathAndAnchor.split('#');
+    return { path: path.replace(/\/$/, '') || '/', anchor, q: new URLSearchParams(query) };
   }
 
   function render() {
@@ -79,38 +78,32 @@
     const page = PAGES[r.path] || PAGES['/404'];
     main.innerHTML = page.html;
     document.title = page.title;
-    if (page.pillar) document.body.dataset.pillar = page.pillar; else delete document.body.dataset.pillar;
+    if (page.industry) document.body.dataset.industry = page.industry; else delete document.body.dataset.industry;
     document.getElementById('preview-route').textContent = r.path;
-    document.querySelectorAll('.site-header a[href^="#/"]').forEach((a) => {
-      const target = a.getAttribute('href').slice(1);
+    document.querySelectorAll('.nav-desktop a[href^="#/"]').forEach((a) => {
+      const target = a.getAttribute('href').slice(1).split('#')[0];
       if (target !== '/' && r.path.startsWith(target)) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     });
-    document.querySelectorAll('details.menu').forEach((d) => (d.open = false));
+    document.querySelectorAll('details.nav-mobile').forEach((d) => (d.open = false));
 
-    const param = r.q.get('pillar');
-    let pillar;
-    if (isPillar(param)) { write(param); pillar = param; }
-    else if (isPillar(page.pillar)) { write(page.pillar); pillar = page.pillar; }
-    else pillar = read();
-    applyPillar(pillar);
-    initNews(r.q);
+    const param = r.q.get('industry');
+    let industry;
+    if (isIndustry(param)) { write(param); industry = param; }
+    else if (isIndustry(page.industry)) { write(page.industry); industry = page.industry; }
+    else industry = read();
+    applyIndustry(industry);
+    initFilters(r.q);
     initCopy();
-    initContact(r.q);
-    window.scrollTo(0, 0);
+    initSelect(r.q);
+    const target = r.anchor && document.getElementById(r.anchor);
+    if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
   }
 
   document.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-set-pillar]');
-    if (t) {
-      const v = t.dataset.setPillar;
-      write(isPillar(v) ? v : null);
-      if (t.tagName === 'BUTTON') applyPillar(read());
-    }
-    const off = e.target.closest('[data-preview-disabled]');
-    if (off) e.preventDefault();
+    if (e.target.closest('[data-preview-disabled]')) e.preventDefault();
   });
-  document.getElementById('preview-reset').addEventListener('click', () => { write(null); applyPillar(null); });
+  document.getElementById('preview-reset').addEventListener('click', () => { write(null); render(); });
 
   window.addEventListener('hashchange', render);
   render();
