@@ -9,7 +9,8 @@
     "preview": "astro preview",
     "check": "astro check",
     "og-image": "NODE_PATH=$(npm root -g) node scripts/og-image.cjs",
-    "shots": "NODE_PATH=$(npm root -g) node scripts/shots.cjs"
+    "shots": "NODE_PATH=$(npm root -g) node scripts/shots.cjs",
+    "preview:file": "astro build && python3 scripts/preview-bundle.py"
   },
   "dependencies": {
     "@astrojs/rss": "^4.0.19",

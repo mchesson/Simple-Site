@@ -88,6 +88,12 @@ and clients.
 - Real case studies, client quotes and consultant stories to replace placeholders.
 - Page redirects from the current WordPress site (keep old URLs working for SEO).
 
+## Showing the site in chat
+`npm run preview:file` builds the site and packs it into one self-contained
+`preview.html` (all pages, CSS, fonts, logos inlined; hash-based links). Send that
+file to the user to view in the app. If you change a page script, mirror it in
+`scripts/preview-runtime.js`.
+
 ## Checks before pushing
 - `npm run build` must pass.
 - For visual changes: `npx astro preview` then `npm run shots <dir>` for desktop and
