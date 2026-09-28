@@ -1,0 +1,15 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import StoryCard from './StoryCard.astro';
+interface Props { stories: CollectionEntry<'stories'>[]; sortByVisitor?: boolean; id?: string }
+const { stories, sortByVisitor = false, id } = Astro.props;
+---
+<ul class="story-grid" id={id} data-pillar-sort={sortByVisitor ? '' : undefined}>
+  {stories.map((s, i) => <StoryCard story={s} order={i} />)}
+</ul>
+<style>
+  .story-grid {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  }
+</style>

@@ -1,0 +1,70 @@
+---
+import Base from '../../layouts/Base.astro';
+import StoryGrid from '../../components/StoryGrid.astro';
+import { pillars } from '../../data/pillars';
+import { getStories } from '../../lib';
+const stories = await getStories();
+const filters = [{ id: 'all', label: 'All' }, ...pillars.map((p) => ({ id: p.id, label: p.label })), { id: 'company', label: 'Company' }];
+---
+<Base title="News & Insights" description="Company news, program insights and consultant stories from Technical Source.">
+  <section class="section page-head">
+    <div class="wrap">
+      <p class="eyebrow">News & insights</p>
+      <h1>From the programs we support</h1>
+      <p class="lede">Company news, program insights and the people behind the work, by program type.</p>
+      <div class="filters" role="group" aria-label="Filter by program">
+        {filters.map((f) => <button type="button" data-filter={f.id} aria-pressed={f.id === 'all' ? 'true' : 'false'}>{f.label}</button>)}
+      </div>
+    </div>
+  </section>
+  <section class="section list">
+    <div class="wrap">
+      <StoryGrid stories={stories} id="stories" />
+      <p class="empty" hidden>No stories in this program yet.</p>
+    </div>
+  </section>
+</Base>
+
+<script>
+  const buttons = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+  const cards = Array.from(document.querySelectorAll<HTMLElement>('#stories > li'));
+  const empty = document.querySelector<HTMLElement>('.empty')!;
+
+  function show(filter: string) {
+    let visible = 0;
+    cards.forEach((c) => {
+      const on = filter === 'all' || c.dataset.pillar === filter;
+      c.classList.toggle('is-hidden', !on);
+      if (on) visible++;
+    });
+    buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.filter === filter)));
+    empty.hidden = visible > 0;
+  }
+
+  buttons.forEach((b) =>
+    b.addEventListener('click', () => {
+      const f = b.dataset.filter!;
+      show(f);
+      const url = new URL(location.href);
+      if (f === 'all') url.searchParams.delete('pillar');
+      else url.searchParams.set('pillar', f);
+      history.replaceState(null, '', url);
+    }),
+  );
+
+  const param = new URLSearchParams(location.search).get('pillar');
+  if (param && buttons.some((b) => b.dataset.filter === param)) show(param);
+</script>
+
+<style>
+  .page-head { padding-bottom: 2rem; }
+  .list { padding-top: 0; }
+  .filters { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 2rem; }
+  .filters button {
+    font: inherit; font-size: 0.92rem; font-weight: 600; cursor: pointer;
+    padding: 0.5rem 1rem; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--ink);
+  }
+  .filters button:hover { border-color: var(--blue); }
+  .filters button[aria-pressed='true'] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .empty { color: var(--muted); }
+</style>

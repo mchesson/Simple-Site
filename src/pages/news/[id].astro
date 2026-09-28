@@ -1,0 +1,80 @@
+---
+import { render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import StoryGrid from '../../components/StoryGrid.astro';
+import Cta from '../../components/Cta.astro';
+import { storyPillarLabel, pillarById, type PillarId } from '../../data/pillars';
+import { getStories } from '../../lib';
+
+export async function getStaticPaths() {
+  const stories = await getStories();
+  return stories.map((story) => ({ params: { id: story.id }, props: { story, stories } }));
+}
+
+const { story, stories } = Astro.props;
+const { Content } = await render(story);
+const d = story.data;
+const pillar = d.pillar === 'company' ? undefined : (d.pillar as PillarId);
+const url = new URL(`/news/${story.id}`, Astro.site).toString();
+const share = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+const related = stories.filter((s) => s.id !== story.id && (s.data.pillar === d.pillar || s.data.pillar === 'company')).slice(0, 3);
+---
+<Base title={d.title} description={d.summary} image={d.image} type="article" published={d.date}>
+  <article class="section">
+    <div class="wrap">
+      <p class="eyebrow">
+        <a href={pillar ? `/${pillar}` : '/news'}>{storyPillarLabel[d.pillar]}</a>
+      </p>
+      <h1>{d.title}</h1>
+      <p class="lede">{d.summary}</p>
+      <div class="byline">
+        <span>{d.author}</span>
+        <span aria-hidden="true">·</span>
+        <time datetime={d.date.toISOString()}>{d.date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time>
+        {d.sample && <span class="chip chip--sample">Sample content</span>}
+      </div>
+      <div class="share">
+        <a class="btn btn--primary" href={share} target="_blank" rel="noopener">Share on LinkedIn</a>
+        {d.linkedin && (
+          <button type="button" class="btn btn--ghost" data-copy={d.linkedin.trim() + '\n\n' + url}>Copy LinkedIn post</button>
+        )}
+      </div>
+      <div class="prose"><Content /></div>
+    </div>
+  </article>
+
+  {related.length > 0 && (
+    <section class="section section--mist">
+      <div class="wrap">
+        <h2>More {pillar ? `from ${pillarById[pillar].label}` : 'stories'}</h2>
+        <StoryGrid stories={related} />
+      </div>
+    </section>
+  )}
+
+  <Cta pillar={pillar} />
+</Base>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const label = btn.textContent;
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+        btn.textContent = 'Copied. Paste into LinkedIn';
+      } catch {
+        btn.textContent = 'Copy failed. Select the text manually';
+      }
+      setTimeout(() => (btn.textContent = label), 2500);
+    });
+  });
+</script>
+
+<style>
+  h1 { max-width: 24ch; font-size: clamp(2rem, 4.4vw, 3.2rem); }
+  .eyebrow a { color: inherit; text-decoration: none; }
+  .byline { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; color: var(--muted); font-size: 0.95rem; }
+  .share { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1.75rem 0 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+  .share .btn { font-size: 0.92rem; padding: 0.6rem 1.1rem; }
+  h2 { margin-bottom: 1.5rem; }
+</style>

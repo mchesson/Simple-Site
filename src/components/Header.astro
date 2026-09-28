@@ -1,0 +1,77 @@
+---
+import Logo from './Logo.astro';
+import { pillars } from '../data/pillars';
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const links = [
+  ...pillars.map((p) => ({ href: `/${p.id}`, label: p.label })),
+  { href: '/how-we-engage', label: 'How We Engage' },
+  { href: '/news', label: 'News' },
+  { href: '/careers', label: 'Careers' },
+];
+---
+<header class="site-header">
+  <div class="wrap bar">
+    <a href="/" class="brand" aria-label="Technical Source home"><Logo /></a>
+    <nav aria-label="Main" class="nav-desktop">
+      <ul>
+        {links.map((l) => (
+          <li><a href={l.href} aria-current={path.startsWith(l.href) ? 'page' : undefined}>{l.label}</a></li>
+        ))}
+        <li><a class="btn btn--primary" href="/contact">Talk to us</a></li>
+      </ul>
+    </nav>
+    <details class="menu">
+      <summary><span class="visually-hidden">Menu</span><span class="burger" aria-hidden="true"></span></summary>
+      <nav aria-label="Main (mobile)">
+        <ul>
+          {links.map((l) => (
+            <li><a href={l.href} aria-current={path.startsWith(l.href) ? 'page' : undefined}>{l.label}</a></li>
+          ))}
+          <li><a class="btn btn--primary" href="/contact">Talk to us</a></li>
+        </ul>
+      </nav>
+    </details>
+  </div>
+</header>
+
+<style>
+  .site-header {
+    position: sticky; top: 0; z-index: 50;
+    background: rgb(255 255 255 / 92%); backdrop-filter: saturate(1.4) blur(10px);
+    border-bottom: 1px solid var(--line);
+  }
+  .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 4.75rem; }
+  .brand { text-decoration: none; }
+  ul { list-style: none; margin: 0; padding: 0; display: flex; align-items: center; gap: 0.25rem; }
+  li a:not(.btn) {
+    display: block; padding: 0.5rem 0.7rem; border-radius: 8px;
+    color: var(--ink); text-decoration: none; font-size: 0.92rem; font-weight: 600; white-space: nowrap;
+  }
+  li a:not(.btn):hover { background: var(--mist); }
+  li a[aria-current='page'] { color: var(--blue); }
+  .btn { white-space: nowrap; margin-left: 0.5rem; padding: 0.6rem 1.1rem; font-size: 0.92rem; }
+  .menu { display: none; }
+  @media (max-width: 1240px) {
+    .nav-desktop { display: none; }
+    .menu { display: block; }
+    summary {
+      display: grid; place-items: center; width: 2.75rem; height: 2.75rem;
+      border-radius: 10px; cursor: pointer; list-style: none;
+    }
+    summary::-webkit-details-marker { display: none; }
+    .burger, .burger::before, .burger::after {
+      display: block; width: 1.35rem; height: 2px; background: var(--ink); content: '';
+    }
+    .burger { position: relative; }
+    .burger::before { position: absolute; top: -7px; }
+    .burger::after { position: absolute; top: 7px; }
+    .menu nav {
+      position: absolute; left: 0; right: 0; top: 100%;
+      background: #fff; border-bottom: 1px solid var(--line);
+      padding: 0.5rem var(--gutter) 1.25rem; box-shadow: var(--shadow);
+    }
+    .menu ul { flex-direction: column; align-items: stretch; gap: 0; }
+    .menu li a:not(.btn) { padding: 0.85rem 0.25rem; border-bottom: 1px solid var(--line); border-radius: 0; font-size: 1rem; }
+    .menu .btn { margin: 1rem 0 0; justify-content: center; }
+  }
+</style>

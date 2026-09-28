@@ -1,0 +1,55 @@
+---
+import Base from '../layouts/Base.astro';
+import { pillars } from '../data/pillars';
+---
+<Base title="Careers" description="Join Technical Source. Hired, not submitted: we invest in our consultants and connect them to work worth doing.">
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Careers</p>
+      <h1>Hired, not submitted.</h1>
+      <p class="lede">At Technical Source, you join a team that knows your craft, invests in your growth, and connects you to work worth doing.</p>
+      <div class="btn-row"><a class="btn btn--light" href="#jobs">See open roles <span aria-hidden="true">↓</span></a><a class="btn btn--outline-light" href="#network">Join the talent network</a></div>
+    </div>
+  </section>
+  <section class="section" id="jobs">
+    <div class="wrap">
+      <div class="section-head">
+        <p class="eyebrow">Open roles by program</p>
+        <h2>Find work in your field.</h2>
+        <p>Open roles will load here from Crelate, grouped by program type.</p>
+      </div>
+      <div class="grid grid--3">
+        {pillars.map((p) => (
+          <div class="card jobs" data-pillar={p.id} style={`--c:${p.accent}`}>
+            <span class="mark" aria-hidden="true"></span>
+            <h3>{p.label}</h3>
+            <p>{p.roles.slice(0, 4).join(' · ')}</p>
+            <span class="chip chip--sample">Crelate jobs feed: to be connected</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+  <section class="section section--mist" id="network">
+    <div class="wrap narrow">
+      <p class="eyebrow">Talent network</p>
+      <h2>Not looking today? Stay in the loop.</h2>
+      <p>Specialists in our network hear about programs before roles are posted.</p>
+      <form class="form" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
+        <label>Name<input name="name" autocomplete="name" required /></label>
+        <label>Email<input name="email" type="email" autocomplete="email" required /></label>
+        <label>Program area
+          <select name="pillar">{pillars.map((p) => <option value={p.id}>{p.label}</option>)}</select>
+        </label>
+        <label>Your specialty<input name="specialty" placeholder="e.g. CQV Engineer, Commissioning Agent" /></label>
+        <button class="btn btn--primary" type="submit">Join the network</button>
+        <p class="note" hidden>Prototype only: nothing was sent. At launch, this creates a candidate in Crelate tagged by program and specialty.</p>
+      </form>
+    </div>
+  </section>
+</Base>
+<style>
+  .jobs .mark { width: 2rem; height: 1.75rem; margin-bottom: 1rem; background: var(--c); clip-path: polygon(12.4% 0, 100% 50%, 12.4% 100%, 0 82.5%, 57% 50%, 0 17.5%); }
+  .jobs p { margin-bottom: 1rem; }
+  .narrow { max-width: 42rem; }
+</style>

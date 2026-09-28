@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 327.1 284.68" role="img" aria-label="Technical Source">
+<defs>
+  <linearGradient id="tsb" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#0D71BA"/><stop offset="1" stop-color="#00BAB4"/></linearGradient>
+  <linearGradient id="tsf" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#00BAB4"/><stop offset="1" stop-color="#C0D961"/></linearGradient>
+</defs>
+<path transform="matrix(.1,0,0,-.1,0,284.68)" fill="url(#tsf)" d="M999.367 1421.54 403.996 2846.84 0 2346.9Z"/>
+<path transform="matrix(.1,0,0,-.1,0,284.68)" fill="url(#tsf)" d="M0 496.172 999.367 1421.54 403.996 0Z"/>
+<path transform="matrix(.1,0,0,-.1,0,284.68)" fill="url(#tsb)" d="M3270.72 1421.54 403.996 2846.84 0 2346.9 1868.99 1421.54 0 496.172 403.996 0Z"/>
+</svg>

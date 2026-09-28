@@ -1,0 +1,39 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import { storyPillarLabel, pillarById, type PillarId } from '../data/pillars';
+interface Props { story: CollectionEntry<'stories'>; order?: number }
+const { story, order = 0 } = Astro.props;
+const { title, summary, pillar, type, date, sample } = story.data;
+const accent = pillar === 'company' ? 'var(--ink)' : pillarById[pillar as PillarId].accent;
+const typeLabel: Record<string, string> = {
+  'company-news': 'Company news', insight: 'Insight', 'case-study': 'Case study', spotlight: 'Spotlight', event: 'Event',
+};
+---
+<li class="story" data-pillar={pillar} data-order={order}>
+  <a href={`/news/${story.id}`}>
+    <div class="meta">
+      <span class="chip" style={`--c:${accent}`}><span class="chip__dot"></span>{storyPillarLabel[pillar]}</span>
+      <span class="type">{typeLabel[type]}</span>
+      {sample && <span class="chip chip--sample">Sample</span>}
+    </div>
+    <h3>{title}</h3>
+    <p>{summary}</p>
+    <time datetime={date.toISOString()}>{date.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' })}</time>
+  </a>
+</li>
+
+<style>
+  .story a {
+    display: flex; flex-direction: column; height: 100%; gap: 0.6rem;
+    padding: 1.5rem; border-radius: var(--radius); background: #fff;
+    border: 1px solid var(--line); color: var(--ink); text-decoration: none;
+    transition: border-color .15s, transform .15s;
+  }
+  .story a:hover { border-color: var(--blue); transform: translateY(-2px); }
+  .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
+  .type { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
+  h3 { font-size: 1.3rem; margin: 0.25rem 0 0; }
+  p { color: var(--muted); margin: 0; font-size: 0.98rem; }
+  time { margin-top: auto; padding-top: 0.5rem; font-size: 0.82rem; color: var(--muted); }
+  .story:global(.is-hidden) { display: none; }
+</style>

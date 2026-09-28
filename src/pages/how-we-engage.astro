@@ -1,0 +1,50 @@
+---
+import Base from '../layouts/Base.astro';
+import Cta from '../components/Cta.astro';
+import { engagementModels } from '../data/pillars';
+const details = [
+  ['Sourcing, screening and placement', 'Credentialing and compliance', 'Fast time-to-fill on defined roles', 'Specialists embedded in your team'],
+  ['Phase-based workforce planning', 'Utilization reporting and oversight', 'Structured onboarding playbooks', 'Knowledge capture at every transition'],
+  ['Validation programs and C&Q packages', 'Regulatory submission support', 'SOP and training program development', 'Fixed scope, milestone delivery'],
+];
+---
+<Base title="How We Engage" description="Staff augmentation, managed staffing and deliverable-based work: how Technical Source takes on more accountability for program outcomes.">
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">How we engage</p>
+      <h1>More accountability for the outcome, at every step.</h1>
+      <p class="lede">Most clients start with specialists. As trust builds, we take on the workforce, and then the deliverable.</p>
+    </div>
+  </section>
+  <section class="section">
+    <div class="wrap">
+      <ol class="models">
+        {engagementModels.map((m, i) => (
+          <li>
+            <div class="head">
+              <span class="step">{String(i + 1).padStart(2, '0')}</span>
+              <span class="chip">{m.status}</span>
+            </div>
+            <h2>{m.tier}</h2>
+            <p>{m.body}</p>
+            <ul class="chev-list">{details[i].map((d) => <li>{d}</li>)}</ul>
+          </li>
+        ))}
+      </ol>
+      <p class="arc"><span>Increasing accountability for outcomes</span></p>
+    </div>
+  </section>
+  <Cta title="Not sure which model fits your program?" body="Tell us what you’re delivering and when. We’ll recommend the right starting point." />
+</Base>
+<style>
+  .models { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 19rem), 1fr)); }
+  .models > li { border: 1px solid var(--line); border-radius: var(--radius); padding: 1.75rem; box-shadow: var(--shadow); }
+  .models > li:first-child { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .models > li:first-child p { color: #CFCFCF; }
+  .head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }
+  .step { font-family: var(--font-head); font-size: 2rem; line-height: 1; color: var(--light); }
+  h2 { font-size: 1.7rem; }
+  p { color: var(--muted); }
+  .arc { margin: 2rem 0 0; height: 0.5rem; border-radius: 999px; background: var(--spectrum); position: relative; }
+  .arc span { position: absolute; top: 1rem; right: 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+</style>
