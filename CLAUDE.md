@@ -72,6 +72,13 @@ dates, or revenue/margin statements.
   `npm run og-image` after editing `scripts/og-image.html`.
 
 ## Voice
+The strategy deck and other internal documents explain what we do; they are
+never a source of site wording. Write everything as we would speak to a
+customer. Don't expose internal thinking (e.g. "we add industries as needs grow",
+lane criteria, growth plans). Keep the homepage hero general: no list of
+industries there; industry detail lives in the Industries section and pages.
+Lead with the projects we help deliver; keep recruiting/talent language subtle.
+
 Plain, confident, specific (Candor). Show expertise instead of claiming it. No
 staffing clichés ("best-in-class", "top talent", "fill seats"). Credit consultants
 and clients.
