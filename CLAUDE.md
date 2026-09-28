@@ -108,6 +108,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   service and source. The API key goes in environment secrets, never in the repo.
 - Analytics (GA4 + LinkedIn Insight Tag) to be added at launch.
 
+## Hosting
+- Test copy: Vercel project connected to this repo, with the environment variable
+  `SITE_URL=https://teksourcetalent.com` so links point at the test domain.
+- Production: leave `SITE_URL` unset (defaults to https://technicalsource.com).
+
 ## Before launch
 - Remove the `noindex` meta tag in `src/layouts/Base.astro`.
 - Replace sample stories and photo placeholders.
