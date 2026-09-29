@@ -1,5 +1,5 @@
 // Dev helper: screenshots of the built site for visual review.
-// Run: npm run build && npx astro preview & ; NODE_PATH=$(npm root -g) node scripts/shots.cjs <outdir>
+// Run: npm run build && npm run serve & ; npm run shots <outdir>
 const { chromium } = require('playwright');
 const out = process.argv[2] || 'shots';
 const base = process.env.BASE || 'http://localhost:4321';

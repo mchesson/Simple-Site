@@ -17,33 +17,41 @@ const industries = await getIndustries();
         </ul>
         <p class="job">Looking for a job? <a href="/careers">Visit Careers</a></p>
       </div>
-      <form class="form card" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
-        <label>Name<input name="name" autocomplete="name" required /></label>
+      <form class="form" action="/api/contact" method="post" data-form>
+        <div class="pair">
+          <label>First name<input name="firstName" autocomplete="given-name" required /></label>
+          <label>Last name<input name="lastName" autocomplete="family-name" required /></label>
+        </div>
         <label>Work email<input name="email" type="email" autocomplete="email" required /></label>
         <label>Company<input name="company" autocomplete="organization" /></label>
         <label>Industry
           <select name="industry" id="industry-select">
-            {industries.map((i) => <option value={i.id}>{i.data.name}</option>)}
-            <option value="other">Other</option>
+            {industries.map((i) => <option value={i.data.name} data-id={i.id}>{i.data.name}</option>)}
+            <option value="Other">Other</option>
           </select>
         </label>
         <label>How can we help?
           <select name="service">
-            {services.map((s) => <option value={s.id}>{s.name}</option>)}
-            <option value="not-sure">Not sure yet</option>
+            {services.map((s) => <option value={s.name}>{s.name}</option>)}
+            <option value="Not sure yet">Not sure yet</option>
           </select>
         </label>
         <label>About your project<textarea name="message" rows="5" placeholder="Scope, timeline and the expertise you need"></textarea></label>
+        <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
+        <input type="hidden" name="page" value="/contact" />
         <button class="btn btn-primary" type="submit">Send</button>
-        <p class="note" hidden>Prototype only: nothing was sent. At launch this goes to Crelate.</p>
+        <p class="status" role="status" hidden></p>
       </form>
     </div>
   </section>
 </Base>
 <script>
+  import '../scripts/forms.ts';
+  // Preselect the visitor's industry (?industry=<id> or remembered).
   const sel = document.querySelector<HTMLSelectElement>('#industry-select');
   const p = new URLSearchParams(location.search).get('industry') || document.documentElement.dataset.visitorIndustry;
-  if (sel && p && Array.from(sel.options).some((o) => o.value === p)) sel.value = p;
+  const opt = sel && p ? Array.from(sel.options).find((o) => o.dataset.id === p) : undefined;
+  if (sel && opt) sel.value = opt.value;
 </script>
 <style>
   .split { display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; align-items: start; }

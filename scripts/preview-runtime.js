@@ -61,7 +61,21 @@
   function initSelect(q) {
     const sel = main.querySelector('#industry-select');
     const p = q.get('industry') || document.documentElement.dataset.visitorIndustry;
-    if (sel && p && Array.from(sel.options).some((o) => o.value === p)) sel.value = p;
+    const opt = sel && p ? Array.from(sel.options).find((o) => o.dataset.id === p || o.value === p) : null;
+    if (opt) sel.value = opt.value;
+  }
+
+  // Forms and the Crelate job list need the live site; explain that in the preview.
+  function initPreviewOnly() {
+    main.querySelectorAll('form[data-form]').forEach((form) => {
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const st = form.querySelector('.status');
+        if (st) { st.hidden = false; st.dataset.kind = 'ok'; st.textContent = 'Preview only: forms send to Crelate on the live site.'; }
+      });
+    });
+    const count = main.querySelector('#job-count');
+    if (count) count.textContent = 'Open positions load from Crelate on the live site.';
   }
 
   function parse() {
@@ -96,6 +110,7 @@
     initFilters(r.q);
     initCopy();
     initSelect(r.q);
+    initPreviewOnly();
     const target = r.anchor && document.getElementById(r.anchor);
     if (target) target.scrollIntoView(); else window.scrollTo(0, 0);
   }
