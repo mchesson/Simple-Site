@@ -76,8 +76,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   lives in the Industries row and pages.
 - Lead with the projects we help deliver; keep recruiting and talent language
   subtle (careers are reachable, never the headline).
-- Don't commit to things we don't do today (e.g. owning turnover or hand-off).
-  "How we work" steps must be true for every service.
+- Don't commit to things we don't do today (e.g. owning turnover packages or
+  outcomes). "How we work" steps must be true for every service; "Hand Off" says
+  we *help plan* the transition, nothing more.
 - Plain, confident, specific. No staffing clichés ("best-in-class", "top talent",
   "fill seats").
 - Tagline: **Connecting Talent. Delivering Excellence.** The old tagline "The Right

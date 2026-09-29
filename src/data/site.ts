@@ -35,6 +35,6 @@ export const services = [
 export const steps = [
   { title: 'Understand', body: 'We start with your project: the goals, the timeline and the standards the work has to meet.' },
   { title: 'Plan', body: 'Together we define what the project needs and how we can best support it.' },
-  { title: 'Deliver', body: 'We put the right expertise to work, quickly and to the standard your project requires.' },
-  { title: 'Stay Engaged', body: 'We stay in close contact throughout, so we can respond as the project evolves.' },
+  { title: 'Deliver', body: 'We put the right expertise to work and stay in close contact to keep the project on track.' },
+  { title: 'Hand Off', body: 'As the project winds down, we help plan a smooth transition so knowledge stays with your team and the work carries forward.' },
 ];
