@@ -11,6 +11,8 @@
 // contactId/candidateId). If Crelate rejects a field, the error is logged in
 // Vercel → Deployments → Functions/Logs; adjust the mapping here.
 
+import { cleanHtml, toLines } from './html';
+
 const base = () => (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
 export const isConfigured = () => Boolean(process.env.CRELATE_API_KEY);
 
@@ -73,9 +75,21 @@ export function isPublished(j: any): boolean {
   return Boolean(text(j?.PortalTitle));
 }
 
-const summarize = (html: string) => {
-  const t = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+// Short teaser for the job list: skips a repeated title and "Location: ... /
+// Type: ..." lines and short headings ("About the Role"), which the list
+// doesn't need.
+const summarize = (html: string, title: string) => {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const lines = toLines(html).filter((l) => norm(l) !== norm(title) && !norm(l).startsWith(norm(title) + ' ') && !/^[\w /&()-]{2,30}:\s*\S.{0,80}$/.test(l) && !/^[\w /&()-]{2,30}:$/.test(l) && !(l.length < 40 && !/[.!?]$/.test(l)));
+  const t = lines.join(' ').trim();
   return t.length > 220 ? t.slice(0, 217).replace(/\s+\S*$/, '') + '…' : t;
+};
+
+// Many postings repeat the job title as their first line; the page shows it already.
+const dropTitle = (html: string, title: string) => {
+  const m = html.match(/^<(p|h2|h3)>([\s\S]*?)<\/\1>/);
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  return m && norm(toLines(m[2]).join(' ')) === norm(title) ? html.slice(m[0].length).trim() : html;
 };
 
 export interface PublicJob {
@@ -85,7 +99,11 @@ export interface PublicJob {
   state: string;
   zip: string;
   summary: string;
+  /** Full posting, cleaned to plain tags (see src/html.ts). */
+  description: string;
   slug: string;
+  /** Crelate job number: used only to build the job's portal link. */
+  num: string;
   postedOn: string;
 }
 
@@ -93,12 +111,14 @@ export interface PublicJob {
 export function toPublicJob(j: any): PublicJob {
   return {
     id: text(j.Id),
-    title: text(j.PortalTitle),
+    title: toLines(text(j.PortalTitle)).join(' '),
     city: text(j.PortalCity),
     state: text(j.PortalState),
     zip: text(j.PortalZip).slice(0, 5),
-    summary: summarize(text(j.PortalDescription)),
+    summary: summarize(text(j.PortalDescription), toLines(text(j.PortalTitle)).join(' ')),
+    description: dropTitle(cleanHtml(text(j.PortalDescription)), toLines(text(j.PortalTitle)).join(' ')),
     slug: text(j.PortalUrlSlug),
+    num: text(j.JobNum),
     postedOn: text(j.PortalLastPostedOn),
   };
 }

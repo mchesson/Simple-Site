@@ -20,7 +20,8 @@ and consistent with this file.
 | `/services` | `src/pages/services.astro` | The three services, from `services` in `src/data/site.ts` |
 | `/industries`, `/industries/<id>` | `src/pages/industries/` | Generated from `src/content/industries/` |
 | `/insights`, `/insights/<id>` | `src/pages/insights/` | Stories, filterable by industry; RSS feeds |
-| `/careers` | `src/pages/careers.astro` | Kept low-key; open jobs listed in site style, applying via the Crelate job portal; "Stay in Touch" signup to Crelate |
+| `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" links to the portal's resume submission |
+| `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate; "Apply Now" goes to the job on the portal |
 | `/contact` | `src/pages/contact.astro` | Form sends to Crelate |
 
 Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
@@ -122,40 +123,54 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 ## Crelate (ATS + CRM)
 - **Jobs:** postings and applications live in Crelate's hosted job portal,
   `site.jobsPortal` in `src/data/site.ts`
-  (https://jobs.crelate.com/portal/technicalsource). The Careers page lists
-  open jobs in the site's own style from `/api/jobs`, with keyword search and
-  ZIP code / "City, ST" radius search (distance from the bundled `zipcodes`
-  database, `src/geo.ts`). "View and Apply" goes to the portal (to the job's own
-  posting once `site.jobsPortalJobPath` is confirmed from a real portal link).
+  (https://jobs.crelate.com/portal/technicalsource). Visitors browse jobs on
+  our site and only leave for the portal to apply:
+  - Careers (`#jobs`) lists open jobs from `/api/jobs`, with keyword search and
+    ZIP code / "City, ST" radius search (`zipcodes` database, `src/geo.ts`).
+  - "View and Apply" opens the job's page on our site, `/careers/jobs/<title>-<id>`
+    (full posting, JobPosting structured data). Its "Apply Now" goes to the job's
+    own portal posting via `site.jobsPortalJobUrl` (pattern with `{id}`, `{slug}`
+    or `{num}`); while that's empty it goes to the portal's job list.
+  - Every jobs/careers button on the site points at `/careers#jobs` (industry
+    pages add `?industry=<id>`). Don't link to the portal anywhere else.
+  - "Not Looking Right Now?" links to the portal's "Submit your resume" page,
+    `site.resumeSubmitUrl` (portal home while empty), so general resumes land
+    in Crelate the same way as on the portal.
+  - Descriptions are Crelate rich text: `src/html.ts` decodes entities and
+    rebuilds them with plain tags only (no attributes, links, scripts or
+    styles). List teasers skip the repeated title, "Label: value" lines and
+    short headings.
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
   `PortalState`, `PortalZip`, `PortalUrlSlug`, `PortalLastPostedOn`. Never use
   `Name`, `Description`, `PortalCompanyName`, contacts, owner/recruiter IDs or
   rates: they contain client and recruiter names. `isPublished` keeps only jobs
   with `OnPortal` true, not hidden, on hold or closed, not private, and with a
-  portal title. The endpoint returns only title, location, summary, url,
-  distance and remote.
+  portal title. `/api/jobs` returns only title, location, summary, url,
+  distance and remote; job pages add the cleaned description. `JobNum` is used
+  only inside the portal link. Shared job code lives in `src/jobs.ts`.
 - **Safety switch:** the list is off unless `JOBS_LIST_ENABLED=true` is set in
   Vercel. Without it (or without jobs), Careers shows a "View Open Positions"
   button to the portal. Diagnostics with no job text: `/api/jobs?check=1`
-  (field names), `/api/jobs?check=2` (counts and status-field values).
+  (field names), `/api/jobs?check=2` (counts and status-field values),
+  `?check=3` (published titles and status fields), `?check=4` (links on the
+  public portal page, to find the job and resume-submission URL patterns).
 - `/api/jobs` pages through every Crelate job (100 per request, 5 at a time,
   up to 10,000; Vercel `maxDuration: 60`), cached 10 minutes per instance.
   `PortalVisibility` is numeric (0/1); which value means public is still to be
   confirmed against the portal before `JOBS_LIST_ENABLED` is turned on.
-- **Forms** talk to Crelate through `src/pages/api/contact.ts` and `talent.ts`,
-  using the helper in `src/crelate.ts`. Pages stay static; only the endpoints
-  run on Vercel.
+- **Forms:** the contact form talks to Crelate through `src/pages/api/contact.ts`,
+  using the helper in `src/crelate.ts`. Pages are static except the job
+  pages; endpoints and job pages run on Vercel.
 - **API key:** Vercel → Settings → Environment Variables → `CRELATE_API_KEY`.
   Never in the repo or chat. Optional `CRELATE_API_BASE` (default
   `https://app.crelate.com/api3`). Redeploy after changing variables. A
   dedicated Crelate "website" user's key is preferred over a personal key.
 - Contact form → Crelate **contact** + **note** (industry, service, page, message).
-  Careers "Stay in Touch" → Crelate **candidate** + **note**.
 - Form request bodies were built from Crelate's API3 conventions without
   access to the live API, so check the Vercel function logs after the first
   real submissions and adjust if needed.
-- Without the key, the forms tell visitors to email `site.email`.
+- Without the key, the contact form tells visitors to email `site.email`.
 - Spam: hidden honeypot field; Astro's origin check blocks cross-site posts.
 
 ## Analytics

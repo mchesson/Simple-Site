@@ -6,41 +6,36 @@
 //   ?check=1  field names of the first job
 //   ?check=2  counts and the distinct values of a few status fields
 //   ?check=3  published jobs: public title + non-identifying status fields
+//   ?check=4  links found on the public job portal page (to learn its job
+//             and resume-submission link patterns)
 import type { APIRoute } from 'astro';
-import { crelate, isConfigured, listOf, isPublished, toPublicJob, CrelateError, type PublicJob } from '../../crelate';
+import { isConfigured, isPublished, toPublicJob, CrelateError } from '../../crelate';
+import { allJobs, publicJobs, jobPath, jobsEnabled } from '../../jobs';
 import { resolveLocation, jobPoint, miles, isRemote } from '../../geo';
 import { site } from '../../data/site';
 import { json } from './_shared';
 
 export const prerender = false;
 
-let cache: { at: number; raw: any[]; capped: boolean } | null = null;
-const PAGE = 100, MAX = 10000, PARALLEL = 5;
-/** Every job in Crelate (paged, a few pages at a time), cached for 10 minutes. */
-async function allJobs(): Promise<{ raw: any[]; capped: boolean }> {
-  if (cache && Date.now() - cache.at < 10 * 60 * 1000) return cache;
-  const raw: any[] = [];
-  let done = false;
-  for (let offset = 0; offset < MAX && !done; offset += PAGE * PARALLEL) {
-    const pages = await Promise.all(
-      Array.from({ length: PARALLEL }, (_, i) => crelate('jobs', { params: { limit: PAGE, offset: offset + i * PAGE } }).then(listOf)),
-    );
-    for (const page of pages) {
-      raw.push(...page);
-      if (page.length < PAGE) done = true;
-    }
-  }
-  cache = { at: Date.now(), raw, capped: !done };
-  return cache;
-}
-
-const jobUrl = (j: PublicJob) =>
-  site.jobsPortalJobPath && j.slug ? `${site.jobsPortal}${site.jobsPortalJobPath}${encodeURIComponent(j.slug)}` : site.jobsPortal;
-
 export const GET: APIRoute = async ({ url }) => {
   if (!isConfigured()) return json({ ok: false, error: 'not-configured', jobs: [] });
   try {
     const check = url.searchParams.get('check');
+    if (check === '4') {
+      // The public portal page, fetched from here because it's the only place
+      // that can reach it. Returns link addresses only.
+      const res = await fetch(site.jobsPortal, { headers: { Accept: 'text/html' } });
+      const html = await res.text();
+      const found = (re: RegExp) => [...new Set([...html.matchAll(re)].map((m) => m[1] ?? m[0]))].slice(0, 80);
+      return json({
+        ok: true,
+        status: res.status,
+        size: html.length,
+        links: found(/href=["']([^"']+)["']/gi),
+        crelateUrls: found(/https?:\/\/[^"'\s<>()]*crelate[^"'\s<>()]*/gi),
+        portalPaths: found(/\/portal\/technicalsource\/[^"'\s<>()]*/gi),
+      });
+    }
     if (check) {
       const { raw, capped } = await allJobs();
       if (check === '1') return json({ ok: true, count: raw.length, fields: raw[0] ? Object.keys(raw[0]).sort() : [] });
@@ -79,7 +74,7 @@ export const GET: APIRoute = async ({ url }) => {
       });
     }
 
-    if (process.env.JOBS_LIST_ENABLED !== 'true') return json({ ok: true, jobs: [], disabled: true });
+    if (!jobsEnabled()) return json({ ok: true, jobs: [], disabled: true });
 
     const q = (url.searchParams.get('q') ?? '').toLowerCase().split(/\s+/).filter(Boolean);
     const locInput = url.searchParams.get('loc') ?? '';
@@ -87,11 +82,11 @@ export const GET: APIRoute = async ({ url }) => {
     const origin = locInput ? resolveLocation(locInput) : null;
     if (locInput && !origin) return json({ ok: false, error: 'bad-location', jobs: [] });
 
-    let jobs = (await allJobs()).raw.filter(isPublished).map(toPublicJob).map((j) => {
+    let jobs = (await publicJobs()).map((j) => {
       const remote = isRemote(j.title, j.city);
       const pt = jobPoint(j.zip, j.city, j.state);
       const distance = origin && pt ? Math.round(miles(origin, pt)) : null;
-      return { ...j, remote, distance, url: jobUrl(j), location: remote ? 'Remote' : [j.city, j.state].filter(Boolean).join(', ') };
+      return { ...j, remote, distance, url: jobPath(j), location: remote ? 'Remote' : [j.city, j.state].filter(Boolean).join(', ') };
     });
     if (q.length) jobs = jobs.filter((j) => q.every((w) => `${j.title} ${j.summary}`.toLowerCase().includes(w)));
     if (origin) {

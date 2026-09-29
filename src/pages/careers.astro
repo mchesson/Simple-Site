@@ -1,9 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
-import { getIndustries } from '../lib';
 import { site } from '../data/site';
-const industries = await getIndustries();
 const reasons = [
   ['Work That Matters', 'Join projects that build new facilities, bring capacity online and put new technology to work.'],
   ['A Team That Knows Your Field', 'Work with people who understand your craft and the standards you work to.'],
@@ -46,15 +44,14 @@ const reasons = [
         <button class="btn btn-primary" type="submit">Search</button>
       </form>
       <p class="job-count" id="job-count" aria-live="polite">Loading open positions…</p>
-      <ul class="jobs" id="job-list" data-portal={site.jobsPortal}></ul>
+      <ul class="jobs" id="job-list"></ul>
       <p class="job-empty" id="job-empty" hidden>
-        No posted openings match your search. Try different words, or <a href="#network">share your details</a> and we’ll reach out when a project fits your experience.
+        No posted openings match your search. Try different words, or <a href="#network">send us your resume</a> and we’ll reach out when a project fits your experience.
       </p>
       <div class="job-portal" id="job-portal" hidden>
         <p>Browse our current openings and apply online.</p>
         <a class="btn btn-primary" href={site.jobsPortal} target="_blank" rel="noopener">View Open Positions →</a>
       </div>
-      <p class="job-all" id="job-all" hidden><a href={site.jobsPortal} target="_blank" rel="noopener">View All Open Positions →</a></p>
     </div>
   </section>
 
@@ -62,33 +59,12 @@ const reasons = [
     <div class="wrap narrow">
       <span class="eyebrow">Stay in Touch</span>
       <h2>Not Looking Right Now?</h2>
-      <p class="lede">Share your details and we’ll reach out when a project fits your experience.</p>
-      <form class="form" action="/api/talent" method="post" data-form data-success="Thank you. We’ll reach out when a project fits your experience.">
-        <div class="pair">
-          <label>First name<input name="firstName" autocomplete="given-name" required /></label>
-          <label>Last name<input name="lastName" autocomplete="family-name" required /></label>
-        </div>
-        <label>Email<input name="email" type="email" autocomplete="email" required /></label>
-        <label>Industry
-          <select name="industry" id="industry-select">{industries.map((i) => <option value={i.data.name} data-id={i.id}>{i.data.name}</option>)}</select>
-        </label>
-        <label>Your specialty<input name="specialty" placeholder="e.g. Validation Engineer, Commissioning Agent" /></label>
-        <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
-        <button class="btn btn-primary" type="submit">Submit</button>
-        <p class="status" role="status" hidden></p>
-      </form>
+      <p class="lede">Send us your resume and we’ll reach out when a project fits your experience.</p>
+      <a class="btn btn-primary" href={site.resumeSubmitUrl || site.jobsPortal} target="_blank" rel="noopener">Submit Your Resume</a>
     </div>
   </section>
 </Base>
 <script>
-  import '../scripts/forms.ts';
-
-  // Preselect the visitor's industry in the signup form.
-  const sel = document.querySelector<HTMLSelectElement>('#industry-select');
-  const p = new URLSearchParams(location.search).get('industry') || document.documentElement.dataset.visitorIndustry;
-  const opt = sel && p ? Array.from(sel.options).find((o) => o.dataset.id === p) : undefined;
-  if (sel && opt) sel.value = opt.value;
-
   // Open positions from Crelate (/api/jobs): public portal postings only,
   // searched on the server by keyword and distance from a ZIP code or city.
   type Job = { title: string; location: string; summary: string; url: string; distance: number | null; remote: boolean };
@@ -97,14 +73,13 @@ const reasons = [
   const empty = document.getElementById('job-empty')!;
   const form = document.getElementById('job-search') as HTMLFormElement;
   const portalBox = document.getElementById('job-portal')!;
-  const allLink = document.getElementById('job-all')!;
 
   const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
   const meta = (j: Job) => [j.location, j.distance !== null && !j.remote ? `${j.distance} mi away` : ''].filter(Boolean).join(' · ');
 
   function show(jobs: Job[], note: string) {
     list.innerHTML = jobs
-      .map((j) => `<li><a href="${esc(j.url)}" target="_blank" rel="noopener">
+      .map((j) => `<li><a href="${esc(j.url)}">
           <h3>${esc(j.title)}</h3>
           ${meta(j) ? `<p class="meta">${esc(meta(j))}</p>` : ''}
           ${j.summary ? `<p>${esc(j.summary)}</p>` : ''}
@@ -132,7 +107,6 @@ const reasons = [
       const out = await (await fetch(`/api/jobs?${params}`)).json();
       const jobs: Job[] = Array.isArray(out.jobs) ? out.jobs : [];
       if (first && !jobs.length) return fallback();
-      allLink.hidden = false;
       if (out.error === 'bad-location') return show([], 'We couldn’t find that location. Try a 5-digit ZIP code or “City, ST”.');
       const r = params.get('radius');
       const where = out.origin ? (r === '0' ? ` near ${out.origin}` : ` within ${r} miles of ${out.origin}`) : '';
@@ -163,11 +137,8 @@ const reasons = [
   .job-empty { color: var(--muted); max-width: 44rem; margin-top: 1rem; }
   .job-portal { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 1rem 2rem; margin-top: .5rem; }
   .job-portal p { margin: 0; font-size: 1.15rem; color: var(--muted); }
-  .job-all { margin: 1.5rem 0 0; font-weight: 600; }
-  .job-all a { text-decoration: none; }
-  .job-all a:hover { text-decoration: underline; }
   .search[hidden], .job-portal[hidden] { display: none; }
   .jobs:empty { border-top: 0; }
   .narrow { max-width: 42rem; }
-  .form { margin-top: 1.5rem; }
+  #network .btn { margin-top: .5rem; }
 </style>
