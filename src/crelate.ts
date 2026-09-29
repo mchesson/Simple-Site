@@ -120,6 +120,26 @@ export interface PublicJob {
 }
 
 /** Map a Crelate job to its public portal posting (allowlisted fields only). */
+// A length of time ("12 month", "6-9 months", "2+ years", "long-term") or an extension.
+const DURATION_WORDS = /\b\d+\s*(?:[-–to]+\s*\d+\s*)?\+?\s*-?\s*(?:months?|mos?|weeks?|wks?|years?|yrs?|days?)\b|\b(?:long|short)[- ]term\b|\bextension\b/i;
+// Job types in the words recruiters use, as the site shows them.
+const JOB_TYPES: [RegExp, string][] = [
+  [/contract[- ]to[- ]hire|temp[- ]to[- ]perm|contract[- ]to[- ]perm/i, 'Contract to Hire'],
+  [/direct[- ]hire/i, 'Direct Hire'],
+  [/\bpermanent\b|\bperm\b/i, 'Permanent'],
+  [/\bcontract(or)?\b/i, 'Contract'],
+  [/\btemp(orary)?\b/i, 'Temporary'],
+  [/full[- ]time/i, 'Full-Time'],
+  [/part[- ]time/i, 'Part-Time'],
+];
+/** "12 Month Contract with potential extension" → "Contract". */
+function jobTypeOf(s: string): string {
+  const found: string[] = [];
+  let rest = s;
+  for (const [re, name] of JOB_TYPES) if (re.test(rest)) { found.push(name); rest = rest.replace(re, ' '); }
+  return found.join(' · ');
+}
+
 export function toPublicJob(j: any): PublicJob {
   const title = toLines(text(j.PortalTitle)).join(' ');
   const { facts: fromText, html: description, summary, subtitle } = structurePosting(text(j.PortalDescription), title);
@@ -134,6 +154,13 @@ export function toPublicJob(j: any): PublicJob {
   const facts = ['Location', 'Job Type', 'Duration'].map(
     (label) => fromText.find((f) => f.label === label) ?? { label, value: fallback[label] || '' },
   );
+  // "Job Type: 12 Month Contract with potential extension" holds a duration:
+  // Job Type shows the type ("Contract"), Duration the whole phrase.
+  const [, typeFact, durationFact] = facts;
+  if (DURATION_WORDS.test(typeFact.value)) {
+    if (!durationFact.value) durationFact.value = typeFact.value;
+    typeFact.value = jobTypeOf(typeFact.value) || jobTypeOf(jobTypes) || jobTypes;
+  }
   return {
     id: text(j.Id),
     title,
