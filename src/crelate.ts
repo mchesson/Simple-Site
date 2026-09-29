@@ -29,11 +29,17 @@ export async function crelate<T = unknown>(
 ): Promise<T> {
   const url = new URL(`${base()}/${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
+  // Crelate's API docs name the X-Api-Key header; the api_key query parameter
+  // (used since the start, and working for jobs) is kept alongside it.
   url.searchParams.set('api_key', process.env.CRELATE_API_KEY ?? '');
   const res = await fetch(url, {
     method,
     // FormData (file uploads) sets its own multipart Content-Type.
-    headers: { Accept: 'application/json', ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}) },
+    headers: {
+      Accept: 'application/json',
+      'X-Api-Key': process.env.CRELATE_API_KEY ?? '',
+      ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}),
+    },
     body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
@@ -47,6 +53,8 @@ export async function crelate<T = unknown>(
 
 /** Pull a record ID out of Crelate's response, whatever its casing/wrapping. */
 export function idOf(r: any): string | undefined {
+  // Create calls answer { Data: "<new id>", Errors: [], Metadata: {...} }.
+  if (typeof r?.Data === 'string' && r.Data) return r.Data;
   return r?.Data?.Id ?? r?.data?.id ?? r?.Data?.id ?? r?.data?.Id ?? r?.Id ?? r?.id ?? (typeof r === 'string' ? r : undefined);
 }
 
@@ -115,60 +123,74 @@ export function toPublicJob(j: any): PublicJob {
 
 // ---------------------------------------------------------------------------
 // Writing to Crelate: the form endpoints use only these helpers, so the field
-// mapping lives in one place. Paths come from Crelate's API description
-// (/api/apply?check=1): create calls take the record as { entity: {...} },
-// candidates are contacts, files are "artifacts". Field names inside `entity`
-// follow Crelate's naming (as in its job records); confirm them with
-// /api/apply?check=2 and the Vercel function logs, and adjust here.
+// mapping lives in one place. Checked against Crelate's API description
+// (https://app.crelate.com/api3/docs/v3/crelate-openapi.json):
+//   - create calls send { entity: {...} } and answer { Data: "<new id>" }
+//   - candidates are contacts; RecordType is a bitmask: 1 Candidate, 2 Client Contact
+//   - email/phone fields are single { Value, IsPrimary } objects
+//   - lookups are { Id }; "any"-type lookups (a note's ParentId) add EntityName
+//   - resumes: POST /artifacts/primary?target_entity_name=&target_record_id=
+//     with the file (the primary Artifact Type is assigned automatically)
+//   - job pipeline: POST /jobs/{jobId}/contacts?contact_ids= with a stage
+//     (statusName or statusId) from the Recruiting workflow
 // ---------------------------------------------------------------------------
 
-const ref = (id: string, entityName: string) => ({ Id: id, EntityName: entityName });
+export const RECORD_TYPE = { candidate: 1, client: 2 } as const;
+const RECRUITING_WORKFLOW = 'F6EF012F-998D-4132-B38B-A17A00B2B958';
+/** Pipeline stage for website applicants. Empty = the first Recruiting stage. */
+export const APPLY_STAGE = '';
 
-// Contact "RecordType" values (Candidate / Client Contact), from
-// /api/apply?check=5. Left out of new records until confirmed.
-export const RECORD_TYPE: { candidate?: number; client?: number } = {};
-
-let sourceCache: { at: number; id: string | null } | null = null;
-/** Crelate contact source named like "Website" (e.g. "Company Website"), if one exists. */
-async function websiteSourceId(): Promise<string | null> {
-  if (sourceCache && Date.now() - sourceCache.at < 60 * 60 * 1000) return sourceCache.id;
-  const sources = await crelate('contactsources', { params: { limit: 200 } }).then(listOf, () => []);
-  const name = (s: any) => String(s?.Name ?? s?.Title ?? s?.Display ?? '');
-  const hit = sources.find((s) => /^(company )?web ?site$/i.test(name(s).trim())) ?? sources.find((s) => /web ?site|career/i.test(name(s)));
-  sourceCache = { at: Date.now(), id: hit?.Id ? String(hit.Id) : null };
-  return sourceCache.id;
-}
-
-/** The contact with this email, or create one (a client inquiry, or a
- *  candidate). Returns its Id. Reusing the existing record avoids duplicates
- *  when someone applies twice or is already in Crelate. */
-export async function createContact(p: { firstName: string; lastName: string; email: string; phone?: string; kind: 'candidate' | 'client' }): Promise<string> {
-  const existing = await crelate('contacts', { params: { emails: p.email, limit: 1 } }).then(listOf, () => []);
-  const found = existing[0]?.Id;
-  if (found) return String(found);
-  const sourceId = await websiteSourceId();
-  const recordType = RECORD_TYPE[p.kind];
-  const entity = (list: boolean) => {
-    // Email and phone fields are "collections"; Crelate may want one value or a list.
-    const one = (v: string) => (list ? [{ Value: v, IsPrimary: true }] : { Value: v, IsPrimary: true });
-    return {
-      FirstName: p.firstName,
-      LastName: p.lastName,
-      EmailAddresses_Personal: one(p.email),
-      ...(p.phone && { PhoneNumbers_Mobile: one(p.phone) }),
-      ...(recordType !== undefined && { RecordType: recordType }),
-      ...(sourceId && { ContactSourceId: { Id: sourceId } }),
-    };
+const hourly = <T>(load: () => Promise<T>) => {
+  let cache: { at: number; value: T } | null = null;
+  return async () => {
+    if (!cache || Date.now() - cache.at > 60 * 60 * 1000) cache = { at: Date.now(), value: await load() };
+    return cache.value;
   };
-  const create = (list: boolean) => crelate('contacts', { method: 'POST', body: { entity: entity(list) } });
-  const res = await create(false).catch((e) => {
-    if (e instanceof CrelateError && e.status === 400) {
-      console.warn('[crelate] contact create rejected single-value email/phone, retrying as lists:', e.detail);
-      return create(true);
+};
+
+/** Crelate contact source named like "Website" (e.g. "Company Website"), if one exists. */
+const websiteSourceId = hourly(async (): Promise<string | null> => {
+  const sources = await crelate('contactsources', { params: { limit: 200 } }).then(listOf, () => []);
+  const name = (s: any) => String(s?.Name ?? '').trim();
+  const hit = sources.find((s) => /^(company )?web ?site$/i.test(name(s))) ?? sources.find((s) => /web ?site|career/i.test(name(s)));
+  return hit?.Id ? String(hit.Id) : null;
+});
+
+/** Recruiting pipeline stages in order. */
+export const recruitingStages = hourly(async (): Promise<{ id: string; name: string; order: number }[]> => {
+  const all = await crelate('workflowstatuses', { params: { workflow_type_ids: RECRUITING_WORKFLOW, limit: 100 } }).then(listOf, () => []);
+  return all
+    .map((s: any) => ({ id: String(s?.Id ?? ''), name: String(s?.Name ?? ''), order: Number(s?.SortOrder ?? 0) }))
+    .filter((s) => s.id && s.name)
+    .sort((a, b) => a.order - b.order);
+});
+
+/** The contact with this email, or a new one (a client inquiry, or a
+ *  candidate). Returns its Id. Reusing the existing record avoids duplicates
+ *  when someone applies twice or is already in Crelate; an existing contact
+ *  who applies for a job is also marked as a candidate. */
+export async function createContact(p: { firstName: string; lastName: string; email: string; phone?: string; kind: 'candidate' | 'client' }): Promise<string> {
+  const bit = RECORD_TYPE[p.kind];
+  const existing = (await crelate('contacts', { params: { emails: p.email, limit: 1 } }).then(listOf, () => []))[0];
+  if (existing?.Id) {
+    const type = Number(existing.RecordType ?? 0);
+    if (!(type & bit)) {
+      await crelate(`contacts/${existing.Id}`, { method: 'PATCH', body: { entity: { RecordType: type | bit } } }).catch((e) =>
+        console.warn('[crelate] could not add record type to existing contact', e instanceof CrelateError ? `${e.status} ${e.detail}` : e),
+      );
     }
-    throw e;
-  });
-  const id = idOf(res);
+    return String(existing.Id);
+  }
+  const sourceId = await websiteSourceId().catch(() => null);
+  const entity = {
+    FirstName: p.firstName,
+    LastName: p.lastName,
+    RecordType: bit,
+    EmailAddresses_Personal: { Value: p.email, IsPrimary: true },
+    ...(p.phone && { PhoneNumbers_Mobile: { Value: p.phone, IsPrimary: true } }),
+    ...(sourceId && { ContactSourceId: { Id: sourceId } }),
+  };
+  const id = idOf(await crelate('contacts', { method: 'POST', body: { entity } }));
   if (!id) throw new Error('No contact Id in Crelate response');
   return id;
 }
@@ -177,22 +199,21 @@ export async function createContact(p: { firstName: string; lastName: string; em
 export async function addNote(contactId: string, body: string, jobId?: string): Promise<void> {
   await crelate('notes', {
     method: 'POST',
-    body: { entity: { Display: body, ParentId: ref(contactId, 'Contacts'), ...(jobId && { RegardingId: { Id: jobId } }) } },
+    body: { entity: { Display: body, ParentId: { Id: contactId, EntityName: 'Contacts' }, ...(jobId && { RegardingId: { Id: jobId } }) } },
   });
 }
-
-// Crelate file type "Resume" (from /api/apply?check=3).
-export const RESUME_ARTIFACT_TYPE_ID = '02f21b38-d26b-4971-ba80-6960aad0db08';
 
 /** Save a resume as the contact's primary document. */
 export async function uploadResume(contactId: string, file: Blob, name: string): Promise<void> {
   const form = new FormData();
-  form.append('entity', JSON.stringify({ FileName: name }));
   form.append('file', file, name);
   await crelate('artifacts/primary', { method: 'POST', params: { target_entity_name: 'Contacts', target_record_id: contactId }, body: form });
 }
 
-/** Add a contact to a job's pipeline. */
+/** Add a contact to a job's pipeline at the website-applicant stage. */
 export async function addToJob(jobId: string, contactId: string): Promise<void> {
-  await crelate(`jobs/${jobId}/contacts`, { method: 'POST', params: { contact_ids: contactId }, body: {} });
+  const stages = await recruitingStages();
+  const stage = (APPLY_STAGE && stages.find((s) => s.name.toLowerCase() === APPLY_STAGE.toLowerCase())) || stages[0];
+  const body = stage ? { statusId: stage.id } : { statusName: APPLY_STAGE || 'Applied' };
+  await crelate(`jobs/${jobId}/contacts`, { method: 'POST', params: { contact_ids: contactId }, body });
 }

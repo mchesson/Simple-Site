@@ -6,14 +6,10 @@
 // The visitor sees success if either one worked.
 //
 // Diagnostics (no candidate data):
-//   GET /api/apply?check=1  endpoints for contacts, notes, files and job
-//                           pipelines, from Crelate's public API description
-//   GET /api/apply?check=2  the record fields those create calls expect
-//   GET /api/apply?check=3  file types set up in Crelate (e.g. Resume)
-//   GET /api/apply?check=4&q=email  search the API description's fields
-//   GET /api/apply?check=5  contact field settings (RecordType values) and source names
+//   GET /api/apply?check=1  Crelate settings the forms use: pipeline stages,
+//                           contact sources, file types, note parent types
 import type { APIRoute } from 'astro';
-import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, CrelateError } from '../../crelate';
+import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, recruitingStages, APPLY_STAGE, CrelateError } from '../../crelate';
 import { publicJobs } from '../../jobs';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
@@ -98,104 +94,30 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const GET: APIRoute = async ({ url }) => {
   const check = url.searchParams.get('check');
-  if (!['1', '2', '3', '4', '5'].includes(check ?? '')) return json({ ok: false, error: 'unknown-check', got: check }, 404);
-  const base = (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
-  try {
-    if (check === '5') {
-      // Crelate's field settings for contacts (RecordType values, email/phone
-      // format) and the contact source names. Settings only, no contact data.
-      if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
-      const info: any = await crelate('contacts/info').catch((e) => ({ error: e instanceof CrelateError ? `${e.status} ${e.detail}` : String(e) }));
-      const want = /^(RecordType|ContactSourceId|EmailAddresses_Personal|PhoneNumbers_Mobile)$/;
-      const walk = (o: any, out: any[] = [], depth = 0): any[] => {
-        if (!o || typeof o !== 'object' || depth > 6) return out;
-        if (want.test(String(o.Name ?? o.name ?? o.FieldName ?? ''))) out.push(o);
-        for (const v of Object.values(o)) walk(v, out, depth + 1);
-        return out;
-      };
-      const sources = listOf(await crelate('contactsources', { params: { limit: 200 } }).catch(() => []));
-      return json({
-        ok: true,
-        fields: walk(info).slice(0, 10),
-        infoKeys: info && typeof info === 'object' ? Object.keys(info).slice(0, 20) : typeof info,
-        infoError: info?.error,
-        contactSources: sources.map((s: any) => ({ id: s?.Id, name: s?.Name ?? s?.Title ?? s?.Display })),
-      }, 200, { 'Cache-Control': 'no-store' });
-    }
-    if (check === '3') {
-      // File types set up in Crelate (e.g. "Resume"): names and Ids only.
-      if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
-      const types = listOf(await crelate('artifacttypes', { params: { limit: 100 } }));
-      return json({ ok: true, artifactTypes: types.map((x: any) => ({ id: x?.Id, name: x?.Name ?? x?.Title ?? x?.Display, entities: x?.AllowedEntityNames ?? null })) });
-    }
-    const res = await fetch(`${base}/docs/v3/crelate-openapi.json`);
-    const spec: any = await res.json();
-    const ref = (s: any): any => (s?.$ref ? s.$ref.split('/').slice(1).reduce((o: any, k: string) => o?.[k], spec) : s);
-    if (check === '4') {
-      // Search the API description: every schema property whose name matches
-      // ?q= (e.g. email, phone, recordtype), with its type or enum values and
-      // description, plus the raw shape of the contact record.
-      const q = new RegExp(url.searchParams.get('q') || 'email|phone|recordtype', 'i');
-      const schemas = spec.components?.schemas ?? {};
-      const hits: any[] = [];
-      for (const [name, s] of Object.entries<any>(schemas)) {
-        const parts = [s, ...(s.allOf ?? []), ...(s.oneOf ?? [])].map(ref);
-        for (const part of parts)
-          for (const [prop, v] of Object.entries<any>(part?.properties ?? {}))
-            if (q.test(prop)) {
-              const r = ref(v);
-              hits.push({ schema: name, prop, type: r?.type ?? v?.$ref?.split('/').pop(), enum: r?.enum ?? r?.['x-enumNames'] ?? undefined, about: String(r?.description ?? v?.description ?? '').slice(0, 200), fields: r?.properties ? Object.keys(r.properties) : undefined });
-            }
-        if (q.test(name) && s.enum) hits.push({ schema: name, enum: s.enum, names: s['x-enumNames'] ?? s['x-enum-varnames'], about: String(s.description ?? '').slice(0, 300) });
-      }
-      const contactEntity = ref(ref(spec.paths?.['/contacts']?.post?.requestBody?.content?.['application/json']?.schema)?.properties?.entity);
-      const shape = (s: any) => ({ keys: Object.keys(s ?? {}), allOf: (s?.allOf ?? []).map((x: any) => x.$ref ?? Object.keys(ref(x)?.properties ?? {})), additionalProperties: s?.additionalProperties ? (s.additionalProperties.$ref ?? typeof s.additionalProperties) : null });
-      return json({ ok: true, hits: hits.slice(0, 150), contactEntity: shape(contactEntity) });
-    }
-    if (check === '2') {
-      // The record fields each create call expects (from the public API description).
-      const describe = (s: any, depth = 0): any => {
-        const r = ref(s);
-        if (!r) return null;
-        if (r.items) return [describe(r.items, depth)];
-        if (r.enum) return { enum: r.enum.slice(0, 30) };
-        if (r.properties) {
-          if (depth > 1) return Object.keys(r.properties);
-          return Object.fromEntries(Object.entries(r.properties).map(([k, v]: [string, any]) => [k, describe(v, depth + 1)]));
-        }
-        return r.type ?? (r.allOf || r.oneOf || r.anyOf ? describe((r.allOf || r.oneOf || r.anyOf)[0], depth) : null);
-      };
-      const want: [string, string][] = [['/contacts', 'post'], ['/notes', 'post'], ['/artifacts/primary', 'post'], ['/artifacts', 'post'], ['/jobs/{jobId}/contacts', 'post'], ['/activities/withattachments', 'post']];
-      const out = want.map(([p, m]) => {
-        const op = spec.paths?.[p]?.[m];
-        return {
-          path: p,
-          params: (op?.parameters ?? []).map((x: any) => ref(x)).map((x: any) => ({ name: x?.name, in: x?.in, required: x?.required ?? false, type: describe(x?.schema, 2), about: String(x?.description ?? '').slice(0, 200) })),
-          body: Object.fromEntries(Object.entries(op?.requestBody?.content ?? {}).map(([ct, c]: [string, any]) => [ct, describe(c.schema)])),
-        };
-      });
-      return json({ ok: true, calls: out });
-    }
-    const fields = (s: any) => {
-      const r = ref(s?.items ? s.items : s);
-      return r?.properties ? Object.keys(r.properties) : r?.type ?? null;
-    };
-    const wanted = /attach|resume|artifact|document|file|upload|application|pipeline|(candidates|contacts)($|\/\{[^}]+\}$)|notes$|jobs\/\{[^}]+\}\/(contacts|candidates)/i;
-    const paths = Object.entries(spec.paths ?? {})
-      .filter(([p]) => wanted.test(p))
-      .map(([p, ops]: [string, any]) => ({
-        path: p,
-        ops: Object.entries(ops)
-          .filter(([m]) => ['get', 'post', 'put', 'patch'].includes(m))
-          .map(([m, op]: [string, any]) => ({
-            method: m.toUpperCase(),
-            summary: op.summary ?? '',
-            params: (op.parameters ?? []).map((x: any) => ref(x)?.name).filter(Boolean),
-            body: Object.fromEntries(Object.entries(op.requestBody?.content ?? {}).map(([t, c]: [string, any]) => [t, fields(c.schema)])),
-          })),
-      }));
-    return json({ ok: true, status: res.status, count: paths.length, paths });
-  } catch (e) {
-    return json({ ok: false, error: String(e) });
-  }
+  if (check !== '1') return json({ ok: false, error: 'unknown-check', got: check }, 404);
+  if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
+  // Crelate settings the forms rely on: pipeline stages, contact sources,
+  // file types, and the record types a note can belong to. No contact data.
+  const safe = <T>(p: Promise<T>) => p.catch((e) => ({ error: e instanceof CrelateError ? `${e.status} ${e.detail}` : String(e) }));
+  const [stages, sources, types, activityInfo] = await Promise.all([
+    safe(recruitingStages()),
+    safe(crelate('contactsources', { params: { limit: 200 } }).then(listOf)),
+    safe(crelate('artifacttypes', { params: { limit: 100 } }).then(listOf)),
+    safe(crelate('activities/info')),
+  ]);
+  const find = (o: any, name: string, depth = 0): any => {
+    if (!o || typeof o !== 'object' || depth > 8) return null;
+    if (o.Name === name || o.FieldName === name) return o;
+    for (const v of Object.values(o)) { const hit = find(v, name, depth + 1); if (hit) return hit; }
+    return null;
+  };
+  const names = (list: any) => (Array.isArray(list) ? list.map((x: any) => ({ id: x?.Id, name: x?.Name })) : list);
+  return json({
+    ok: true,
+    stageUsed: APPLY_STAGE || (Array.isArray(stages) ? stages[0]?.name : null),
+    recruitingStages: stages,
+    contactSources: names(sources),
+    fileTypes: names(types),
+    noteParent: find(activityInfo, 'ParentId'),
+  }, 200, { 'Cache-Control': 'no-store' });
 };
