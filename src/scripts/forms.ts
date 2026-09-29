@@ -21,21 +21,26 @@ document.querySelectorAll<HTMLFormElement>('form[data-form]').forEach((form) => 
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
+    // Resumes are sent to a Vercel function, which accepts up to about 4.5 MB.
+    const file = form.querySelector<HTMLInputElement>('input[type="file"]')?.files?.[0];
+    if (file && file.size > 4 * 1024 * 1024) return show(form, 'error', 'Please choose a resume under 4 MB (PDF or Word).');
     const button = form.querySelector<HTMLButtonElement>('button[type="submit"]');
     const label = button?.textContent;
     if (button) { button.disabled = true; button.textContent = 'Sending…'; }
     try {
+      // Forms with a file (resume) go as multipart; the rest as JSON.
+      const multipart = form.enctype === 'multipart/form-data';
       const res = await fetch(form.action, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(Object.fromEntries(new FormData(form))),
+        headers: multipart ? { Accept: 'application/json' } : { 'Content-Type': 'application/json' },
+        body: multipart ? new FormData(form) : JSON.stringify(Object.fromEntries(new FormData(form))),
       });
       const out = await res.json().catch(() => ({}));
       if (out.ok) {
         form.reset();
         show(form, 'ok', form.dataset.success ?? messages.sent);
       } else {
-        show(form, 'error', out.error === 'not-configured' ? messages['not-configured'] : out.error && res.status === 400 ? out.error : messages.error);
+        show(form, 'error', out.error === 'not-configured' ? messages['not-configured'] : out.error && (res.status === 400 || res.status === 413) ? out.error : messages.error);
       }
     } catch {
       show(form, 'error', messages.error);

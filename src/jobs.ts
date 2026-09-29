@@ -3,7 +3,6 @@
 // Safety: nothing is shown unless JOBS_LIST_ENABLED=true in Vercel, and only
 // the allowlisted public portal fields ever leave this file (see toPublicJob).
 import { crelate, listOf, isPublished, toPublicJob, type PublicJob } from './crelate';
-import { site } from './data/site';
 
 export const jobsEnabled = () => process.env.JOBS_LIST_ENABLED === 'true';
 
@@ -41,14 +40,4 @@ export const jobPath = (j: PublicJob) => `/careers/jobs/${slugify(j.title) || 'j
 export async function findJob(param: string): Promise<PublicJob | undefined> {
   const jobs = await publicJobs();
   return jobs.find((j) => j.id && param.toLowerCase().endsWith(j.id.toLowerCase()));
-}
-
-/** Where "Apply" goes: the job's own posting on the Crelate portal, once
- *  site.jobsPortalJobUrl is set; until then the portal's job list. */
-export function applyUrl(j: PublicJob): string {
-  const tpl = site.jobsPortalJobUrl;
-  const vals: Record<string, string> = { id: j.id, slug: j.slug, num: j.num };
-  const missing = tpl.match(/\{(\w+)\}/g)?.some((k) => !vals[k.slice(1, -1)]);
-  if (!tpl || missing) return site.jobsPortal;
-  return tpl.replace(/\{(\w+)\}/g, (_, k) => encodeURIComponent(vals[k]));
 }

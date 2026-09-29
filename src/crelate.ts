@@ -11,7 +11,7 @@
 // contactId/candidateId). If Crelate rejects a field, the error is logged in
 // Vercel → Deployments → Functions/Logs; adjust the mapping here.
 
-import { cleanHtml, toLines } from './html';
+import { cleanHtml, toLines, tidyPosting, splitFacts } from './html';
 
 const base = () => (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
 export const isConfigured = () => Boolean(process.env.CRELATE_API_KEY);
@@ -31,8 +31,9 @@ export async function crelate<T = unknown>(
   url.searchParams.set('api_key', process.env.CRELATE_API_KEY ?? '');
   const res = await fetch(url, {
     method,
-    headers: { Accept: 'application/json', ...(body ? { 'Content-Type': 'application/json' } : {}) },
-    body: body ? JSON.stringify(body) : undefined,
+    // FormData (file uploads) sets its own multipart Content-Type.
+    headers: { Accept: 'application/json', ...(body && !(body instanceof FormData) ? { 'Content-Type': 'application/json' } : {}) },
+    body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
   if (!res.ok) throw new CrelateError(res.status, text.slice(0, 500));
@@ -99,26 +100,28 @@ export interface PublicJob {
   state: string;
   zip: string;
   summary: string;
-  /** Full posting, cleaned to plain tags (see src/html.ts). */
+  /** Full posting, cleaned to plain tags (see src/html.ts), without its facts. */
   description: string;
+  /** "Location", "Type", "Duration"... lines from the top of the posting. */
+  facts: { label: string; value: string }[];
   slug: string;
-  /** Crelate job number: used only to build the job's portal link. */
-  num: string;
   postedOn: string;
 }
 
 /** Map a Crelate job to its public portal posting (allowlisted fields only). */
 export function toPublicJob(j: any): PublicJob {
+  const title = toLines(text(j.PortalTitle)).join(' ');
+  const { facts, html: description } = splitFacts(tidyPosting(dropTitle(cleanHtml(text(j.PortalDescription)), title)));
   return {
     id: text(j.Id),
-    title: toLines(text(j.PortalTitle)).join(' '),
+    title,
     city: text(j.PortalCity),
     state: text(j.PortalState),
     zip: text(j.PortalZip).slice(0, 5),
-    summary: summarize(text(j.PortalDescription), toLines(text(j.PortalTitle)).join(' ')),
-    description: dropTitle(cleanHtml(text(j.PortalDescription)), toLines(text(j.PortalTitle)).join(' ')),
+    summary: summarize(text(j.PortalDescription), title),
+    description,
+    facts,
     slug: text(j.PortalUrlSlug),
-    num: text(j.JobNum),
     postedOn: text(j.PortalLastPostedOn),
   };
 }

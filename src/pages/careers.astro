@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
+import ApplyForm from '../components/ApplyForm.astro';
 import { site } from '../data/site';
 const reasons = [
   ['Work That Matters', 'Join projects that build new facilities, bring capacity online and put new technology to work.'],
@@ -60,7 +61,7 @@ const reasons = [
       <span class="eyebrow">Stay in Touch</span>
       <h2>Not Looking Right Now?</h2>
       <p class="lede">Send us your resume and we’ll reach out when a project fits your experience.</p>
-      <a class="btn btn-primary" href={site.resumeSubmitUrl || site.jobsPortal} target="_blank" rel="noopener">Submit Your Resume</a>
+      <ApplyForm button="Submit Your Resume" success="Thank you. We’ve received your resume and will reach out when a project fits your experience." />
     </div>
   </section>
 </Base>
@@ -140,5 +141,5 @@ const reasons = [
   .search[hidden], .job-portal[hidden] { display: none; }
   .jobs:empty { border-top: 0; }
   .narrow { max-width: 42rem; }
-  #network .btn { margin-top: .5rem; }
+  .narrow :global(.apply-form) { margin-top: 1.5rem; }
 </style>

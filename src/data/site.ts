@@ -7,16 +7,9 @@ export const site = {
   linkedin: 'https://www.linkedin.com/company/technical-source-llc',
   // TODO(confirm): general inbox shown in public listings. No phone numbers on the site.
   email: 'info@technicalsource.com',
-  // Crelate job portal: open positions and online applications live here.
+  // Crelate job portal. The site lists jobs and takes applications itself;
+  // this is only the fallback when the job list is switched off.
   jobsPortal: 'https://jobs.crelate.com/portal/technicalsource',
-  // A single job's posting on the portal, used by the "Apply" button on each
-  // job page. Placeholders: {id} (Crelate job Id), {slug} (PortalUrlSlug),
-  // {num} (JobNum). Copy the pattern from a real job link on the portal.
-  // Empty = the button opens the portal's job list.
-  jobsPortalJobUrl: '',
-  // The portal's "Submit your resume for consideration" page, used by the
-  // Careers "Not Looking Right Now?" section. Empty = the portal home.
-  resumeSubmitUrl: '',
 };
 
 export const services = [

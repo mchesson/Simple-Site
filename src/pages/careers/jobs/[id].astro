@@ -1,11 +1,12 @@
 ---
 // One open position, in the site's own style. Rendered on request (Vercel
-// function) from Crelate's public portal fields; "Apply" goes to the job's
-// posting on the Crelate portal, where applications are submitted.
+// function) from Crelate's public portal fields. Visitors apply right here:
+// the form posts to /api/apply, which files the application in Crelate.
 import Base from '../../../layouts/Base.astro';
 import Banner from '../../../components/Banner.astro';
+import ApplyForm from '../../../components/ApplyForm.astro';
 import { isConfigured } from '../../../crelate';
-import { findJob, applyUrl, jobPath, jobsEnabled } from '../../../jobs';
+import { findJob, jobPath, jobsEnabled } from '../../../jobs';
 import { isRemote } from '../../../geo';
 import { site } from '../../../data/site';
 
@@ -21,7 +22,6 @@ if (job) Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stal
 else Astro.response.status = 404;
 
 const location = job ? (isRemote(job.title, job.city) ? 'Remote' : [job.city, job.state].filter(Boolean).join(', ')) : '';
-const apply = job ? applyUrl(job) : site.jobsPortal;
 const posting = job && {
   '@context': 'https://schema.org',
   '@type': 'JobPosting',
@@ -30,6 +30,7 @@ const posting = job && {
   ...(job.postedOn && { datePosted: job.postedOn.slice(0, 10) }),
   hiringOrganization: { '@id': `${new URL('/', Astro.site)}#organization` },
   url: new URL(jobPath(job), Astro.site).toString(),
+  directApply: true,
   ...(location === 'Remote'
     ? { jobLocationType: 'TELECOMMUTE', applicantLocationRequirements: { '@type': 'Country', name: 'United States' } }
     : { jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: job.city, addressRegion: job.state, postalCode: job.zip, addressCountry: 'US' } } }),
@@ -41,18 +42,28 @@ const posting = job && {
       <h1>{job.title}</h1>
       {location && <p class="banner-sub">{location}</p>}
       <div class="row">
-        <a class="btn btn-green" href={apply} target="_blank" rel="noopener">Apply Now</a>
+        <a class="btn btn-green" href="#apply">Apply Now</a>
         <a class="btn btn-outline-light" href="/careers#jobs">All Open Positions</a>
       </div>
     </Banner>
 
     <section class="sec">
       <div class="wrap">
-        <div class="prose posting" set:html={job.description || `<p>${job.summary}</p>`} />
-        <div class="apply">
-          <a class="btn btn-primary" href={apply} target="_blank" rel="noopener">Apply Now</a>
-          <p>You’ll finish your application on our secure job portal.</p>
-        </div>
+        {job.facts.length > 0 && (
+          <dl class="facts" style={`--n:${Math.min(job.facts.length, 6)}`}>
+            {job.facts.map((f) => <div><dt>{f.label}</dt><dd>{f.value}</dd></div>)}
+          </dl>
+        )}
+        <div class="posting" set:html={job.description || `<p>${job.summary}</p>`} />
+      </div>
+    </section>
+
+    <section class="sec mist" id="apply">
+      <div class="wrap narrow">
+        <span class="eyebrow">Apply</span>
+        <h2>Apply for This Position</h2>
+        <p class="lede">Send us your details and resume. A member of our team will review your application and be in touch.</p>
+        <ApplyForm jobId={job.id} />
         <p class="back"><a href="/careers#jobs">← Back to All Open Positions</a></p>
       </div>
     </section>
@@ -68,12 +79,28 @@ const posting = job && {
 )}
 
 <style>
-  .posting { margin-inline: 0; }
-  .posting :global(h2) { font-size: 1.5rem; margin-top: 2rem; }
-  .posting :global(h3) { font-size: 1.2rem; margin-top: 1.5rem; }
+  /* Key facts (Location, Type, Duration...) as an open row, like How We Work. */
+  /* One row with a column per fact (no lone item on a second row); stacked on phones. */
+  .facts { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 1.5rem 2rem; margin: 0 0 3rem; }
+  @media (max-width: 860px) { .facts { grid-template-columns: 1fr; } }
+  .facts div { position: relative; padding-top: 1rem; }
+  .facts div::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--aqua), transparent); opacity: .6; }
+  .facts dt { font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--aqua-deep); margin-bottom: .35rem; }
+  .facts dd { margin: 0; font-size: 1.05rem; }
+
+  /* The posting: one heading style and even spacing, whatever Crelate sends. */
+  .posting { max-width: 44rem; font-size: 1.1rem; }
+  .posting :global(h3) { font-size: 1.35rem; margin: 2.25rem 0 .75rem; }
+  .posting :global(h3:first-child) { margin-top: 0; }
+  .posting :global(p) { margin: 0 0 1rem; }
+  .posting :global(ul), .posting :global(ol) { margin: 0 0 1rem; padding-left: 1.25rem; }
+  .posting :global(li) { margin-bottom: .45rem; }
+  .posting :global(li::marker) { color: var(--aqua-deep); }
+  .posting :global(li p) { margin: 0; }
   .posting :global(strong) { font-weight: 700; }
-  .apply { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); max-width: 42rem; }
-  .apply p { margin: 0; color: var(--muted); font-size: .95rem; }
+
+  .narrow { max-width: 44rem; }
+  .narrow :global(.apply-form) { margin-top: 1.5rem; }
   .back { margin-top: 2rem; font-weight: 600; }
   .back a { text-decoration: none; }
   .back a:hover { text-decoration: underline; }
