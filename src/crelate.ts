@@ -86,7 +86,8 @@ export function listOf(r: any): any[] {
 // Crelate's internal job fields (Name, Description, PortalCompanyName, contacts,
 // recruiter/owner IDs, rates...) can contain client and recruiter names and must
 // never reach the website. The allowlist below is the only way job data gets
-// out; add a field only if it's part of the public portal posting.
+// out; add a field only if it's part of the public portal posting. Job type
+// titles (JobTypeIds, e.g. "Contract") are also used: they name no one.
 // ---------------------------------------------------------------------------
 
 const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
@@ -121,7 +122,17 @@ export interface PublicJob {
 /** Map a Crelate job to its public portal posting (allowlisted fields only). */
 export function toPublicJob(j: any): PublicJob {
   const title = toLines(text(j.PortalTitle)).join(' ');
-  const { facts, html: description, summary, subtitle } = structurePosting(text(j.PortalDescription), title);
+  const { facts: fromText, html: description, summary, subtitle } = structurePosting(text(j.PortalDescription), title);
+  // Every job shows the same row: what the posting says, filled in from
+  // Crelate's own fields where it says nothing (location, job type).
+  const city = text(j.PortalCity), state = text(j.PortalState);
+  const remote = /\bremote\b/i.test(`${title} ${city}`);
+  const jobTypes = (Array.isArray(j.JobTypeIds) ? j.JobTypeIds : []).map((x: any) => text(x?.Title)).filter(Boolean).join(' · ');
+  const fallback: Record<string, string> = { Location: remote ? 'Remote' : [city, state].filter(Boolean).join(', '), 'Job Type': jobTypes };
+  // All three always show, so every job page looks the same.
+  const facts = ['Location', 'Job Type', 'Duration'].map(
+    (label) => fromText.find((f) => f.label === label) ?? { label, value: fallback[label] || 'To be confirmed' },
+  );
   return {
     id: text(j.Id),
     title,
