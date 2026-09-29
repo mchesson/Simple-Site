@@ -109,9 +109,14 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Analytics (GA4 + LinkedIn Insight Tag) to be added at launch.
 
 ## Hosting
-- Test copy: Vercel project connected to this repo, with the environment variable
-  `SITE_URL=https://teksourcetalent.com` so links point at the test domain.
-- Production: leave `SITE_URL` unset (defaults to https://technicalsource.com).
+- Vercel team **teksourcetalent**, project **simple-site**, connected to this
+  repo (separate from the team that hosts tsworkspace.com).
+- Live test site: https://simple-site-gules.vercel.app (built from `master`;
+  every other branch gets its own preview URL). Environment variable
+  `SITE_URL=https://simple-site-gules.vercel.app` so links point at it.
+- No custom domain for now. At launch, set `SITE_URL` to the real domain (or
+  remove it to default to https://technicalsource.com) and add the domain in
+  Vercel under Settings → Domains.
 
 ## Before launch
 - Remove the `noindex` meta tag in `src/layouts/Base.astro`.
