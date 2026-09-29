@@ -254,8 +254,32 @@ file to the user under a new file name each time (viewers cache by name). If you
 change a page script, mirror it in `scripts/preview-runtime.js`. Forms only
 work on the live site.
 
+## Tests
+- `npm test` runs everything: unit tests (`tests/`, Vitest) for job posting
+  parsing, the Crelate privacy allowlist, location search and the form
+  endpoints (Crelate and email faked, key only in the header), then builds
+  and runs `scripts/site-check.mjs`, which opens every page in a browser at
+  desktop and phone width: status, script errors, broken links, overflow,
+  title/description/h1/canonical, alt text, axe-core accessibility, and the
+  site rules (no phone numbers, no Raleigh/HQ, no "Your industry" tag, no
+  retired tagline).
+- `BASE=https://simple-site-gules.vercel.app npm run check:site` runs the page
+  check against the live site, plus job pages (facts row, application form).
+- GitHub runs `npm test` on every pull request (`.github/workflows/test.yml`):
+  merge only on a green check.
+- When fixing a bug, add a test that would have caught it.
+
+## Speed
+- Measured with Lighthouse (mobile): performance 98–100, accessibility 100.
+  SEO scores 69 on the test site only because indexing is off on purpose.
+- Keep it that way: the two main font files are preloaded in `Base.astro`,
+  styles are inlined (`build.inlineStylesheets`), images below the fold use
+  `loading="lazy"`, and pages ship almost no JavaScript. Anything heavy
+  (3D, video, chat) must load only when needed and respect
+  `prefers-reduced-motion`.
+
 ## Checks before pushing
-- `npm run build` must pass (output goes to `.vercel/output/static`).
+- `npm test` must pass (it runs `npm run build`; output goes to `.vercel/output/static`).
 - For visual changes: `npm run serve` (static pages on port 4321), then
   `npm run shots <dir>` for desktop and mobile screenshots, and check that
   nothing overflows horizontally at 390px wide. `astro preview` doesn't work

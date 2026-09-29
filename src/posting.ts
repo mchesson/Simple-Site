@@ -152,7 +152,7 @@ export function structurePosting(raw: string, title: string): { facts: Fact[]; h
   let list = blocks(cleanHtml(raw));
   // The posting often repeats the job title as its first line.
   const t = norm(title);
-  list = list.filter((b, i) => !(i < 3 && (norm(b.text) === t || (b.kind !== 'list' && norm(b.text).startsWith(t) && b.text.length < title.length + 25))));
+  list = list.filter((b, i) => !(i < 3 && (norm(b.text) === t || (b.kind !== 'list' && norm(b.text).startsWith(t + ' ') && b.text.length < title.length + 25))));
   // Generic labels near the top ("Job Description — Contract Position",
   // also run together with the title) add nothing.
   list = list.filter((b, i) => !(i < 4 && b.kind !== 'list' && b.text.length <= 100 && /\b(job|position) description\b/i.test(b.text)));

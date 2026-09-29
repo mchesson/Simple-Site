@@ -4,6 +4,9 @@ import '@fontsource-variable/open-sans/wght-italic.css';
 import '@fontsource-variable/vollkorn';
 import '@fontsource-variable/vollkorn/wght-italic.css';
 import '../styles/global.css';
+// The two fonts every page uses first, fetched early so text doesn't jump when they arrive.
+import vollkornFont from '@fontsource-variable/vollkorn/files/vollkorn-latin-wght-normal.woff2?url';
+import openSansFont from '@fontsource-variable/open-sans/files/open-sans-latin-wght-normal.woff2?url';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
 import { site } from '../data/site';
@@ -57,6 +60,8 @@ const ogImage = new URL(image, Astro.site);
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" href={vollkornFont} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={openSansFont} as="font" type="font/woff2" crossorigin />
     <link rel="alternate" type="application/rss+xml" title="Technical Source Insights" href="/insights/rss.xml" />
     <meta name="theme-color" content="#212121" />
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
