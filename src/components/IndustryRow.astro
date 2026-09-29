@@ -1,5 +1,7 @@
 ---
-// "Where we work": one column per industry, generated from src/content/industries.
+// "Where we work": a header row, then one card per industry, generated from
+// src/content/industries. Columns adapt to the number of industries
+// (3 across; 4 becomes 2 x 2; 5+ wraps in rows of 3).
 import { getIndustries } from '../lib';
 interface Props { heading?: string; intro?: string }
 const {
@@ -7,47 +9,67 @@ const {
   intro = 'Specialized expertise for industries where precision, compliance and timing matter.',
 } = Astro.props;
 const industries = await getIndustries();
-// Up to 3 industries sit beside the heading; with more, the heading gets its own row.
-const wide = industries.length > 3;
-const cols = Math.min(industries.length, 4);
+const n = industries.length;
+const cols = n < 3 ? n : n === 4 ? 2 : 3;
 ---
 <section class="ind-row">
-  <div class:list={['wrap ind-grid', { wide }]} style={`--n:${cols}`} data-industry-list>
+  <div class="wrap">
     <div class="head">
-      <span class="eyebrow">Industries</span>
-      <h2>{heading}</h2>
-      <p>{intro}</p>
+      <div>
+        <span class="eyebrow">Industries</span>
+        <h2>{heading}</h2>
+        <p>{intro}</p>
+      </div>
+      <a class="all" href="/industries">View all industries →</a>
     </div>
-    {industries.map((i, n) => (
-      <a class="item" href={`/industries/${i.id}`} data-industry={i.id} style={`--c:${i.data.color}`}>
-        <span class="chev"></span>
-        <h3>{i.data.name}<span class="yours">Your industry</span></h3>
-        <p>{i.data.short}</p>
-        <span class="go">Learn more →</span>
-      </a>
-    ))}
+
+    <div class="cards" style={`--cols:${cols}`} data-industry-list>
+      {industries.map((i) => (
+        <a class="card-ind" href={`/industries/${i.id}`} data-industry={i.id} style={`--c:${i.data.color}`}>
+          <div class="main">
+            <span class="chev"></span>
+            <h3>{i.data.name}<span class="yours">Your industry</span></h3>
+            <p class="short">{i.data.short}</p>
+          </div>
+          <ul class="checks">{i.data.focus.slice(0, 3).map((f) => <li>{f.title}</li>)}</ul>
+          <span class="go">Learn more →</span>
+        </a>
+      ))}
+    </div>
   </div>
 </section>
+
 <style>
-  .ind-row { background: var(--mist); border-block: 1px solid var(--line); }
-  .ind-grid { display: grid; grid-template-columns: 1.3fr repeat(var(--n), 1fr); }
-  .ind-grid.wide { grid-template-columns: repeat(var(--n), 1fr); }
-  .wide .head { grid-column: 1 / -1; padding-bottom: 0; }
-  .wide .item:nth-of-type(4n + 1) { border-left: 0; padding-left: 0; }
-  .head { padding: 3rem 2rem 3rem 0; }
+  .ind-row { background: var(--mist); padding-block: clamp(3.5rem, 7vw, 6rem); }
+  .head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1rem 2rem; margin-bottom: 2.25rem; }
   .head h2 { margin-bottom: .4rem; }
-  .head p { color: var(--muted); margin: 0; font-size: .95rem; }
-  .item {
-    display: flex; flex-direction: column; gap: .35rem; padding: 3rem 1.75rem;
-    border-left: 1px solid var(--line); text-decoration: none; color: inherit; transition: background .15s;
+  .head p { color: var(--muted); margin: 0; font-size: 1.1rem; max-width: 36rem; }
+  .all { font-weight: 600; text-decoration: none; white-space: nowrap; }
+  .all:hover { text-decoration: underline; }
+
+  .cards { display: grid; gap: 1.25rem; grid-template-columns: repeat(var(--cols), 1fr); }
+  /* Tablet: one card per row, name on the left and projects on the right */
+  @media (max-width: 1000px) { .cards { grid-template-columns: 1fr; } }
+
+  .card-ind {
+    display: flex; flex-direction: column; gap: .5rem; padding: 2rem 1.75rem;
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius);
+    text-decoration: none; color: inherit; transition: border-color .15s, box-shadow .15s, transform .15s;
   }
-  .item:hover { background: #fff; color: inherit; }
-  h3 { margin: .4rem 0 0; font-size: 1.35rem; }
-  .item p { margin: 0; color: var(--muted); font-size: .95rem; }
-  .go { margin-top: auto; padding-top: .8rem; color: var(--blue); font-weight: 600; font-size: .92rem; }
-  @media (max-width: 900px) {
-    .ind-grid { grid-template-columns: 1fr; }
-    .head { padding: 2.5rem 0 1rem; }
-    .item { border-left: 0; border-top: 1px solid var(--line); padding: 1.5rem 0; }
+  .card-ind:hover { color: inherit; border-color: var(--c); box-shadow: 0 10px 28px rgb(0 0 0 / 8%); transform: translateY(-2px); }
+  .main { display: flex; flex-direction: column; gap: .5rem; }
+  .card-ind .chev { width: 2rem; height: 1.75rem; margin-bottom: .5rem; }
+  h3 { font-size: 1.5rem; margin: 0; }
+  .short { color: var(--muted); margin: 0 0 .5rem; }
+  /* Reserve two lines so the dividers line up across cards */
+  @media (min-width: 1001px) { .short { min-height: 3.3em; } }
+  .checks { gap: .4rem; font-size: .95rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  .checks li::before { background: var(--c); }
+  .go { margin-top: auto; padding-top: 1.25rem; color: var(--blue); font-weight: 600; }
+  @media (min-width: 641px) and (max-width: 1000px) {
+    .card-ind { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: 'main list' 'go list'; gap: 0 2.5rem; align-items: start; }
+    .main { grid-area: main; }
+    .card-ind .checks { grid-area: list; border-top: 0; border-left: 1px solid var(--line); padding: 0 0 0 2rem; }
+    .card-ind .go { grid-area: go; padding-top: .75rem; }
   }
 </style>
