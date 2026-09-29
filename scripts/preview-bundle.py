@@ -9,7 +9,7 @@ import base64, json, pathlib, re, sys
 from html import unescape
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-DIST = ROOT / 'dist'
+DIST = ROOT / '.vercel' / 'output' / 'static'  # Vercel adapter build output
 OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ROOT / 'preview.html')
 
 

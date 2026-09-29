@@ -111,7 +111,7 @@ a:hover { color: var(--blue-deep); }
 .banner-in { padding-block: clamp(4.5rem, 10vw, 8rem); }
 .banner h1 { font-size: clamp(2.2rem, 4.6vw, 3.7rem); line-height: 1.22; letter-spacing: .005em; margin-bottom: 1.4rem; }
 .banner .hl { color: var(--energy); }
-.banner-sub { font-size: 1.2rem; line-height: 1.7; max-width: 40rem; color: #E6E6E6; }
+.banner .banner-sub { font-size: 1.2rem; line-height: 1.7; max-width: 40rem; color: #E6E6E6; }
 .banner .tag { font-size: 1.25rem; margin-bottom: 1.1rem; }
 @media (max-width: 700px) { .banner h1 br { display: none; } }
 
@@ -154,3 +154,11 @@ a:hover { color: var(--blue-deep); }
   color: var(--ink); background: var(--energy); padding: .15rem .45rem; border-radius: 999px;
 }
 .is-hidden { display: none !important; }
+
+/* Form result message (src/scripts/forms.ts) */
+.form .status { margin: 0; padding: .75rem 1rem; border-radius: 6px; font-size: .95rem; }
+.form .status[data-kind='ok'] { background: #E8F6EC; color: #1E5B2E; }
+.form .status[data-kind='error'] { background: #FDECEC; color: #8A1F1F; }
+.form .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.form .pair { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
+@media (max-width: 520px) { .form .pair { grid-template-columns: 1fr; } }

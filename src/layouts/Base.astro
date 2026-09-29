@@ -17,9 +17,33 @@ interface Props {
   image?: string;
   type?: 'website' | 'article';
   published?: Date;
+  /** Extra schema.org objects for this page (e.g. an Article). */
+  extraSchema?: object[];
 }
-const { title, description = site.description, industry, image = '/og-default.png', type = 'website', published } = Astro.props;
+const { title, description = site.description, industry, image = '/og-default.png', type = 'website', published, extraSchema } = Astro.props;
 const industries = await getIndustries();
+// Search engines index the site only when ALLOW_INDEXING=true (launch).
+const indexable = process.env.ALLOW_INDEXING === 'true';
+// Structured data (schema.org) so search engines understand the company.
+const origin = new URL('/', Astro.site).toString();
+const schema = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': `${origin}#organization`,
+    name: site.name,
+    url: origin,
+    logo: new URL('/logo.svg', Astro.site).toString(),
+    slogan: site.tagline,
+    description: site.description,
+    email: site.email,
+    sameAs: [site.linkedin],
+    areaServed: { '@type': 'Country', name: 'United States' },
+    knowsAbout: industries.map((i) => i.data.name),
+  },
+  { '@context': 'https://schema.org', '@type': 'WebSite', '@id': `${origin}#website`, name: site.name, url: origin, publisher: { '@id': `${origin}#organization` } },
+  ...(extraSchema ?? []),
+];
 const fullTitle = title ? `${title} | ${site.name}` : `${site.name} | ${site.tagline}`;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const ogImage = new URL(image, Astro.site);
@@ -35,8 +59,9 @@ const ogImage = new URL(image, Astro.site);
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="alternate" type="application/rss+xml" title="Technical Source Insights" href="/insights/rss.xml" />
     <meta name="theme-color" content="#212121" />
-    <!-- Prototype: keep out of search engines until launch. Remove on launch day. -->
-    <meta name="robots" content="noindex, nofollow" />
+    {!indexable && <meta name="robots" content="noindex, nofollow" />}
+    {process.env.GOOGLE_SITE_VERIFICATION && <meta name="google-site-verification" content={process.env.GOOGLE_SITE_VERIFICATION} />}
+    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
 
     <meta property="og:site_name" content={site.name} />
     <meta property="og:type" content={type} />

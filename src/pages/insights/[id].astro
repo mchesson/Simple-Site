@@ -16,9 +16,20 @@ const d = story.data;
 const industry = d.industry ? await getEntry(d.industry) : undefined;
 const url = new URL(`/insights/${story.id}`, Astro.site).toString();
 const share = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+const article = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: d.title,
+  description: d.summary,
+  datePublished: d.date.toISOString(),
+  author: { '@type': 'Organization', name: d.author },
+  publisher: { '@id': `${new URL('/', Astro.site)}#organization` },
+  mainEntityOfPage: url,
+  image: new URL(d.image ?? '/og-default.png', Astro.site).toString(),
+};
 const related = stories.filter((s) => s.id !== story.id && s.data.industry?.id === d.industry?.id).slice(0, 3);
 ---
-<Base title={d.title} description={d.summary} image={d.image} type="article" published={d.date} industry={industry?.id}>
+<Base title={d.title} description={d.summary} image={d.image} type="article" published={d.date} industry={industry?.id} extraSchema={[article]}>
   <article class="sec">
     <div class="wrap">
       <a class="eyebrow back" href={industry ? `/industries/${industry.id}` : '/insights'}>{industry ? industry.data.name : typeLabel[d.type]}</a>

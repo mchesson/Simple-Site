@@ -28,16 +28,15 @@ const reasons = [
     <div class="wrap">
       <span class="eyebrow">Open Positions</span>
       <h2>Search Jobs</h2>
-      <form class="search" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
-        <input aria-label="Job title or keyword" placeholder="Job title, skill or keyword" />
-        <select aria-label="Industry" id="industry-select">
-          <option value="">All industries</option>
-          {industries.map((i) => <option value={i.id}>{i.data.name}</option>)}
-        </select>
-        <input aria-label="Location" placeholder="Location" />
-        <button class="btn btn-primary" type="submit">Search</button>
-        <p class="note" hidden>Prototype only: open positions will load here from Crelate.</p>
+      <form class="search" role="search" onsubmit="event.preventDefault()">
+        <input id="job-q" aria-label="Job title or keyword" placeholder="Job title, skill or keyword" />
+        <input id="job-loc" aria-label="Location" placeholder="Location" />
       </form>
+      <p class="job-count" id="job-count" aria-live="polite">Loading open positions…</p>
+      <ul class="jobs" id="job-list"></ul>
+      <p class="job-empty" id="job-empty" hidden>
+        We don’t have a posted opening that matches right now. Share your details below and we’ll reach out when a project fits your experience.
+      </p>
     </div>
   </section>
 
@@ -46,29 +45,80 @@ const reasons = [
       <span class="eyebrow">Stay in Touch</span>
       <h2>Not Looking Right Now?</h2>
       <p class="lede">Share your details and we’ll reach out when a project fits your experience.</p>
-      <form class="form" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
-        <label>Name<input name="name" autocomplete="name" required /></label>
+      <form class="form" action="/api/talent" method="post" data-form data-success="Thank you. We’ll reach out when a project fits your experience.">
+        <div class="pair">
+          <label>First name<input name="firstName" autocomplete="given-name" required /></label>
+          <label>Last name<input name="lastName" autocomplete="family-name" required /></label>
+        </div>
         <label>Email<input name="email" type="email" autocomplete="email" required /></label>
         <label>Industry
-          <select name="industry">{industries.map((i) => <option value={i.id}>{i.data.name}</option>)}</select>
+          <select name="industry" id="industry-select">{industries.map((i) => <option value={i.data.name} data-id={i.id}>{i.data.name}</option>)}</select>
         </label>
         <label>Your specialty<input name="specialty" placeholder="e.g. Validation Engineer, Commissioning Agent" /></label>
+        <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
         <button class="btn btn-primary" type="submit">Submit</button>
-        <p class="note" hidden>Prototype only: nothing was sent. At launch this goes to Crelate.</p>
+        <p class="status" role="status" hidden></p>
       </form>
     </div>
   </section>
 </Base>
 <script>
+  import '../scripts/forms.ts';
+
+  // Preselect the visitor's industry in the signup form.
   const sel = document.querySelector<HTMLSelectElement>('#industry-select');
   const p = new URLSearchParams(location.search).get('industry') || document.documentElement.dataset.visitorIndustry;
-  if (sel && p && Array.from(sel.options).some((o) => o.value === p)) sel.value = p;
+  const opt = sel && p ? Array.from(sel.options).find((o) => o.dataset.id === p) : undefined;
+  if (sel && opt) sel.value = opt.value;
+
+  // Open positions from Crelate (/api/jobs), filtered as the visitor types.
+  type Job = { id: string; title: string; location: string; type: string; summary: string; url: string };
+  const list = document.getElementById('job-list')!;
+  const count = document.getElementById('job-count')!;
+  const empty = document.getElementById('job-empty')!;
+  const q = document.getElementById('job-q') as HTMLInputElement;
+  const loc = document.getElementById('job-loc') as HTMLInputElement;
+  let jobs: Job[] = [];
+
+  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+  function render() {
+    const words = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+    const place = loc.value.toLowerCase().trim();
+    const shown = jobs.filter((j) => {
+      const text = `${j.title} ${j.summary} ${j.type}`.toLowerCase();
+      return words.every((w) => text.includes(w)) && (!place || j.location.toLowerCase().includes(place));
+    });
+    list.innerHTML = shown
+      .map((j) => `<li><a href="${esc(j.url || '#network')}"${j.url ? ' target="_blank" rel="noopener"' : ''}>
+          <h3>${esc(j.title)}</h3>
+          <p class="meta">${esc([j.location, j.type].filter(Boolean).join(' · '))}</p>
+          ${j.summary ? `<p>${esc(j.summary)}</p>` : ''}
+          <span class="go">${j.url ? 'View and Apply →' : 'Express Interest →'}</span></a></li>`)
+      .join('');
+    count.textContent = jobs.length ? `${shown.length} open position${shown.length === 1 ? '' : 's'}` : '';
+    empty.hidden = shown.length > 0;
+  }
+  q.addEventListener('input', render);
+  loc.addEventListener('input', render);
+
+  fetch('/api/jobs')
+    .then((r) => r.json())
+    .then((out) => { jobs = Array.isArray(out.jobs) ? out.jobs : []; render(); })
+    .catch(() => { jobs = []; render(); });
 </script>
 <style>
   .reasons { margin-top: 1.5rem; }
   .search { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
   .search input, .search select { flex: 1 1 12rem; padding: .8rem .9rem; border: 1px solid var(--light); border-radius: 6px; font: inherit; background: #fff; }
-  .search .note { flex-basis: 100%; margin: 0; padding: .75rem 1rem; border-radius: 6px; background: #FFF6D6; color: #6B5300; font-size: .92rem; }
+  .job-count { color: var(--muted); margin: 1.25rem 0 .75rem; font-size: .95rem; }
+  .jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
+  .jobs :global(a) { display: block; padding: 1.4rem 1.5rem; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: inherit; transition: border-color .15s; }
+  .jobs :global(a:hover) { border-color: var(--blue); }
+  .jobs :global(h3) { margin: 0 0 .25rem; }
+  .jobs :global(.meta) { color: var(--aqua-deep); font-weight: 600; font-size: .9rem; margin: 0 0 .5rem; }
+  .jobs :global(p) { color: var(--muted); margin: 0 0 .5rem; }
+  .jobs :global(.go) { color: var(--blue); font-weight: 600; }
+  .job-empty { color: var(--muted); max-width: 44rem; }
   .narrow { max-width: 42rem; }
   .form { margin-top: 1.5rem; }
 </style>
