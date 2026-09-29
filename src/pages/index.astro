@@ -1,0 +1,88 @@
+---
+import Base from '../layouts/Base.astro';
+import Banner from '../components/Banner.astro';
+import Steps from '../components/Steps.astro';
+import IndustryRow from '../components/IndustryRow.astro';
+import StoryGrid from '../components/StoryGrid.astro';
+import CareersStrip from '../components/CareersStrip.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { services } from '../data/site';
+import { getStories } from '../lib';
+
+const stories = (await getStories()).slice(0, 3);
+---
+<Base>
+  <Banner tagline>
+    <h1>The teams behind <br /><span class="hl">complex technical projects.</span></h1>
+    <p class="banner-sub">When the work is complex and the schedule is tight, we bring the expertise to get it right and the accountability to see it through.</p>
+    <div class="row">
+      <a class="btn btn-green" href="/contact">Get Project Support</a>
+      <a class="btn btn-outline-light" href="/careers">Explore Careers</a>
+    </div>
+  </Banner>
+
+  <section class="sec">
+    <div class="wrap grid g2 services">
+      <div>
+        <span class="eyebrow">Services</span>
+        <h2>Flexible ways to deliver your project</h2>
+        <p class="lede">Bring us in for one phase or the whole project. We scale with the work.</p>
+        <a class="btn btn-outline" href="/services">Our Services</a>
+      </div>
+      <div class="grid stack">
+        {services.map((s) => (
+          <a class="card service" href={`/services#${s.id}`}><h3>{s.name}</h3><p>{s.body}</p></a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <span class="eyebrow">Our approach</span>
+      <h2>How we work</h2>
+      <Steps />
+    </div>
+  </section>
+
+  <IndustryRow />
+
+  <section class="sec dark">
+    <div class="wrap grid g2 why">
+      <div class="photo" aria-hidden="true"></div>
+      <div>
+        <span class="eyebrow">Why Technical Source</span>
+        <h2>We understand the work before we propose a plan.</h2>
+        <p class="muted-light">Our people specialize by industry. They know the regulations, the technology and the pace your project runs at, and they stay accountable until the work is done.</p>
+        <p class="stat">10+</p>
+        <p class="muted-light">years supporting complex technical projects</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <div class="row head">
+        <div><span class="eyebrow">Insights</span><h2>News & insights</h2></div>
+        <a class="btn btn-outline" href="/insights">All Insights</a>
+      </div>
+      <StoryGrid stories={stories} sortByVisitor />
+    </div>
+  </section>
+
+  <CareersStrip />
+  <CtaBand />
+</Base>
+
+<style>
+  .services { gap: 3rem; align-items: start; }
+  .stack { gap: 1rem; }
+  .service { text-decoration: none; color: inherit; transition: border-color .15s; }
+  .service:hover { border-color: var(--blue); color: inherit; }
+  .why { gap: 3rem; align-items: center; }
+  .why .photo { min-height: 20rem; }
+  .muted-light { color: #CCC; }
+  .stat { font-family: var(--font-head); font-size: 3rem; line-height: 1.1; color: var(--energy); margin: 1.5rem 0 0; }
+  .head { justify-content: space-between; align-items: end; }
+  .head h2 { margin: 0; }
+</style>

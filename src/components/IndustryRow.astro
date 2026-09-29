@@ -1,0 +1,53 @@
+---
+// "Where we work": one column per industry, generated from src/content/industries.
+import { getIndustries } from '../lib';
+interface Props { heading?: string; intro?: string }
+const {
+  heading = 'Where we work',
+  intro = 'Specialized expertise for industries where precision, compliance and timing matter.',
+} = Astro.props;
+const industries = await getIndustries();
+// Up to 3 industries sit beside the heading; with more, the heading gets its own row.
+const wide = industries.length > 3;
+const cols = Math.min(industries.length, 4);
+---
+<section class="ind-row">
+  <div class:list={['wrap ind-grid', { wide }]} style={`--n:${cols}`} data-industry-list>
+    <div class="head">
+      <span class="eyebrow">Industries</span>
+      <h2>{heading}</h2>
+      <p>{intro}</p>
+    </div>
+    {industries.map((i, n) => (
+      <a class="item" href={`/industries/${i.id}`} data-industry={i.id} style={`--c:${i.data.color}`}>
+        <span class="chev"></span>
+        <h3>{i.data.name}<span class="yours">Your industry</span></h3>
+        <p>{i.data.short}</p>
+        <span class="go">Learn more →</span>
+      </a>
+    ))}
+  </div>
+</section>
+<style>
+  .ind-row { background: var(--mist); border-block: 1px solid var(--line); }
+  .ind-grid { display: grid; grid-template-columns: 1.3fr repeat(var(--n), 1fr); }
+  .ind-grid.wide { grid-template-columns: repeat(var(--n), 1fr); }
+  .wide .head { grid-column: 1 / -1; padding-bottom: 0; }
+  .wide .item:nth-of-type(4n + 1) { border-left: 0; padding-left: 0; }
+  .head { padding: 3rem 2rem 3rem 0; }
+  .head h2 { margin-bottom: .4rem; }
+  .head p { color: var(--muted); margin: 0; font-size: .95rem; }
+  .item {
+    display: flex; flex-direction: column; gap: .35rem; padding: 3rem 1.75rem;
+    border-left: 1px solid var(--line); text-decoration: none; color: inherit; transition: background .15s;
+  }
+  .item:hover { background: #fff; color: inherit; }
+  h3 { margin: .4rem 0 0; font-size: 1.35rem; }
+  .item p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .go { margin-top: auto; padding-top: .8rem; color: var(--blue); font-weight: 600; font-size: .92rem; }
+  @media (max-width: 900px) {
+    .ind-grid { grid-template-columns: 1fr; }
+    .head { padding: 2.5rem 0 1rem; }
+    .item { border-left: 0; border-top: 1px solid var(--line); padding: 1.5rem 0; }
+  }
+</style>

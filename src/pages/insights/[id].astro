@@ -1,0 +1,69 @@
+---
+import { render, getEntry } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import StoryGrid from '../../components/StoryGrid.astro';
+import CtaBand from '../../components/CtaBand.astro';
+import { getStories, typeLabel, formatDate } from '../../lib';
+
+export async function getStaticPaths() {
+  const stories = await getStories();
+  return stories.map((story) => ({ params: { id: story.id }, props: { story, stories } }));
+}
+
+const { story, stories } = Astro.props;
+const { Content } = await render(story);
+const d = story.data;
+const industry = d.industry ? await getEntry(d.industry) : undefined;
+const url = new URL(`/insights/${story.id}`, Astro.site).toString();
+const share = `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`;
+const related = stories.filter((s) => s.id !== story.id && s.data.industry?.id === d.industry?.id).slice(0, 3);
+---
+<Base title={d.title} description={d.summary} image={d.image} type="article" published={d.date} industry={industry?.id}>
+  <article class="sec">
+    <div class="wrap">
+      <a class="eyebrow back" href={industry ? `/industries/${industry.id}` : '/insights'}>{industry ? industry.data.name : typeLabel[d.type]}</a>
+      <h1>{d.title}</h1>
+      <p class="lede">{d.summary}</p>
+      <div class="byline">
+        <span>{d.author}</span><span aria-hidden="true">·</span>
+        <time datetime={d.date.toISOString()}>{formatDate(d.date)}</time>
+        {d.sample && <span class="chip">Sample content</span>}
+      </div>
+      <div class="share">
+        <a class="btn btn-primary" href={share} target="_blank" rel="noopener">Share on LinkedIn</a>
+        {d.linkedin && <button type="button" class="btn btn-outline" data-copy={d.linkedin.trim() + '\n\n' + url}>Copy LinkedIn Post</button>}
+      </div>
+      <div class="prose"><Content /></div>
+    </div>
+  </article>
+
+  {related.length > 0 && (
+    <section class="sec mist">
+      <div class="wrap"><h2>More {industry ? `${industry.data.name} insights` : 'company news'}</h2><StoryGrid stories={related} /></div>
+    </section>
+  )}
+  <CtaBand />
+</Base>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const label = btn.textContent;
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy ?? '');
+        btn.textContent = 'Copied. Paste into LinkedIn';
+      } catch {
+        btn.textContent = 'Copy failed. Select the text manually';
+      }
+      setTimeout(() => (btn.textContent = label), 2500);
+    });
+  });
+</script>
+
+<style>
+  .back { text-decoration: none; }
+  h1 { max-width: 24ch; font-size: clamp(2rem, 4.4vw, 3.2rem); }
+  .byline { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; color: var(--muted); font-size: .95rem; }
+  .share { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.75rem 0 2.5rem; padding-bottom: 2rem; border-bottom: 1px solid var(--line); }
+  .share .btn { font-size: .92rem; padding: .6rem 1.1rem; }
+</style>

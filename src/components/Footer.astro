@@ -1,0 +1,50 @@
+---
+import { getIndustries } from '../lib';
+import { site } from '../data/site';
+const industries = await getIndustries();
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="wrap cols">
+    <div>
+      <img src="/logo-white.svg" alt="Technical Source" width="190" height="43" class="logo" />
+      <p class="tag">{site.tagline}</p>
+      <p>{site.city}</p>
+    </div>
+    <nav aria-label="Industries">
+      <h2>Industries</h2>
+      <ul>{industries.map((i) => <li><a href={`/industries/${i.id}`}>{i.data.name}</a></li>)}</ul>
+    </nav>
+    <nav aria-label="Company">
+      <h2>Company</h2>
+      <ul>
+        <li><a href="/company">About Us</a></li>
+        <li><a href="/services">Services</a></li>
+        <li><a href="/insights">Insights</a></li>
+        <li><a href="/contact">Contact</a></li>
+      </ul>
+    </nav>
+    <nav aria-label="Connect">
+      <h2>Connect</h2>
+      <ul>
+        <li><a href="/careers">Careers</a></li>
+        <li><a href={site.linkedin} rel="noopener">LinkedIn</a></li>
+        <li><a href={`mailto:${site.email}`}>{site.email}</a></li>
+      </ul>
+    </nav>
+  </div>
+  <div class="wrap"><p class="legal">© {year} Technical Source. All rights reserved.</p></div>
+</footer>
+
+<style>
+  .site-footer { background: var(--ink); color: #BDBDBD; padding-top: 3.5rem; font-size: .93rem; }
+  .cols { display: grid; gap: 2rem; grid-template-columns: 2fr repeat(3, 1fr); }
+  @media (max-width: 800px) { .cols { grid-template-columns: 1fr 1fr; } .cols > :first-child { grid-column: 1 / -1; } }
+  .logo { height: 2.3rem; width: auto; }
+  .tag { margin: 1rem 0 .5rem; }
+  h2 { font: 700 .75rem var(--font-body); letter-spacing: .14em; text-transform: uppercase; color: var(--energy); margin: 0 0 .8rem; }
+  ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+  a { color: #E6E6E6; text-decoration: none; }
+  a:hover { color: #fff; text-decoration: underline; }
+  .legal { border-top: 1px solid #3A3A3A; margin: 2.5rem 0 0; padding: 1.2rem 0 1.5rem; font-size: .82rem; color: #9A9A9A; }
+</style>

@@ -1,0 +1,22 @@
+{
+  "name": "technical-source-site",
+  "type": "module",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "og-image": "NODE_PATH=$(npm root -g) node scripts/og-image.cjs",
+    "shots": "NODE_PATH=$(npm root -g) node scripts/shots.cjs",
+    "preview:file": "astro build && python3 scripts/preview-bundle.py"
+  },
+  "dependencies": {
+    "@astrojs/rss": "^4.0.19",
+    "@astrojs/sitemap": "^3.7.4",
+    "@fontsource-variable/open-sans": "^5.3.0",
+    "@fontsource-variable/vollkorn": "^5.3.0",
+    "astro": "^7.3.5"
+  }
+}

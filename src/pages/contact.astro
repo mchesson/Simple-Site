@@ -1,0 +1,56 @@
+---
+import Base from '../layouts/Base.astro';
+import { services, site } from '../data/site';
+import { getIndustries } from '../lib';
+const industries = await getIndustries();
+---
+<Base title="Contact" description="Tell Technical Source about your project.">
+  <section class="sec">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Contact us</span>
+        <h1>Tell us about your project.</h1>
+        <p class="lede">Whether you need one specialist or a full team, tell us what you’re working on and we’ll show you how we can help.</p>
+        <ul class="checks info">
+          <li><a href={`mailto:${site.email}`}>{site.email}</a></li>
+          <li>{site.city}</li>
+          <li><a href={site.linkedin} rel="noopener">LinkedIn</a></li>
+        </ul>
+        <p class="job">Looking for a job? <a href="/careers">Visit Careers</a></p>
+      </div>
+      <form class="form card" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
+        <label>Name<input name="name" autocomplete="name" required /></label>
+        <label>Work email<input name="email" type="email" autocomplete="email" required /></label>
+        <label>Company<input name="company" autocomplete="organization" /></label>
+        <label>Industry
+          <select name="industry" id="industry-select">
+            {industries.map((i) => <option value={i.id}>{i.data.name}</option>)}
+            <option value="other">Other</option>
+          </select>
+        </label>
+        <label>How can we help?
+          <select name="service">
+            {services.map((s) => <option value={s.id}>{s.name}</option>)}
+            <option value="not-sure">Not sure yet</option>
+          </select>
+        </label>
+        <label>About your project<textarea name="message" rows="5" placeholder="Scope, timeline and the expertise you need"></textarea></label>
+        <button class="btn btn-primary" type="submit">Send</button>
+        <p class="note" hidden>Prototype only: nothing was sent. At launch this goes to Crelate.</p>
+      </form>
+    </div>
+  </section>
+</Base>
+<script>
+  const sel = document.querySelector<HTMLSelectElement>('#industry-select');
+  const p = new URLSearchParams(location.search).get('industry') || document.documentElement.dataset.visitorIndustry;
+  if (sel && p && Array.from(sel.options).some((o) => o.value === p)) sel.value = p;
+</script>
+<style>
+  .split { display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; align-items: start; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+  h1 { font-size: clamp(2.2rem, 4.5vw, 3.4rem); }
+  .info { margin-top: 2rem; }
+  .info li { color: var(--ink); }
+  .job { margin-top: 2rem; color: var(--muted); }
+</style>

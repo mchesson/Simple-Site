@@ -1,0 +1,52 @@
+---
+import Base from '../layouts/Base.astro';
+import Banner from '../components/Banner.astro';
+import Steps from '../components/Steps.astro';
+import IndustryRow from '../components/IndustryRow.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { services } from '../data/site';
+---
+<Base title="Services" description="Project Support, Managed Project Teams and Scoped Project Work: flexible ways to deliver complex technical projects.">
+  <Banner eyebrow="Services" compact>
+    <h1>Flexible ways to deliver <span class="hl">your project.</span></h1>
+    <p class="banner-sub">Bring us in for one phase or the whole project. We scale with the work.</p>
+  </Banner>
+
+  <section class="sec">
+    <div class="wrap list">
+      {services.map((s, i) => (
+        <article class="svc" id={s.id}>
+          <div>
+            <span class="num">{String(i + 1).padStart(2, '0')}</span>
+            <h2>{s.name}</h2>
+            <p class="lede">{s.body}</p>
+          </div>
+          <div class="card">
+            <h3>A good fit when</h3>
+            <ul class="checks">{s.fit.map((f) => <li>{f}</li>)}</ul>
+          </div>
+        </article>
+      ))}
+    </div>
+  </section>
+
+  <section class="sec mist">
+    <div class="wrap">
+      <span class="eyebrow">Our approach</span>
+      <h2>How we work</h2>
+      <Steps />
+    </div>
+  </section>
+
+  <IndustryRow heading="Industries we serve" />
+  <CtaBand title="Not sure which option fits?" body="Tell us about your project and we’ll recommend the right place to start." />
+</Base>
+
+<style>
+  .list { display: grid; gap: 3rem; }
+  .svc { display: grid; gap: 2rem 3rem; grid-template-columns: 1.2fr 1fr; align-items: start; padding-bottom: 3rem; border-bottom: 1px solid var(--line); scroll-margin-top: 6rem; }
+  .svc:last-child { border-bottom: 0; padding-bottom: 0; }
+  @media (max-width: 860px) { .svc { grid-template-columns: 1fr; } }
+  .num { font: 500 2rem/1 var(--font-head); font-variant-numeric: lining-nums; color: var(--aqua-deep); display: block; margin-bottom: .75rem; }
+  .card h3 { font-size: 1.1rem; margin-bottom: .9rem; }
+</style>

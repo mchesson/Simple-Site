@@ -1,0 +1,73 @@
+---
+import Base from '../layouts/Base.astro';
+import Banner from '../components/Banner.astro';
+import IndustryRow from '../components/IndustryRow.astro';
+import CtaBand from '../components/CtaBand.astro';
+import { site } from '../data/site';
+const values = [
+  ['Candor', 'We tell you what we see and we do what we say.'],
+  ['Accountability', 'We own our commitments and raise risks early.'],
+  ['Excellence', 'We hold our work to the standards your industry demands.'],
+  ['Enthusiasm', 'We care about your project’s success as much as you do.'],
+  ['Humility', 'We listen first. The best idea wins, wherever it comes from.'],
+];
+---
+<Base title="Company" description="Technical Source has supported complex technical projects for more than a decade.">
+  <Banner tagline compact>
+    <h1>More than a decade behind <span class="hl">complex technical projects.</span></h1>
+    <p class="banner-sub">Technical Source is headquartered in {site.city}. We bring industry knowledge, experienced people and real accountability to projects where the work is technical and the stakes are high.</p>
+  </Banner>
+
+  <section class="sec">
+    <div class="wrap grid g2 two">
+      <div>
+        <span class="eyebrow">Who we are</span>
+        <h2>We lead with industry knowledge.</h2>
+        <p class="lede">We take the time to understand your project, your standards and your schedule. Then we bring the right expertise to move the work forward.</p>
+      </div>
+      <div class="photo" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <section class="sec mist">
+    <div class="wrap">
+      <span class="eyebrow">Our commitment</span>
+      <h2>What you can expect from us</h2>
+      <div class="grid g2 commit">
+        <div class="card"><h3>To our clients</h3><p>We know your industry, understand your goals and bring the right people, or the right team, to move your work forward.</p></div>
+        <div class="card"><h3>To our consultants</h3><p>You join a team that knows your craft, invests in your growth and connects you to work worth doing.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec">
+    <div class="wrap">
+      <span class="eyebrow">Our values</span>
+      <h2>How we show up</h2>
+      <div class="grid g3 values">
+        {values.map(([t, b]) => <div class="card"><h3>{t}</h3><p>{b}</p></div>)}
+      </div>
+    </div>
+  </section>
+
+  <section class="sec dark" id="locations">
+    <div class="wrap grid g2 two">
+      <div>
+        <span class="eyebrow">Our locations</span>
+        <h2>Headquartered in {site.city}</h2>
+        <p class="muted-light">We support projects for clients across the country from our Raleigh headquarters.</p>
+        <a class="btn btn-green" href="/contact">Contact Us</a>
+      </div>
+      <div class="photo map" aria-hidden="true"></div>
+    </div>
+  </section>
+
+  <IndustryRow />
+  <CtaBand />
+</Base>
+<style>
+  .two { gap: 3rem; align-items: center; }
+  .commit, .values { margin-top: 1.5rem; }
+  .muted-light { color: #CCC; }
+  .map { min-height: 16rem; }
+</style>
