@@ -7,6 +7,7 @@
 //   ?check=2  counts and the distinct values of a few status fields
 //   ?check=3  published jobs: public title + non-identifying status fields
 //   ?check=5&q=title  how the site read public postings (facts + outline)
+//   ?check=6&q=title  the raw public posting markup of one job
 //   ?check=4  links found on the public job portal page (to learn its job
 //             and resume-submission link patterns)
 import type { APIRoute } from 'astro';
@@ -37,6 +38,14 @@ export const GET: APIRoute = async ({ url }) => {
         crelateUrls: found(/https?:\/\/[^"'\s<>()]*crelate[^"'\s<>()]*/gi),
         portalPaths: found(/\/portal\/technicalsource\/[^"'\s<>()]*/gi),
       });
+    }
+    if (check === '6') {
+      // Raw layout of one public posting (its PortalDescription, the text
+      // already public on the job portal), to fix how the site reads it.
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      const raw = (await allJobs()).raw.filter(isPublished).find((j) => q && String(j?.PortalTitle ?? '').toLowerCase().includes(q));
+      const html = String(raw?.PortalDescription ?? '');
+      return json({ ok: true, title: raw?.PortalTitle ?? null, html: html.slice(0, 8000), length: html.length }, 200, { 'Cache-Control': 'no-store' });
     }
     if (check === '5') {
       // How the site read each public posting: facts and the outline of the

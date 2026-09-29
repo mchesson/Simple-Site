@@ -143,7 +143,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     lines into lists, and writes the list teaser. Text typed after the last
     bullet often stays inside that bullet in Crelate's editor: a heading
     inside a list item closes the list there. A generic first line like
-    "Job Description — Contract Position" is dropped. `/api/jobs?check=5&q=<title>`
+    "Job Description — Contract Position" is dropped. Details written as a
+    table, as bold labels without colons (`LABELS` in `src/posting.ts`), or as
+    a label line followed by its value also become facts.
+    `/api/jobs?check=6&q=<title>` returns one posting's raw public markup. `/api/jobs?check=5&q=<title>`
     shows how a live posting was read (facts and outline).
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
@@ -179,8 +182,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     the session environment allows app.crelate.com): `{ entity: {...} }`
     bodies, `{ Data: "<id>" }` answers, `RecordType` bitmask (1 Candidate,
     2 Client Contact), contact source named like "Website", resume as the
-    contact's primary artifact, job pipeline at the first Recruiting stage
-    (or `APPLY_STAGE`). An existing contact (same email) is reused and gets
+    contact's primary artifact, job pipeline at the "Maybe" stage
+    (`APPLY_STAGE`; the first Recruiting stage if it's renamed). An existing contact (same email) is reused and gets
     the Candidate bit when they apply. The API can't create "Applications".
   - `/api/apply?check=1` shows the Crelate settings these use (pipeline
     stages, contact sources, file types). Check the Vercel function logs

@@ -153,8 +153,9 @@ export function toPublicJob(j: any): PublicJob {
 
 export const RECORD_TYPE = { candidate: 1, client: 2 } as const;
 const RECRUITING_WORKFLOW = 'F6EF012F-998D-4132-B38B-A17A00B2B958';
-/** Pipeline stage for website applicants. Empty = the first Recruiting stage. */
-export const APPLY_STAGE = '';
+/** Pipeline stage for website applicants (owner's choice). If it's renamed in
+ *  Crelate, the first Recruiting stage is used instead. */
+export const APPLY_STAGE = 'Maybe';
 
 const hourly = <T>(load: () => Promise<T>) => {
   let cache: { at: number; value: T } | null = null;
