@@ -45,3 +45,38 @@ export async function crelate<T = unknown>(
 export function idOf(r: any): string | undefined {
   return r?.Data?.Id ?? r?.data?.id ?? r?.Data?.id ?? r?.data?.Id ?? r?.Id ?? r?.id ?? (typeof r === 'string' ? r : undefined);
 }
+
+/** Unwrap a list response into an array. */
+export function listOf(r: any): any[] {
+  if (Array.isArray(r)) return r;
+  for (const k of ['Data', 'data', 'Results', 'results', 'items', 'Items']) if (Array.isArray(r?.[k])) return r[k];
+  return [];
+}
+
+const pick = (o: any, ...keys: string[]) => {
+  for (const k of keys) {
+    const v = k.split('.').reduce((a, p) => a?.[p], o);
+    if (v != null && v !== '') return typeof v === 'object' ? (v.Title ?? v.Name ?? v.name ?? '') : String(v);
+  }
+  return '';
+};
+
+const summarize = (html: string) => {
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  return t.length > 220 ? t.slice(0, 217).replace(/\s+\S*$/, '') + '…' : t;
+};
+
+/** Normalize a Crelate job into what the careers page shows. */
+export function toJob(j: any) {
+  const city = pick(j, 'City', 'city', 'Location.City', 'Address.City');
+  const state = pick(j, 'State', 'state', 'Location.State', 'Address.State');
+  return {
+    id: pick(j, 'Id', 'id'),
+    title: pick(j, 'PublicTitle', 'Title', 'title', 'Name', 'name'),
+    location: pick(j, 'LocationName', 'Location', 'location') || [city, state].filter(Boolean).join(', '),
+    type: pick(j, 'EmploymentType', 'JobType', 'employmentType', 'type'),
+    summary: summarize(pick(j, 'PublicDescription', 'ShortDescription', 'Description', 'description')),
+    url: pick(j, 'PublicUrl', 'ApplyUrl', 'Url', 'url'),
+    status: pick(j, 'Status', 'status', 'JobStatus', 'WorkflowStatus.Title'),
+  };
+}
