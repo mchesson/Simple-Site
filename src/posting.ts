@@ -14,20 +14,24 @@ export type Fact = { label: string; value: string };
 const INLINE = new Set(['strong', 'em']);
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 const squash = (s: string) => s.replace(/\s+/g, ' ').trim();
-const textOf = (n: Node) => squash(decode(n.rawText ?? ''));
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
 // "Location: Clayton | NC", "📍 Job Type – Contract", "Duration: 12 months"
 const FACT = /^[^A-Za-z0-9]{0,3}\s*([A-Za-z][A-Za-z /&()'-]{1,28}?)\s*[:：]\s*(\S.{0,150})$/;
 const BULLET = /^\s*[•·▪◦●○■□➤►▶✓✔\-–—*]\s+/;
 
-/** Split inline content into lines at <br>, keeping bold/italic markup. */
-function lines(nodes: Node[]): { html: string; text: string; boldOnly: boolean }[] {
-  const out: { html: string; text: string; boldOnly: boolean }[] = [];
+type Line = { kind: 'line'; html: string; text: string; boldOnly: boolean; heading?: boolean };
+type ListSeg = { kind: 'listnode'; el: HTMLElement };
+type Seg = Line | ListSeg;
+
+/** Walk a node into lines (split at <br> and at paragraph/heading/list-item
+ *  edges, keeping bold/italic markup) and nested lists. */
+function segments(nodes: Node[]): Seg[] {
+  const out: Seg[] = [];
   let html = '', plain = '', bold = '';
-  const flush = () => {
+  const flush = (heading = false) => {
     const text = squash(decode(plain));
-    if (text) out.push({ html: squash(html), text, boldOnly: squash(decode(bold)) === text });
+    if (text) out.push({ kind: 'line', html: squash(html), text, boldOnly: squash(decode(bold)) === text, heading });
     html = plain = bold = '';
   };
   const walk = (n: Node, inBold: boolean) => {
@@ -38,6 +42,9 @@ function lines(nodes: Node[]): { html: string; text: string; boldOnly: boolean }
     const el = n as HTMLElement;
     const tag = el.rawTagName?.toLowerCase();
     if (tag === 'br') return flush();
+    if (tag === 'ul' || tag === 'ol') { flush(); out.push({ kind: 'listnode', el }); return; }
+    if (tag === 'h2' || tag === 'h3') { flush(); el.childNodes.forEach((c) => walk(c, inBold)); flush(true); return; }
+    if (tag === 'p' || tag === 'li') { flush(); el.childNodes.forEach((c) => walk(c, inBold)); flush(); return; }
     if (tag && INLINE.has(tag)) {
       html += `<${tag}>`;
       el.childNodes.forEach((c) => walk(c, inBold || tag === 'strong'));
@@ -51,41 +58,49 @@ function lines(nodes: Node[]): { html: string; text: string; boldOnly: boolean }
   return out;
 }
 
+// A heading: an <h> tag, a bold line on its own, or a short line ending in ":".
+const isHeading = (l: Line) =>
+  l.heading || (l.text.length <= 70 && !/[.!?]$/.test(l.text) && (l.boldOnly || /:$/.test(l.text)) && !FACT.test(l.text));
+
 /** Flatten the posting into a list of blocks. */
 function blocks(html: string): Block[] {
-  const root = parse(html);
   const out: Block[] = [];
-  let pending: Node[] = [];
-  const addLines = (nodes: Node[]) => {
-    for (const l of lines(nodes)) {
-      // A bold line on its own, or a short line ending in ":", is a heading.
-      const heading = l.text.length <= 70 && !/[.!?]$/.test(l.text) && (l.boldOnly || /:$/.test(l.text)) && !FACT.test(l.text);
-      if (heading) out.push({ kind: 'h', html: esc(l.text.replace(/\s*:$/, '')), text: l.text.replace(/\s*:$/, '') });
-      else if (BULLET.test(l.text)) {
-        const item = l.html.replace(BULLET, '').replace(/^(<\w+>)\s*[•·▪◦●○■□➤►▶✓✔\-–—*]\s+/, '$1');
-        const last = out[out.length - 1];
-        if (last?.kind === 'list' && !last.ordered) { last.items!.push(item); last.text += ' ' + l.text; }
-        else out.push({ kind: 'list', html: '', text: l.text, items: [item] });
-      } else out.push({ kind: 'p', html: l.html, text: l.text });
+  const pushItem = (item: string, text: string, ordered: boolean) => {
+    const last = out[out.length - 1];
+    if (last?.kind === 'list' && !!last.ordered === ordered) { last.items!.push(item); last.text += ' ' + text; }
+    else out.push({ kind: 'list', html: '', text, ordered, items: [item] });
+  };
+  const addLine = (l: Line) => {
+    if (isHeading(l)) {
+      const t = l.text.replace(/\s*:$/, '');
+      out.push({ kind: 'h', html: esc(t), text: t });
+    } else if (BULLET.test(l.text)) {
+      pushItem(l.html.replace(BULLET, '').replace(/^(<\w+>)\s*[•·▪◦●○■□➤►▶✓✔\-–—*]\s+/, '$1'), l.text, false);
+    } else out.push({ kind: 'p', html: l.html, text: l.text });
+  };
+  const addList = (el: HTMLElement) => {
+    const ordered = el.rawTagName?.toLowerCase() === 'ol';
+    for (const li of el.childNodes) {
+      const tag = li.nodeType === NodeType.ELEMENT_NODE ? (li as HTMLElement).rawTagName?.toLowerCase() : '';
+      const segs = tag === 'li' ? segments((li as HTMLElement).childNodes) : segments([li]);
+      // The item is its text up to the first heading. Crelate's editor often
+      // keeps whatever was typed after the last bullet ("Schedule", "Requirements"
+      // and their text) inside that bullet: those become normal blocks again.
+      const parts: string[] = [];
+      const texts: string[] = [];
+      let rest: Seg[] | null = null;
+      for (const sg of segs) {
+        if (rest) { rest.push(sg); continue; }
+        if (sg.kind === 'listnode') { if (parts.length) { pushItem(parts.join(' '), texts.join(' '), ordered); parts.length = texts.length = 0; } addList(sg.el); continue; }
+        if (parts.length && isHeading(sg)) { rest = [sg]; continue; }
+        parts.push(sg.html.replace(BULLET, ''));
+        texts.push(sg.text);
+      }
+      if (parts.length) pushItem(parts.join(' '), texts.join(' '), ordered);
+      if (rest) rest.forEach((sg) => (sg.kind === 'listnode' ? addList(sg.el) : addLine(sg)));
     }
   };
-  const flushPending = () => { if (pending.length) addLines(pending); pending = []; };
-  for (const n of root.childNodes) {
-    const tag = n.nodeType === NodeType.ELEMENT_NODE ? (n as HTMLElement).rawTagName?.toLowerCase() : '';
-    if (tag === 'p') { flushPending(); addLines((n as HTMLElement).childNodes); }
-    else if (tag === 'h2' || tag === 'h3') {
-      flushPending();
-      const t = textOf(n).replace(/\s*:$/, '');
-      if (t) out.push({ kind: 'h', html: esc(t), text: t });
-    } else if (tag === 'ul' || tag === 'ol') {
-      flushPending();
-      const items = (n as HTMLElement).querySelectorAll('li')
-        .map((li) => lines(li.childNodes).map((l) => l.html.replace(BULLET, '')).join(' '))
-        .filter((s) => squash(s.replace(/<[^>]+>/g, '')));
-      if (items.length) out.push({ kind: 'list', html: '', text: textOf(n), ordered: tag === 'ol', items });
-    } else pending.push(n); // loose text, <strong>, <br> between blocks
-  }
-  flushPending();
+  for (const sg of segments(parse(html).childNodes)) sg.kind === 'listnode' ? addList(sg.el) : addLine(sg);
   // Lists split by an empty line in the editor read as one list.
   return out.reduce<Block[]>((acc, b) => {
     const last = acc[acc.length - 1];
@@ -116,9 +131,10 @@ export function structurePosting(raw: string, title: string): { facts: Fact[]; h
   // Representative – Construction Manager (Pharmaceutical Projects)"): shown
   // under the title in the banner rather than as the first paragraph.
   let subtitle = '';
-  if (list[0]?.kind === 'p' && list[0].text.length <= 120 && !/[.!?]$/.test(list[0].text) && !factOf(list[0].text)) {
-    subtitle = list[0].text;
-    list = list.slice(1);
+  if (list[0] && list[0].kind !== 'list' && list[0].text.length <= 120 && !/[.!?]$/.test(list[0].text) && !factOf(list[0].text)) {
+    // A generic label like "Job Description — Contract Position" adds nothing.
+    if (!/^(job )?description\b/i.test(list[0].text)) subtitle = list[0].text;
+    if (list[0].kind === 'p' || !subtitle) list = list.slice(1);
   }
 
   // Facts: the first run of "Label: value" lines (or list items) near the top,
