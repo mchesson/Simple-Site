@@ -20,9 +20,9 @@ and consistent with this file.
 | `/services` | `src/pages/services.astro` | The three services, from `services` in `src/data/site.ts` |
 | `/industries`, `/industries/<id>` | `src/pages/industries/` | Generated from `src/content/industries/` |
 | `/insights`, `/insights/<id>` | `src/pages/insights/` | Stories, filterable by industry; RSS feeds |
-| `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" links to the portal's resume submission |
-| `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate; "Apply Now" goes to the job on the portal |
-| `/contact` | `src/pages/contact.astro` | Form sends to Crelate |
+| `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
+| `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
+| `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate |
 
 Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
 
@@ -120,25 +120,24 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - `public/og-default.png` is the default LinkedIn preview; regenerate with
   `npm run og-image` after editing `scripts/og-image.html`.
 
-## Crelate (ATS + CRM)
-- **Jobs:** postings and applications live in Crelate's hosted job portal,
-  `site.jobsPortal` in `src/data/site.ts`
-  (https://jobs.crelate.com/portal/technicalsource). Visitors browse jobs on
-  our site and only leave for the portal to apply:
+## Crelate (ATS + CRM) and form email
+- **Visitors never leave the site.** They search jobs, read postings and apply
+  on our pages. The Crelate portal (`site.jobsPortal`,
+  https://jobs.crelate.com/portal/technicalsource) is only the fallback link
+  when the job list is switched off. Don't link to the portal anywhere else.
   - Careers (`#jobs`) lists open jobs from `/api/jobs`, with keyword search and
     ZIP code / "City, ST" radius search (`zipcodes` database, `src/geo.ts`).
-  - "View and Apply" opens the job's page on our site, `/careers/jobs/<title>-<id>`
-    (full posting, JobPosting structured data). Its "Apply Now" goes to the job's
-    own portal posting via `site.jobsPortalJobUrl` (pattern with `{id}`, `{slug}`
-    or `{num}`); while that's empty it goes to the portal's job list.
+  - "View and Apply" opens `/careers/jobs/<title>-<id>`: key facts row
+    (Location, Type, Duration... pulled from the top of the posting), the
+    posting, and the application form (`#apply`). JobPosting structured data.
   - Every jobs/careers button on the site points at `/careers#jobs` (industry
-    pages add `?industry=<id>`). Don't link to the portal anywhere else.
-  - "Not Looking Right Now?" links to the portal's "Submit your resume" page,
-    `site.resumeSubmitUrl` (portal home while empty), so general resumes land
-    in Crelate the same way as on the portal.
-  - Descriptions are Crelate rich text: `src/html.ts` decodes entities and
+    pages add `?industry=<id>`).
+  - "Not Looking Right Now?" on Careers is the same form without a job
+    (general consideration), `src/components/ApplyForm.astro`.
+  - Descriptions are Crelate rich text: `src/html.ts` decodes entities,
     rebuilds them with plain tags only (no attributes, links, scripts or
-    styles). List teasers skip the repeated title, "Label: value" lines and
+    styles), turns bold one-line labels into headings and splits off the
+    facts. List teasers skip the repeated title, "Label: value" lines and
     short headings.
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
@@ -147,30 +146,38 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   rates: they contain client and recruiter names. `isPublished` keeps only jobs
   with `OnPortal` true, not hidden, on hold or closed, not private, and with a
   portal title. `/api/jobs` returns only title, location, summary, url,
-  distance and remote; job pages add the cleaned description. `JobNum` is used
-  only inside the portal link. Shared job code lives in `src/jobs.ts`.
+  distance and remote; job pages add the cleaned description and facts.
+  Shared job code lives in `src/jobs.ts`.
 - **Safety switch:** the list is off unless `JOBS_LIST_ENABLED=true` is set in
   Vercel. Without it (or without jobs), Careers shows a "View Open Positions"
   button to the portal. Diagnostics with no job text: `/api/jobs?check=1`
-  (field names), `/api/jobs?check=2` (counts and status-field values),
-  `?check=3` (published titles and status fields), `?check=4` (links on the
-  public portal page, to find the job and resume-submission URL patterns).
+  (field names), `?check=2` (counts and status-field values), `?check=3`
+  (published titles and status fields), `?check=4` (links on the public
+  portal page).
 - `/api/jobs` pages through every Crelate job (100 per request, 5 at a time,
   up to 10,000; Vercel `maxDuration: 60`), cached 10 minutes per instance.
-  `PortalVisibility` is numeric (0/1); which value means public is still to be
-  confirmed against the portal before `JOBS_LIST_ENABLED` is turned on.
-- **Forms:** the contact form talks to Crelate through `src/pages/api/contact.ts`,
-  using the helper in `src/crelate.ts`. Pages are static except the job
-  pages; endpoints and job pages run on Vercel.
-- **API key:** Vercel → Settings → Environment Variables → `CRELATE_API_KEY`.
-  Never in the repo or chat. Optional `CRELATE_API_BASE` (default
-  `https://app.crelate.com/api3`). Redeploy after changing variables. A
-  dedicated Crelate "website" user's key is preferred over a personal key.
-- Contact form → Crelate **contact** + **note** (industry, service, page, message).
-- Form request bodies were built from Crelate's API3 conventions without
-  access to the live API, so check the Vercel function logs after the first
-  real submissions and adjust if needed.
-- Without the key, the contact form tells visitors to email `site.email`.
+- **Forms deliver by email first, Crelate second.** The visitor sees success
+  if either worked:
+  - Contact form (`src/pages/api/contact.ts`) → email to the team inbox, plus
+    Crelate **contact** + **note**.
+  - Applications and resumes (`src/pages/api/apply.ts`) → email with the resume
+    attached, plus Crelate **candidate**, resume upload, link to the job, and
+    a **note**. Resumes: PDF/Word, up to 4 MB (Vercel's request limit is 4.5 MB).
+  - Email goes through Resend (`src/mail.ts`): `RESEND_API_KEY`, optional
+    `MAIL_TO` (default `site.email`) and `MAIL_FROM`. Until technicalsource.com
+    is verified in Resend (DNS records), the default test sender only delivers
+    to the address the Resend account was created with.
+  - Crelate request bodies and the resume/job-link paths (`RESUME_UPLOAD`,
+    `JOB_LINK` in `apply.ts`) were built without access to Crelate's live API
+    docs. `/api/apply?check=1` lists the matching endpoints and fields from
+    Crelate's public OpenAPI description; confirm against it and the Vercel
+    function logs, then adjust.
+- Pages are static except the job pages; endpoints and job pages run on Vercel.
+- **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
+  `RESEND_API_KEY`). Never in the repo or chat. Optional `CRELATE_API_BASE`
+  (default `https://app.crelate.com/api3`). Redeploy after changing variables.
+  A dedicated Crelate "website" user's key is preferred over a personal key.
+- With neither key set, the forms tell visitors to email `site.email`.
 - Spam: hidden honeypot field; Astro's origin check blocks cross-site posts.
 
 ## Analytics
@@ -221,5 +228,5 @@ work on the live site.
   `npm run shots <dir>` for desktop and mobile screenshots, and check that
   nothing overflows horizontally at 390px wide. `astro preview` doesn't work
   with the Vercel adapter.
-- For endpoint changes: `CRELATE_API_KEY=x CRELATE_API_BASE=http://localhost:9999/api3 npx astro dev`
+- For endpoint changes: `CRELATE_API_KEY=x CRELATE_API_BASE=http://localhost:9999/api3 RESEND_API_KEY=x RESEND_API_URL=http://localhost:9999/emails JOBS_LIST_ENABLED=true npx astro dev`
   against a local stand-in server, and check the requests it receives.

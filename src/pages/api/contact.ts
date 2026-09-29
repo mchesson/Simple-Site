@@ -1,6 +1,10 @@
-// POST /api/contact: "Tell us about your project" form → Crelate contact + note.
+// POST /api/contact: "Tell us about your project" form.
+// 1. Emails the inquiry to the team inbox (src/mail.ts): the main delivery.
+// 2. Also files it in Crelate as a contact + note, when the key is set.
+// The visitor sees success if either one worked.
 import type { APIRoute } from 'astro';
 import { crelate, idOf, isConfigured, CrelateError } from '../../crelate';
+import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
 
 export const prerender = false;
@@ -23,34 +27,46 @@ export const POST: APIRoute = async ({ request }) => {
   if (!f.firstName || !f.lastName || !validEmail(f.email)) {
     return isJson ? json({ ok: false, error: 'Please add your name and a valid email.' }, 400) : back(request, 'error');
   }
-  if (!isConfigured()) {
-    console.warn('[contact] CRELATE_API_KEY is not set; submission not sent', { email: f.email });
+  if (!mailConfigured() && !isConfigured()) {
+    console.warn('[contact] neither RESEND_API_KEY nor CRELATE_API_KEY is set; submission not sent', { email: f.email });
     return isJson ? json({ ok: false, error: 'not-configured' }, 503) : back(request, 'error');
   }
 
-  try {
-    const contact = await crelate('contacts', {
-      method: 'POST',
-      body: { firstName: f.firstName, lastName: f.lastName, email: f.email, ...(f.company && { companyName: f.company }) },
-    });
-    const contactId = idOf(contact);
-    const note = [
-      'Website inquiry (technicalsource.com contact form)',
-      `Industry: ${f.industry || 'not given'}`,
-      `How can we help: ${f.service || 'not given'}`,
-      f.company ? `Company: ${f.company}` : null,
-      f.page ? `Page: ${f.page}` : null,
-      '',
-      f.message || '(no message)',
-    ].filter((l) => l !== null).join('\n');
-    if (contactId) {
-      await crelate('notes', { method: 'POST', body: { body: note, contactId } }).catch((e) =>
-        console.error('[contact] note failed', e instanceof CrelateError ? e.detail : e),
-      );
+  const details = [
+    `Name: ${f.firstName} ${f.lastName}`,
+    `Email: ${f.email}`,
+    `Company: ${f.company || 'not given'}`,
+    `Industry: ${f.industry || 'not given'}`,
+    `How can we help: ${f.service || 'not given'}`,
+    f.page ? `Page: ${f.page}` : null,
+    '',
+    f.message || '(no message)',
+  ].filter((l) => l !== null).join('\n');
+
+  const emailed = mailConfigured()
+    ? await sendMail({ subject: `Website inquiry: ${f.firstName} ${f.lastName}${f.company ? `, ${f.company}` : ''}`, text: details, replyTo: f.email })
+        .then(() => true, (e) => (console.error('[contact] email failed', e), false))
+    : false;
+
+  let filed = false;
+  if (isConfigured()) {
+    try {
+      const contact = await crelate('contacts', {
+        method: 'POST',
+        body: { firstName: f.firstName, lastName: f.lastName, email: f.email, ...(f.company && { companyName: f.company }) },
+      });
+      const contactId = idOf(contact);
+      if (contactId) {
+        await crelate('notes', { method: 'POST', body: { body: `Website inquiry (contact form)\n${details}`, contactId } }).catch((e) =>
+          console.error('[contact] Crelate note failed', e instanceof CrelateError ? `${e.status} ${e.detail}` : e),
+        );
+      }
+      filed = true;
+    } catch (e) {
+      console.error('[contact] Crelate error', e instanceof CrelateError ? `${e.status} ${e.detail}` : e);
     }
-    return isJson ? json({ ok: true }) : back(request, 'sent');
-  } catch (e) {
-    console.error('[contact] Crelate error', e instanceof CrelateError ? `${e.status} ${e.detail}` : e);
-    return isJson ? json({ ok: false, error: 'send-failed' }, 502) : back(request, 'error');
   }
+
+  if (emailed || filed) return isJson ? json({ ok: true }) : back(request, 'sent');
+  return isJson ? json({ ok: false, error: 'send-failed' }, 502) : back(request, 'error');
 };

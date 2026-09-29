@@ -56,3 +56,42 @@ export function cleanHtml(html: string): string {
     .replace(/(<br>\s*){3,}/g, '<br><br>')
     .trim();
 }
+
+const textOf = (html: string) => toLines(html).join(' ');
+
+/** Tidy a cleaned posting so it reads like the rest of the site: a bold line on
+ *  its own ("Responsibilities", "Requirements:") becomes a heading, and stray
+ *  line breaks at the edges of paragraphs go. */
+export function tidyPosting(html: string): string {
+  const heading = (inner: string) => {
+    const t = textOf(inner).replace(/:$/, '').trim();
+    return t && t.length <= 60 && !/[.!?]$/.test(t) ? `<h3>${escape(t)}</h3>` : null;
+  };
+  return html
+    .replace(/<h2>/g, '<h3>').replace(/<\/h2>/g, '</h3>')
+    .replace(/<p>(\s|<br>)+/g, '<p>').replace(/(\s|<br>)+<\/p>/g, '</p>')
+    // <p><strong>Heading</strong><br>text</p> → heading + paragraph
+    .replace(/<p><strong>([^<]{1,60})<\/strong>\s*<br>/g, (m, h) => (heading(h) ? `${heading(h)}<p>` : m))
+    // <p><strong>Heading</strong></p> or <p>Heading:</p> → heading
+    .replace(/<p>(<strong>[^<]{1,60}<\/strong>|[^<]{1,60}:)<\/p>/g, (m, inner) => heading(inner) ?? m)
+    .replace(/<p><\/p>/g, '');
+}
+
+/** Pull the "Location: … / Type: … / Duration: …" lines at the top of a posting
+ *  out as facts, so the page can show them as a tidy row. */
+export function splitFacts(html: string): { facts: { label: string; value: string }[]; html: string } {
+  const facts: { label: string; value: string }[] = [];
+  let rest = html;
+  for (;;) {
+    const m = rest.match(/^\s*<p>([\s\S]*?)<\/p>/);
+    if (!m) break;
+    const found = m[1].split(/<br>/).map((seg) => textOf(seg).match(/^([A-Za-z][\w /&()-]{1,30}):\s*(.{1,160})$/));
+    if (!found.length || found.some((x) => !x)) break;
+    for (const x of found) {
+      const label = x![1].trim();
+      facts.push({ label, value: x![2].replace(/\s*\|\s*/g, /location/i.test(label) ? ', ' : ' · ').trim() });
+    }
+    rest = rest.slice(m[0].length);
+  }
+  return { facts, html: rest.trim() };
+}

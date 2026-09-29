@@ -1,0 +1,33 @@
+---
+// Application form for a job page, or a general resume submission when no job
+// is given. Posts to /api/apply (Crelate candidate + resume + note).
+interface Props { jobId?: string; button?: string; success?: string }
+const { jobId, button = 'Submit Application', success = 'Thank you. We’ve received your application and will be in touch if your experience is a fit.' } = Astro.props;
+---
+<form class="form apply-form" action="/api/apply" method="post" enctype="multipart/form-data" data-form data-success={success}>
+  <div class="pair">
+    <label>First name<input name="firstName" autocomplete="given-name" required /></label>
+    <label>Last name<input name="lastName" autocomplete="family-name" required /></label>
+  </div>
+  <div class="pair">
+    <label>Email<input name="email" type="email" autocomplete="email" required /></label>
+    <label>Phone<input name="phone" type="tel" autocomplete="tel" /></label>
+  </div>
+  <label>City and state<input name="location" autocomplete="address-level2" placeholder="e.g. Durham, NC" /></label>
+  <label><span>Resume <span class="hint">PDF or Word, up to 4 MB</span></span>
+    <input name="resume" type="file" accept=".pdf,.doc,.docx,.rtf,.txt" required />
+  </label>
+  <label><span>Anything you’d like us to know <span class="hint">Optional</span></span><textarea name="message" rows="4"></textarea></label>
+  {jobId && <input type="hidden" name="jobId" value={jobId} />}
+  <input type="hidden" name="page" />
+  <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
+  <button class="btn btn-primary" type="submit">{button}</button>
+  <p class="status" role="status" hidden></p>
+</form>
+<script>
+  import '../scripts/forms.ts';
+</script>
+<style>
+  .hint { font-weight: 400; color: var(--muted); font-size: .85rem; margin-left: .35rem; }
+  .apply-form input[type='file'] { padding: .6rem .7rem; background: #fff; }
+</style>
