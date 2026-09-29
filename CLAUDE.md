@@ -119,6 +119,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Live test site: https://simple-site-gules.vercel.app (built from `master`;
   every other branch gets its own preview URL). Environment variable
   `SITE_URL=https://simple-site-gules.vercel.app` so links point at it.
+- **Owner's workflow:** changes go through a pull request that the owner merges
+  on GitHub. Every time, give the owner both links: the pull request to merge,
+  and the live site (https://simple-site-gules.vercel.app) to check after merging.
 - No custom domain for now. At launch, set `SITE_URL` to the real domain (or
   remove it to default to https://technicalsource.com) and add the domain in
   Vercel under Settings → Domains.
