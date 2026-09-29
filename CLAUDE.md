@@ -171,16 +171,17 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     is verified in Resend (DNS records), the default test sender only delivers
     to the address the Resend account was created with.
   - Crelate writes go through the helpers at the end of `src/crelate.ts`
-    (`createContact`, `addNote`, `uploadResume`, `addToJob`). From Crelate's
-    API description: create calls send `{ entity: {...} }`; candidates are
-    contacts (`POST /contacts`, reused when the email already exists); resumes
-    are the contact's primary artifact (`POST /artifacts/primary`); the job
-    pipeline is `POST /jobs/{jobId}/contacts?contact_ids=`. Applications can't
-    be created through the API. Field names inside `entity` still need
-    confirming against the live API.
-  - Diagnostics: `/api/apply?check=1` (endpoints), `?check=2` (fields each
-    create call expects), `?check=3` (file types set up in Crelate). Check the
-    Vercel function logs after real submissions.
+    (`createContact`, `addNote`, `uploadResume`, `addToJob`), checked against
+    Crelate's API description (https://app.crelate.com/api3/docs/v3/crelate-openapi.json;
+    the session environment allows app.crelate.com): `{ entity: {...} }`
+    bodies, `{ Data: "<id>" }` answers, `RecordType` bitmask (1 Candidate,
+    2 Client Contact), contact source named like "Website", resume as the
+    contact's primary artifact, job pipeline at the first Recruiting stage
+    (or `APPLY_STAGE`). An existing contact (same email) is reused and gets
+    the Candidate bit when they apply. The API can't create "Applications".
+  - `/api/apply?check=1` shows the Crelate settings these use (pipeline
+    stages, contact sources, file types). Check the Vercel function logs
+    after real submissions.
 - Pages are static except the job pages; endpoints and job pages run on Vercel.
 - **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
   `RESEND_API_KEY`). Never in the repo or chat. Optional `CRELATE_API_BASE`
