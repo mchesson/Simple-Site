@@ -159,13 +159,17 @@ export async function createContact(p: { firstName: string; lastName: string; em
 export async function addNote(contactId: string, body: string, jobId?: string): Promise<void> {
   await crelate('notes', {
     method: 'POST',
-    body: { entity: { Display: body, ParentId: ref(contactId, 'Contacts'), ...(jobId && { RegardingId: ref(jobId, 'Jobs') }) } },
+    body: { entity: { Display: body, ParentId: ref(contactId, 'Contacts'), ...(jobId && { RegardingId: { Id: jobId } }) } },
   });
 }
+
+// Crelate file type "Resume" (from /api/apply?check=3).
+export const RESUME_ARTIFACT_TYPE_ID = '02f21b38-d26b-4971-ba80-6960aad0db08';
 
 /** Save a resume as the contact's primary document. */
 export async function uploadResume(contactId: string, file: Blob, name: string): Promise<void> {
   const form = new FormData();
+  form.append('entity', JSON.stringify({ FileName: name }));
   form.append('file', file, name);
   await crelate('artifacts/primary', { method: 'POST', params: { target_entity_name: 'Contacts', target_record_id: contactId }, body: form });
 }

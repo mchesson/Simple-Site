@@ -10,6 +10,7 @@
 //                           pipelines, from Crelate's public API description
 //   GET /api/apply?check=2  the record fields those create calls expect
 //   GET /api/apply?check=3  file types set up in Crelate (e.g. Resume)
+//   GET /api/apply?check=4&q=email  search the API description's fields
 import type { APIRoute } from 'astro';
 import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, CrelateError } from '../../crelate';
 import { publicJobs } from '../../jobs';
@@ -96,7 +97,7 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const GET: APIRoute = async ({ url }) => {
   const check = url.searchParams.get('check');
-  if (check !== '1' && check !== '2' && check !== '3') return json({ ok: false }, 404);
+  if (!['1', '2', '3', '4'].includes(check ?? '')) return json({ ok: false, error: 'unknown-check', got: check }, 404);
   const base = (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
   try {
     if (check === '3') {
@@ -108,6 +109,27 @@ export const GET: APIRoute = async ({ url }) => {
     const res = await fetch(`${base}/docs/v3/crelate-openapi.json`);
     const spec: any = await res.json();
     const ref = (s: any): any => (s?.$ref ? s.$ref.split('/').slice(1).reduce((o: any, k: string) => o?.[k], spec) : s);
+    if (check === '4') {
+      // Search the API description: every schema property whose name matches
+      // ?q= (e.g. email, phone, recordtype), with its type or enum values and
+      // description, plus the raw shape of the contact record.
+      const q = new RegExp(url.searchParams.get('q') || 'email|phone|recordtype', 'i');
+      const schemas = spec.components?.schemas ?? {};
+      const hits: any[] = [];
+      for (const [name, s] of Object.entries<any>(schemas)) {
+        const parts = [s, ...(s.allOf ?? []), ...(s.oneOf ?? [])].map(ref);
+        for (const part of parts)
+          for (const [prop, v] of Object.entries<any>(part?.properties ?? {}))
+            if (q.test(prop)) {
+              const r = ref(v);
+              hits.push({ schema: name, prop, type: r?.type ?? v?.$ref?.split('/').pop(), enum: r?.enum ?? r?.['x-enumNames'] ?? undefined, about: String(r?.description ?? v?.description ?? '').slice(0, 200), fields: r?.properties ? Object.keys(r.properties) : undefined });
+            }
+        if (q.test(name) && s.enum) hits.push({ schema: name, enum: s.enum, names: s['x-enumNames'] ?? s['x-enum-varnames'], about: String(s.description ?? '').slice(0, 300) });
+      }
+      const contactEntity = ref(ref(spec.paths?.['/contacts']?.post?.requestBody?.content?.['application/json']?.schema)?.properties?.entity);
+      const shape = (s: any) => ({ keys: Object.keys(s ?? {}), allOf: (s?.allOf ?? []).map((x: any) => x.$ref ?? Object.keys(ref(x)?.properties ?? {})), additionalProperties: s?.additionalProperties ? (s.additionalProperties.$ref ?? typeof s.additionalProperties) : null });
+      return json({ ok: true, hits: hits.slice(0, 150), contactEntity: shape(contactEntity) });
+    }
     if (check === '2') {
       // The record fields each create call expects (from the public API description).
       const describe = (s: any, depth = 0): any => {
