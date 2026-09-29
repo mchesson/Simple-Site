@@ -139,6 +139,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   Vercel. Without it (or without jobs), Careers shows a "View Open Positions"
   button to the portal. Diagnostics with no job text: `/api/jobs?check=1`
   (field names), `/api/jobs?check=2` (counts and status-field values).
+- `/api/jobs` pages through every Crelate job (100 per request, 5 at a time,
+  up to 10,000; Vercel `maxDuration: 60`), cached 10 minutes per instance.
+  `PortalVisibility` is numeric (0/1); which value means public is still to be
+  confirmed against the portal before `JOBS_LIST_ENABLED` is turned on.
 - **Forms** talk to Crelate through `src/pages/api/contact.ts` and `talent.ts`,
   using the helper in `src/crelate.ts`. Pages stay static; only the endpoints
   run on Vercel.

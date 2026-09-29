@@ -13,17 +13,24 @@ import { json } from './_shared';
 
 export const prerender = false;
 
-let cache: { at: number; raw: any[] } | null = null;
-async function allJobs(): Promise<any[]> {
-  if (cache && Date.now() - cache.at < 10 * 60 * 1000) return cache.raw;
+let cache: { at: number; raw: any[]; capped: boolean } | null = null;
+const PAGE = 100, MAX = 10000, PARALLEL = 5;
+/** Every job in Crelate (paged, a few pages at a time), cached for 10 minutes. */
+async function allJobs(): Promise<{ raw: any[]; capped: boolean }> {
+  if (cache && Date.now() - cache.at < 10 * 60 * 1000) return cache;
   const raw: any[] = [];
-  for (let offset = 0; offset < 1000; offset += 100) {
-    const page = listOf(await crelate('jobs', { params: { limit: 100, offset } }));
-    raw.push(...page);
-    if (page.length < 100) break;
+  let done = false;
+  for (let offset = 0; offset < MAX && !done; offset += PAGE * PARALLEL) {
+    const pages = await Promise.all(
+      Array.from({ length: PARALLEL }, (_, i) => crelate('jobs', { params: { limit: PAGE, offset: offset + i * PAGE } }).then(listOf)),
+    );
+    for (const page of pages) {
+      raw.push(...page);
+      if (page.length < PAGE) done = true;
+    }
   }
-  cache = { at: Date.now(), raw };
-  return raw;
+  cache = { at: Date.now(), raw, capped: !done };
+  return cache;
 }
 
 const jobUrl = (j: PublicJob) =>
@@ -34,15 +41,19 @@ export const GET: APIRoute = async ({ url }) => {
   try {
     const check = url.searchParams.get('check');
     if (check) {
-      const raw = await allJobs();
+      const { raw, capped } = await allJobs();
       if (check === '1') return json({ ok: true, count: raw.length, fields: raw[0] ? Object.keys(raw[0]).sort() : [] });
       const distinct = (k: string) => [...new Set(raw.map((j) => JSON.stringify(j?.[k] ?? null)))].slice(0, 25);
       const published = raw.filter(isPublished);
       return json({
         ok: true,
         total: raw.length,
+        readAllJobs: !capped,
         onPortal: raw.filter((j) => j?.OnPortal === true).length,
+        onPortalButOnHold: raw.filter((j) => j?.OnPortal === true && j?.IsOnHold === true).length,
+        onPortalButClosed: raw.filter((j) => j?.OnPortal === true && j?.ClosedOn).length,
         publishedAfterFilters: published.length,
+        publishedByVisibility: published.reduce((m: Record<string, number>, j) => ((m[String(j?.PortalVisibility)] = (m[String(j?.PortalVisibility)] ?? 0) + 1), m), {}),
         withZip: published.filter((j) => /^\d{5}/.test(String(j?.PortalZip ?? ''))).length,
         values: { OnPortal: distinct('OnPortal'), PortalVisibility: distinct('PortalVisibility'), IsHidden: distinct('IsHidden'), IsOnHold: distinct('IsOnHold'), PortalState: distinct('PortalState'), PortalCountryId: distinct('PortalCountryId') },
       });
@@ -56,7 +67,7 @@ export const GET: APIRoute = async ({ url }) => {
     const origin = locInput ? resolveLocation(locInput) : null;
     if (locInput && !origin) return json({ ok: false, error: 'bad-location', jobs: [] });
 
-    let jobs = (await allJobs()).filter(isPublished).map(toPublicJob).map((j) => {
+    let jobs = (await allJobs()).raw.filter(isPublished).map(toPublicJob).map((j) => {
       const remote = isRemote(j.title, j.city);
       const pt = jobPoint(j.zip, j.city, j.state);
       const distance = origin && pt ? Math.round(miles(origin, pt)) : null;
