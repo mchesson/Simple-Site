@@ -6,6 +6,7 @@
 //   ?check=1  field names of the first job
 //   ?check=2  counts and the distinct values of a few status fields
 //   ?check=3  published jobs: public title + non-identifying status fields
+//   ?check=5&q=title  how the site read public postings (facts + outline)
 //   ?check=4  links found on the public job portal page (to learn its job
 //             and resume-submission link patterns)
 import type { APIRoute } from 'astro';
@@ -35,6 +36,20 @@ export const GET: APIRoute = async ({ url }) => {
         crelateUrls: found(/https?:\/\/[^"'\s<>()]*crelate[^"'\s<>()]*/gi),
         portalPaths: found(/\/portal\/technicalsource\/[^"'\s<>()]*/gi),
       });
+    }
+    if (check === '5') {
+      // How the site read each public posting: facts and the outline of the
+      // tidied text (public posting content only), to fix layout issues.
+      const q = (url.searchParams.get('q') ?? '').toLowerCase();
+      const jobs = (await publicJobs()).filter((j) => !q || j.title.toLowerCase().includes(q)).slice(0, 5);
+      return json({
+        ok: true,
+        jobs: jobs.map((j) => ({
+          title: j.title,
+          facts: j.facts,
+          outline: [...j.description.matchAll(/<(h3|p|ul|ol)>([\s\S]*?)<\/\1>/g)].slice(0, 25).map((m) => `${m[1]}: ${m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70)}`),
+        })),
+      }, 200, { 'Cache-Control': 'no-store' });
     }
     if (check) {
       const { raw, capped } = await allJobs();

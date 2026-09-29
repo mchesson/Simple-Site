@@ -11,7 +11,8 @@
 // contactId/candidateId). If Crelate rejects a field, the error is logged in
 // Vercel → Deployments → Functions/Logs; adjust the mapping here.
 
-import { cleanHtml, toLines, tidyPosting, splitFacts } from './html';
+import { toLines } from './html';
+import { structurePosting } from './posting';
 
 const base = () => (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
 export const isConfigured = () => Boolean(process.env.CRELATE_API_KEY);
@@ -76,23 +77,6 @@ export function isPublished(j: any): boolean {
   return Boolean(text(j?.PortalTitle));
 }
 
-// Short teaser for the job list: skips a repeated title and "Location: ... /
-// Type: ..." lines and short headings ("About the Role"), which the list
-// doesn't need.
-const summarize = (html: string, title: string) => {
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const lines = toLines(html).filter((l) => norm(l) !== norm(title) && !norm(l).startsWith(norm(title) + ' ') && !/^[\w /&()-]{2,30}:\s*\S.{0,80}$/.test(l) && !/^[\w /&()-]{2,30}:$/.test(l) && !(l.length < 40 && !/[.!?]$/.test(l)));
-  const t = lines.join(' ').trim();
-  return t.length > 220 ? t.slice(0, 217).replace(/\s+\S*$/, '') + '…' : t;
-};
-
-// Many postings repeat the job title as their first line; the page shows it already.
-const dropTitle = (html: string, title: string) => {
-  const m = html.match(/^<(p|h2|h3)>([\s\S]*?)<\/\1>/);
-  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  return m && norm(toLines(m[2]).join(' ')) === norm(title) ? html.slice(m[0].length).trim() : html;
-};
-
 export interface PublicJob {
   id: string;
   title: string;
@@ -111,14 +95,14 @@ export interface PublicJob {
 /** Map a Crelate job to its public portal posting (allowlisted fields only). */
 export function toPublicJob(j: any): PublicJob {
   const title = toLines(text(j.PortalTitle)).join(' ');
-  const { facts, html: description } = splitFacts(tidyPosting(dropTitle(cleanHtml(text(j.PortalDescription)), title)));
+  const { facts, html: description, summary } = structurePosting(text(j.PortalDescription), title);
   return {
     id: text(j.Id),
     title,
     city: text(j.PortalCity),
     state: text(j.PortalState),
     zip: text(j.PortalZip).slice(0, 5),
-    summary: summarize(text(j.PortalDescription), title),
+    summary,
     description,
     facts,
     slug: text(j.PortalUrlSlug),
