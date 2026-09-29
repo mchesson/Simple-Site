@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
 import { getIndustries } from '../lib';
+import { site } from '../data/site';
 const industries = await getIndustries();
 const reasons = [
   ['Work That Matters', 'Join projects that build new facilities, bring capacity online and put new technology to work.'],
@@ -13,7 +14,7 @@ const reasons = [
   <Banner eyebrow="Careers" compact>
     <h1>Build your career on <span class="hl">meaningful projects.</span></h1>
     <p class="banner-sub">Join a team that knows your craft, invests in your growth and connects you to work worth doing.</p>
-    <div class="row"><a class="btn btn-green" href="#jobs">Search Jobs</a><a class="btn btn-outline-light" href="#network">Stay in Touch</a></div>
+    <div class="row"><a class="btn btn-green" href={site.jobsPortal} target="_blank" rel="noopener">Search Jobs</a><a class="btn btn-outline-light" href="#network">Stay in Touch</a></div>
   </Banner>
 
   <section class="sec">
@@ -25,18 +26,13 @@ const reasons = [
   </section>
 
   <section class="sec mist" id="jobs">
-    <div class="wrap">
-      <span class="eyebrow">Open Positions</span>
-      <h2>Search Jobs</h2>
-      <form class="search" role="search" onsubmit="event.preventDefault()">
-        <input id="job-q" aria-label="Job title or keyword" placeholder="Job title, skill or keyword" />
-        <input id="job-loc" aria-label="Location" placeholder="Location" />
-      </form>
-      <p class="job-count" id="job-count" aria-live="polite">Loading open positions…</p>
-      <ul class="jobs" id="job-list"></ul>
-      <p class="job-empty" id="job-empty" hidden>
-        We don’t have a posted opening that matches right now. Share your details below and we’ll reach out when a project fits your experience.
-      </p>
+    <div class="wrap jobs-cta">
+      <div>
+        <span class="eyebrow">Open Positions</span>
+        <h2>Search Jobs</h2>
+        <p class="lede">Browse our current openings and apply online.</p>
+      </div>
+      <a class="btn btn-primary" href={site.jobsPortal} target="_blank" rel="noopener">View Open Positions →</a>
     </div>
   </section>
 
@@ -71,55 +67,11 @@ const reasons = [
   const opt = sel && p ? Array.from(sel.options).find((o) => o.dataset.id === p) : undefined;
   if (sel && opt) sel.value = opt.value;
 
-  // Open positions from Crelate (/api/jobs), filtered as the visitor types.
-  type Job = { id: string; title: string; location: string; type: string; summary: string; url: string };
-  const list = document.getElementById('job-list')!;
-  const count = document.getElementById('job-count')!;
-  const empty = document.getElementById('job-empty')!;
-  const q = document.getElementById('job-q') as HTMLInputElement;
-  const loc = document.getElementById('job-loc') as HTMLInputElement;
-  let jobs: Job[] = [];
-
-  const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-  function render() {
-    const words = q.value.toLowerCase().split(/\s+/).filter(Boolean);
-    const place = loc.value.toLowerCase().trim();
-    const shown = jobs.filter((j) => {
-      const text = `${j.title} ${j.summary} ${j.type}`.toLowerCase();
-      return words.every((w) => text.includes(w)) && (!place || j.location.toLowerCase().includes(place));
-    });
-    list.innerHTML = shown
-      .map((j) => `<li><a href="${esc(j.url || '#network')}"${j.url ? ' target="_blank" rel="noopener"' : ''}>
-          <h3>${esc(j.title)}</h3>
-          <p class="meta">${esc([j.location, j.type].filter(Boolean).join(' · '))}</p>
-          ${j.summary ? `<p>${esc(j.summary)}</p>` : ''}
-          <span class="go">${j.url ? 'View and Apply →' : 'Express Interest →'}</span></a></li>`)
-      .join('');
-    count.textContent = jobs.length ? `${shown.length} open position${shown.length === 1 ? '' : 's'}` : '';
-    empty.hidden = shown.length > 0;
-  }
-  q.addEventListener('input', render);
-  loc.addEventListener('input', render);
-
-  fetch('/api/jobs')
-    .then((r) => r.json())
-    .then((out) => { jobs = Array.isArray(out.jobs) ? out.jobs : []; render(); })
-    .catch(() => { jobs = []; render(); });
 </script>
 <style>
   .reasons { margin-top: 1.5rem; }
-  .search { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
-  .search input, .search select { flex: 1 1 12rem; padding: .8rem .9rem; border: 1px solid var(--light); border-radius: 6px; font: inherit; background: #fff; }
-  .job-count { color: var(--muted); margin: 1.25rem 0 .75rem; font-size: .95rem; }
-  .jobs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
-  .jobs :global(li) { border-bottom: 1px solid var(--line); }
-  .jobs :global(a) { display: block; padding: 1.4rem 0; text-decoration: none; color: inherit; }
-  .jobs :global(a:hover h3) { color: var(--blue); }
-  .jobs :global(h3) { margin: 0 0 .25rem; }
-  .jobs :global(.meta) { color: var(--aqua-deep); font-weight: 600; font-size: .9rem; margin: 0 0 .5rem; }
-  .jobs :global(p) { color: var(--muted); margin: 0 0 .5rem; }
-  .jobs :global(.go) { color: var(--blue); font-weight: 600; }
-  .job-empty { color: var(--muted); max-width: 44rem; }
+  .jobs-cta { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 1.5rem 3rem; }
+  .jobs-cta .lede { margin: 0; }
   .narrow { max-width: 42rem; }
   .form { margin-top: 1.5rem; }
 </style>

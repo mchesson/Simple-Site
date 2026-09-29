@@ -65,7 +65,7 @@
     if (opt) sel.value = opt.value;
   }
 
-  // Forms and the Crelate job list need the live site; explain that in the preview.
+  // Forms need the live site; explain that in the preview.
   function initPreviewOnly() {
     main.querySelectorAll('form[data-form]').forEach((form) => {
       form.addEventListener('submit', (e) => {
@@ -74,8 +74,6 @@
         if (st) { st.hidden = false; st.dataset.kind = 'ok'; st.textContent = 'Preview only: forms send to Crelate on the live site.'; }
       });
     });
-    const count = main.querySelector('#job-count');
-    if (count) count.textContent = 'Open positions load from Crelate on the live site.';
   }
 
   function parse() {

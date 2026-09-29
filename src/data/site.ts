@@ -7,6 +7,8 @@ export const site = {
   linkedin: 'https://www.linkedin.com/company/technical-source-llc',
   // TODO(confirm): general inbox shown in public listings. No phone numbers on the site.
   email: 'info@technicalsource.com',
+  // Crelate job portal: open positions and online applications live here.
+  jobsPortal: 'https://jobs.crelate.com/portal/technicalsource',
 };
 
 export const services = [
