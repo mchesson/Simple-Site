@@ -17,7 +17,7 @@ const industries = await getIndustries();
         <a class="ind" href={`/industries/${i.id}`} data-industry={i.id} style={`--c:${i.data.color}`}>
           <span class="chev"></span>
           <div>
-            <h2>{i.data.name}<span class="yours">Your industry</span></h2>
+            <h2>{i.data.name}</h2>
             <p>{i.data.summary}</p>
           </div>
           <span class="go">Learn More →</span>

@@ -46,11 +46,6 @@ function resolve(): string | null {
 const industry = resolve();
 document.documentElement.dataset.visitorIndustry = industry ?? '';
 
-// Highlight the visitor's industry in industry lists.
-document.querySelectorAll<HTMLElement>('[data-industry-list] [data-industry]').forEach((el) => {
-  el.classList.toggle('is-yours', el.dataset.industry === industry);
-});
-
 // Put the visitor's industry first in story lists, keeping the original order otherwise.
 if (industry) {
   document.querySelectorAll<HTMLElement>('[data-industry-sort]').forEach((list) => {
