@@ -9,6 +9,9 @@ export const site = {
   email: 'info@technicalsource.com',
   // Crelate job portal: open positions and online applications live here.
   jobsPortal: 'https://jobs.crelate.com/portal/technicalsource',
+  // Path between the portal address and a job's PortalUrlSlug, once confirmed
+  // from a real job link on the portal (e.g. '/job/'). Empty = link to the portal.
+  jobsPortalJobPath: '',
 };
 
 export const services = [
