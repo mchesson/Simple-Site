@@ -17,6 +17,7 @@
     "check:site": "node scripts/site-check.mjs"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@astrojs/rss": "^4.0.19",
     "@astrojs/sitemap": "^3.7.4",
     "@astrojs/vercel": "^11.0.11",
@@ -24,7 +25,8 @@
     "@fontsource-variable/vollkorn": "^5.3.0",
     "astro": "^7.3.5",
     "node-html-parser": "^9.0.4",
-    "zipcodes": "^8.0.0"
+    "zipcodes": "^8.0.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/zipcodes": "^8.0.5",

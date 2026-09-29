@@ -110,6 +110,7 @@ a.card:hover h3 { color: var(--blue); }
 .photo::before {
   content: ''; position: absolute; right: -10%; top: 10%; width: 70%; aspect-ratio: 95 / 83;
   background: rgb(255 255 255 / .14); clip-path: var(--chev);
+  transform: translateY(calc(var(--drift, 0) * -40px));
 }
 .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
@@ -163,3 +164,13 @@ a.card:hover h3 { color: var(--blue); }
 .form .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .form .pair { display: grid; gap: 1rem; grid-template-columns: 1fr 1fr; }
 @media (max-width: 520px) { .form .pair { grid-template-columns: 1fr; } }
+
+/* Scroll motion (src/scripts/motion.ts). Only applies when the script runs
+   and the visitor hasn't asked for reduced motion. */
+.motion .banner h1 .word { display: inline-block; opacity: 0; transform: translateY(.45em); animation: word-in .7s ease forwards; }
+@keyframes word-in { to { opacity: 1; transform: none; } }
+.motion .reveal { opacity: 0; transform: translateY(24px); transition: opacity .7s ease, transform .7s ease; }
+.motion .reveal.in { opacity: 1; transform: none; }
+a.card { transition: transform .3s ease; }
+a.card:hover { transform: translateY(-4px); }
+@media (prefers-reduced-motion: reduce) { a.card { transition: none; } a.card:hover { transform: none; } }

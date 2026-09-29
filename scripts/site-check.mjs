@@ -10,6 +10,7 @@
 //   - nothing wider than the screen at 390px (phone) and 1366px (desktop)
 //   - a unique <title>, a meta description, one <h1>, a canonical link
 //   - images have alt text; no serious accessibility problems (axe-core)
+//   - scroll motion finishes (nothing left hidden)
 //   - site rules from CLAUDE.md: no phone numbers, no Raleigh/headquarters,
 //     no "Your industry" tag, no "To be confirmed"
 // Live only: /api/jobs returns jobs, a job page shows the facts row and the
@@ -95,6 +96,16 @@ async function main() {
       if (info.wide) problem(path, 'wider than the screen on desktop');
       for (const [re, what] of RULES) if (re.test(info.text)) problem(path, what);
       if (info.industryTag) problem(path, 'shows the "Your industry" tag');
+
+      // Let scroll motion finish (src/scripts/motion.ts): scroll through the
+      // page so every fade-in runs, then check nothing stayed hidden.
+      await page.evaluate(async () => {
+        for (let y = 0; y < document.body.scrollHeight; y += 400) { scrollTo(0, y); await new Promise((r) => setTimeout(r, 50)); }
+        scrollTo(0, 0);
+      });
+      await page.waitForTimeout(1500);
+      const stuck = await page.evaluate(() => document.querySelectorAll('.reveal:not(.in)').length);
+      if (stuck) problem(path, `${stuck} item(s) never finished fading in`);
 
       await page.addScriptTag({ content: axeSource });
       const axe = await page.evaluate(async () => {
