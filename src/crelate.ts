@@ -53,30 +53,52 @@ export function listOf(r: any): any[] {
   return [];
 }
 
-const pick = (o: any, ...keys: string[]) => {
-  for (const k of keys) {
-    const v = k.split('.').reduce((a, p) => a?.[p], o);
-    if (v != null && v !== '') return typeof v === 'object' ? (v.Title ?? v.Name ?? v.name ?? '') : String(v);
-  }
-  return '';
-};
+// ---------------------------------------------------------------------------
+// Jobs: PUBLIC PORTAL FIELDS ONLY.
+// Crelate's internal job fields (Name, Description, PortalCompanyName, contacts,
+// recruiter/owner IDs, rates...) can contain client and recruiter names and must
+// never reach the website. The allowlist below is the only way job data gets
+// out; add a field only if it's part of the public portal posting.
+// ---------------------------------------------------------------------------
+
+const text = (v: unknown) => (typeof v === 'string' ? v.trim() : typeof v === 'number' ? String(v) : '');
+const truthy = (v: unknown) => v === true || v === 'true' || v === 1 || v === '1';
+
+/** Only jobs that are live on the job portal. */
+export function isPublished(j: any): boolean {
+  if (!truthy(j?.OnPortal)) return false;
+  if (truthy(j?.IsHidden) || truthy(j?.IsOnHold) || j?.ClosedOn) return false;
+  const vis = text(j?.PortalVisibility).toLowerCase();
+  if (vis && /private|internal|hidden|none|off/.test(vis)) return false;
+  return Boolean(text(j?.PortalTitle));
+}
 
 const summarize = (html: string) => {
-  const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
   return t.length > 220 ? t.slice(0, 217).replace(/\s+\S*$/, '') + '…' : t;
 };
 
-/** Normalize a Crelate job into what the careers page shows. */
-export function toJob(j: any) {
-  const city = pick(j, 'City', 'city', 'Location.City', 'Address.City');
-  const state = pick(j, 'State', 'state', 'Location.State', 'Address.State');
+export interface PublicJob {
+  id: string;
+  title: string;
+  city: string;
+  state: string;
+  zip: string;
+  summary: string;
+  slug: string;
+  postedOn: string;
+}
+
+/** Map a Crelate job to its public portal posting (allowlisted fields only). */
+export function toPublicJob(j: any): PublicJob {
   return {
-    id: pick(j, 'Id', 'id'),
-    title: pick(j, 'PublicTitle', 'Title', 'title', 'Name', 'name'),
-    location: pick(j, 'LocationName', 'Location', 'location') || [city, state].filter(Boolean).join(', '),
-    type: pick(j, 'EmploymentType', 'JobType', 'employmentType', 'type'),
-    summary: summarize(pick(j, 'PublicDescription', 'ShortDescription', 'Description', 'description')),
-    url: pick(j, 'PublicUrl', 'ApplyUrl', 'Url', 'url'),
-    status: pick(j, 'Status', 'status', 'JobStatus', 'WorkflowStatus.Title'),
+    id: text(j.Id),
+    title: text(j.PortalTitle),
+    city: text(j.PortalCity),
+    state: text(j.PortalState),
+    zip: text(j.PortalZip).slice(0, 5),
+    summary: summarize(text(j.PortalDescription)),
+    slug: text(j.PortalUrlSlug),
+    postedOn: text(j.PortalLastPostedOn),
   };
 }

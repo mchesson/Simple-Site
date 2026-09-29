@@ -29,9 +29,21 @@ const reasons = [
     <div class="wrap">
       <span class="eyebrow">Open Positions</span>
       <h2>Search Jobs</h2>
-      <form class="search" role="search" onsubmit="event.preventDefault()">
-        <input id="job-q" aria-label="Job title or keyword" placeholder="Job title, skill or keyword" />
-        <input id="job-loc" aria-label="Location" placeholder="Location" />
+      <form class="search" role="search" id="job-search">
+        <label class="visually-hidden" for="job-q">Keyword</label>
+        <input id="job-q" name="q" placeholder="Job title, skill or keyword" />
+        <label class="visually-hidden" for="job-loc">ZIP code or city</label>
+        <input id="job-loc" name="loc" placeholder="ZIP code or City, ST" />
+        <label class="visually-hidden" for="job-radius">Distance</label>
+        <select id="job-radius" name="radius">
+          <option value="10">Within 10 miles</option>
+          <option value="25">Within 25 miles</option>
+          <option value="50" selected>Within 50 miles</option>
+          <option value="100">Within 100 miles</option>
+          <option value="250">Within 250 miles</option>
+          <option value="0">Any distance</option>
+        </select>
+        <button class="btn btn-primary" type="submit">Search</button>
       </form>
       <p class="job-count" id="job-count" aria-live="polite">Loading open positions…</p>
       <ul class="jobs" id="job-list" data-portal={site.jobsPortal}></ul>
@@ -77,61 +89,67 @@ const reasons = [
   const opt = sel && p ? Array.from(sel.options).find((o) => o.dataset.id === p) : undefined;
   if (sel && opt) sel.value = opt.value;
 
-  // Open positions from Crelate (/api/jobs), filtered as the visitor types.
-  type Job = { id: string; title: string; location: string; type: string; summary: string; url: string };
+  // Open positions from Crelate (/api/jobs): public portal postings only,
+  // searched on the server by keyword and distance from a ZIP code or city.
+  type Job = { title: string; location: string; summary: string; url: string; distance: number | null; remote: boolean };
   const list = document.getElementById('job-list')!;
   const count = document.getElementById('job-count')!;
   const empty = document.getElementById('job-empty')!;
-  const q = document.getElementById('job-q') as HTMLInputElement;
-  const loc = document.getElementById('job-loc') as HTMLInputElement;
+  const form = document.getElementById('job-search') as HTMLFormElement;
   const portalBox = document.getElementById('job-portal')!;
   const allLink = document.getElementById('job-all')!;
-  const search = document.querySelector<HTMLFormElement>('#jobs .search')!;
-  const portal = list.dataset.portal ?? '';
-  let jobs: Job[] = [];
 
   const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-  function render() {
-    const words = q.value.toLowerCase().split(/\s+/).filter(Boolean);
-    const place = loc.value.toLowerCase().trim();
-    const shown = jobs.filter((j) => {
-      const text = `${j.title} ${j.summary} ${j.type}`.toLowerCase();
-      return words.every((w) => text.includes(w)) && (!place || j.location.toLowerCase().includes(place));
-    });
-    list.innerHTML = shown
-      .map((j) => `<li><a href="${esc(j.url || portal)}" target="_blank" rel="noopener">
+  const meta = (j: Job) => [j.location, j.distance !== null && !j.remote ? `${j.distance} mi away` : ''].filter(Boolean).join(' · ');
+
+  function show(jobs: Job[], note: string) {
+    list.innerHTML = jobs
+      .map((j) => `<li><a href="${esc(j.url)}" target="_blank" rel="noopener">
           <h3>${esc(j.title)}</h3>
-          <p class="meta">${esc([j.location, j.type].filter(Boolean).join(' · '))}</p>
+          ${meta(j) ? `<p class="meta">${esc(meta(j))}</p>` : ''}
           ${j.summary ? `<p>${esc(j.summary)}</p>` : ''}
           <span class="go">View and Apply →</span></a></li>`)
       .join('');
-    count.textContent = jobs.length ? `${shown.length} open position${shown.length === 1 ? '' : 's'}` : '';
-    empty.hidden = shown.length > 0;
+    count.textContent = note;
+    empty.hidden = jobs.length > 0;
   }
-  q.addEventListener('input', render);
-  loc.addEventListener('input', render);
 
-  // No jobs from the API (key not set, Crelate unreachable, or nothing open):
-  // hide the search and send visitors to the portal instead.
+  // No jobs from the API at all (list switched off, key missing, Crelate
+  // unreachable, nothing posted): send visitors to the portal instead.
   function fallback() {
-    search.hidden = true;
+    form.hidden = true;
     count.hidden = true;
     portalBox.hidden = false;
   }
 
-  fetch('/api/jobs')
-    .then((r) => r.json())
-    .then((out) => {
-      jobs = Array.isArray(out.jobs) ? out.jobs : [];
-      if (!jobs.length) return fallback();
+  async function search(first = false) {
+    const params = new URLSearchParams();
+    const fd = new FormData(form);
+    for (const k of ['q', 'loc', 'radius']) { const v = String(fd.get(k) ?? '').trim(); if (v) params.set(k, v); }
+    if (!params.get('loc')) params.delete('radius');
+    count.textContent = 'Searching…';
+    try {
+      const out = await (await fetch(`/api/jobs?${params}`)).json();
+      const jobs: Job[] = Array.isArray(out.jobs) ? out.jobs : [];
+      if (first && !jobs.length) return fallback();
       allLink.hidden = false;
-      render();
-    })
-    .catch(fallback);
+      if (out.error === 'bad-location') return show([], 'We couldn’t find that location. Try a 5-digit ZIP code or “City, ST”.');
+      const r = params.get('radius');
+      const where = out.origin ? (r === '0' ? ` near ${out.origin}` : ` within ${r} miles of ${out.origin}`) : '';
+      show(jobs, `${jobs.length} open position${jobs.length === 1 ? '' : 's'}${where}`);
+    } catch {
+      if (first) fallback();
+      else show([], 'Search isn’t available right now. Please try again shortly.');
+    }
+  }
+
+  form.addEventListener('submit', (e) => { e.preventDefault(); search(); });
+  search(true);
 </script>
 <style>
   .reasons { margin-top: 1.5rem; }
   .search { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
+  .search .btn { flex: 0 0 auto; }
   .search input, .search select { flex: 1 1 12rem; padding: .8rem .9rem; border: 1px solid var(--light); border-radius: 6px; font: inherit; background: #fff; }
   .job-count { color: var(--muted); margin: 1.25rem 0 .75rem; font-size: .95rem; }
   .jobs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }

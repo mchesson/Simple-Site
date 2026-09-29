@@ -122,12 +122,23 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 ## Crelate (ATS + CRM)
 - **Jobs:** postings and applications live in Crelate's hosted job portal,
   `site.jobsPortal` in `src/data/site.ts`
-  (https://jobs.crelate.com/portal/technicalsource). The Careers page shows
-  open jobs in the site's own style, loaded from `/api/jobs` (Crelate API,
-  cached 10 minutes), and every "View and Apply" link goes to the portal.
-  If the API returns no jobs (key missing, Crelate unreachable, nothing open),
-  the section falls back to a "View Open Positions" button to the portal.
-  `/api/jobs?check=1` lists the field names of the first job to help mapping.
+  (https://jobs.crelate.com/portal/technicalsource). The Careers page lists
+  open jobs in the site's own style from `/api/jobs`, with keyword search and
+  ZIP code / "City, ST" radius search (distance from the bundled `zipcodes`
+  database, `src/geo.ts`). "View and Apply" goes to the portal (to the job's own
+  posting once `site.jobsPortalJobPath` is confirmed from a real portal link).
+- **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
+  the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
+  `PortalState`, `PortalZip`, `PortalUrlSlug`, `PortalLastPostedOn`. Never use
+  `Name`, `Description`, `PortalCompanyName`, contacts, owner/recruiter IDs or
+  rates: they contain client and recruiter names. `isPublished` keeps only jobs
+  with `OnPortal` true, not hidden, on hold or closed, not private, and with a
+  portal title. The endpoint returns only title, location, summary, url,
+  distance and remote.
+- **Safety switch:** the list is off unless `JOBS_LIST_ENABLED=true` is set in
+  Vercel. Without it (or without jobs), Careers shows a "View Open Positions"
+  button to the portal. Diagnostics with no job text: `/api/jobs?check=1`
+  (field names), `/api/jobs?check=2` (counts and status-field values).
 - **Forms** talk to Crelate through `src/pages/api/contact.ts` and `talent.ts`,
   using the helper in `src/crelate.ts`. Pages stay static; only the endpoints
   run on Vercel.
@@ -137,11 +148,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   dedicated Crelate "website" user's key is preferred over a personal key.
 - Contact form → Crelate **contact** + **note** (industry, service, page, message).
   Careers "Stay in Touch" → Crelate **candidate** + **note**.
-- Field mapping lives in `src/crelate.ts` (`toJob`, request bodies). It was built
-  from Crelate's API3 conventions without access to the live API, so check the
-  Vercel function logs after the first real use and adjust if needed. If a
-  job's public portal link turns up in the API data, map it to `url` in `toJob`
-  so each job links straight to its own posting.
+- Form request bodies were built from Crelate's API3 conventions without
+  access to the live API, so check the Vercel function logs after the first
+  real submissions and adjust if needed.
 - Without the key, the forms tell visitors to email `site.email`.
 - Spam: hidden honeypot field; Astro's origin check blocks cross-site posts.
 
