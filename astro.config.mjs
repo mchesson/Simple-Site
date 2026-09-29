@@ -4,6 +4,8 @@ import sitemap from '@astrojs/sitemap';
 import vercel from '@astrojs/vercel';
 
 export default defineConfig({
+  // Styles are small: put them in each page so it can draw without waiting.
+  build: { inlineStylesheets: 'always' },
   // Set SITE_URL on the host for test copies (e.g. https://teksourcetalent.com)
   // so canonical and LinkedIn share links point at that copy.
   site: process.env.SITE_URL || 'https://technicalsource.com',

@@ -1,0 +1,136 @@
+// The form endpoints, with Crelate and the email service replaced by a fake
+// fetch that records every request.
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+type Call = { method: string; url: URL; headers: Record<string, string>; body: any };
+let calls: Call[] = [];
+let fail: { crelate?: boolean; email?: boolean } = {};
+const KEY = 'test-key-123';
+
+const ok = (data: unknown) => new Response(JSON.stringify({ Data: data, Errors: [], Metadata: {} }), { status: 200 });
+
+beforeEach(() => {
+  calls = [];
+  fail = {};
+  vi.resetModules();
+  process.env.CRELATE_API_KEY = KEY;
+  process.env.CRELATE_API_BASE = 'http://crelate.test/api3';
+  process.env.RESEND_API_KEY = 're_test';
+  process.env.RESEND_API_URL = 'http://mail.test/emails';
+  process.env.JOBS_LIST_ENABLED = 'true';
+  vi.stubGlobal('fetch', async (input: string | URL, init: RequestInit = {}) => {
+    const url = new URL(String(input));
+    const headers = Object.fromEntries(Object.entries((init.headers as Record<string, string>) ?? {}));
+    const body = init.body instanceof FormData ? init.body : init.body ? JSON.parse(String(init.body)) : undefined;
+    calls.push({ method: init.method ?? 'GET', url, headers, body });
+    if (url.host === 'mail.test') return fail.email ? new Response('down', { status: 500 }) : new Response('{"id":"m1"}');
+    if (fail.crelate) return new Response(JSON.stringify({ Errors: [{ Message: 'nope' }] }), { status: 400 });
+    const path = url.pathname.replace('/api3/', '');
+    if (path === 'jobs') return ok(url.searchParams.get('offset') === '0' ? [{ Id: 'job-1', OnPortal: true, PortalTitle: 'Controls Engineer', PortalDescription: '<p>Hi.</p>' }] : []);
+    if (path === 'contacts' && (init.method ?? 'GET') === 'GET') return ok([]);
+    if (path === 'contacts') return ok('contact-1');
+    if (path === 'contactsources') return ok([{ Id: 'src-web', Name: 'Company Website' }]);
+    if (path === 'workflowstatuses') return ok([{ Id: 'st-maybe', Name: 'Maybe', SortOrder: 0 }, { Id: 'st-2', Name: 'Short List', SortOrder: 1 }]);
+    return ok(true);
+  });
+});
+
+const post = (url: string, body: FormData | object) =>
+  new Request(url, body instanceof FormData
+    ? { method: 'POST', body, headers: { Accept: 'application/json' } }
+    : { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } });
+
+function application(extra: Record<string, string> = {}) {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries({ firstName: 'Ann', lastName: 'Lee', email: 'ann@example.com', phone: '9195551234', jobId: 'job-1', ...extra })) fd.set(k, v);
+  fd.set('resume', new File(['%PDF-1.4'], 'cv.pdf', { type: 'application/pdf' }));
+  return fd;
+}
+
+const crelateCalls = () => calls.filter((c) => c.url.host === 'crelate.test');
+
+describe('Crelate key safety', () => {
+  it('sends the key only in the X-Api-Key header, never in a URL', async () => {
+    const { POST } = await import('../src/pages/api/apply');
+    await POST({ request: post('http://site/api/apply', application()) } as any);
+    expect(crelateCalls().length).toBeGreaterThan(0);
+    for (const c of crelateCalls()) {
+      expect(c.headers['X-Api-Key']).toBe(KEY);
+      expect(c.url.toString()).not.toContain(KEY);
+    }
+  });
+});
+
+describe('POST /api/apply', () => {
+  it('emails the resume and files the candidate on the job in Maybe', async () => {
+    const { POST } = await import('../src/pages/api/apply');
+    const res = await POST({ request: post('http://site/api/apply', application()) } as any);
+    expect(await res.json()).toEqual({ ok: true });
+
+    const mail = calls.find((c) => c.url.host === 'mail.test')!;
+    expect(mail.body.to).toEqual(['info@technicalsource.com']);
+    expect(mail.body.attachments[0].filename).toBe('cv.pdf');
+
+    const create = crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!;
+    expect(create.body.entity).toMatchObject({ FirstName: 'Ann', RecordType: 1, EmailAddresses_Personal: { Value: 'ann@example.com' }, ContactSourceId: { Id: 'src-web' } });
+    expect(crelateCalls().some((c) => c.url.pathname.endsWith('/artifacts/primary') && c.url.searchParams.get('target_record_id') === 'contact-1')).toBe(true);
+    const pipeline = crelateCalls().find((c) => c.url.pathname.endsWith('/jobs/job-1/contacts'))!;
+    expect(pipeline.body).toEqual({ statusId: 'st-maybe' });
+    expect(crelateCalls().some((c) => c.url.pathname.endsWith('/notes'))).toBe(true);
+  });
+  it('still succeeds when Crelate is down but the email went out', async () => {
+    fail.crelate = true;
+    const { POST } = await import('../src/pages/api/apply');
+    expect((await (await POST({ request: post('http://site/api/apply', application()) } as any)).json()).ok).toBe(true);
+  });
+  it('fails when both email and Crelate fail', async () => {
+    fail.crelate = true; fail.email = true;
+    const { POST } = await import('../src/pages/api/apply');
+    const res = await POST({ request: post('http://site/api/apply', application()) } as any);
+    expect(res.status).toBe(502);
+  });
+  it('asks for a resume, a valid email and a supported file type', async () => {
+    const { POST } = await import('../src/pages/api/apply');
+    const noResume = application(); noResume.delete('resume');
+    expect((await POST({ request: post('http://site/api/apply', noResume) } as any)).status).toBe(400);
+    expect((await POST({ request: post('http://site/api/apply', application({ email: 'bad' })) } as any)).status).toBe(400);
+    const exe = application(); exe.set('resume', new File(['x'], 'cv.exe'));
+    expect((await POST({ request: post('http://site/api/apply', exe) } as any)).status).toBe(400);
+  });
+  it('quietly ignores bots that fill the hidden field', async () => {
+    const { POST } = await import('../src/pages/api/apply');
+    const res = await POST({ request: post('http://site/api/apply', application({ website: 'spam.example' })) } as any);
+    expect((await res.json()).ok).toBe(true);
+    expect(calls.length).toBe(0);
+  });
+});
+
+describe('POST /api/contact', () => {
+  const inquiry = { firstName: 'Bo', lastName: 'Chan', email: 'bo@example.com', company: 'Acme', message: 'We need help.' };
+  it('emails the team and files a client contact with a note', async () => {
+    const { POST } = await import('../src/pages/api/contact');
+    expect((await (await POST({ request: post('http://site/api/contact', inquiry) } as any)).json()).ok).toBe(true);
+    expect(calls.find((c) => c.url.host === 'mail.test')!.body.reply_to).toBe('bo@example.com');
+    expect(crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!.body.entity.RecordType).toBe(2);
+    expect(crelateCalls().find((c) => c.url.pathname.endsWith('/notes'))!.body.entity.ParentId).toEqual({ Id: 'contact-1', EntityName: 'Contacts' });
+  });
+  it('rejects a missing name or bad email', async () => {
+    const { POST } = await import('../src/pages/api/contact');
+    expect((await POST({ request: post('http://site/api/contact', { ...inquiry, email: 'x' }) } as any)).status).toBe(400);
+  });
+});
+
+describe('GET /api/jobs', () => {
+  it('returns only public fields and links to our own job pages', async () => {
+    const { GET } = await import('../src/pages/api/jobs');
+    const out = await (await GET({ url: new URL('http://site/api/jobs') } as any)).json();
+    expect(out.jobs).toHaveLength(1);
+    expect(Object.keys(out.jobs[0]).sort()).toEqual(['distance', 'location', 'remote', 'summary', 'title', 'url']);
+    expect(out.jobs[0].url).toBe('/careers/jobs/controls-engineer-job-1');
+  });
+  it('shows nothing when the job list is switched off', async () => {
+    process.env.JOBS_LIST_ENABLED = '';
+    const { GET } = await import('../src/pages/api/jobs');
+    expect((await (await GET({ url: new URL('http://site/api/jobs') } as any)).json()).jobs).toEqual([]);
+  });
+});
