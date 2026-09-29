@@ -86,6 +86,8 @@ export interface PublicJob {
   summary: string;
   /** Full posting, cleaned to plain tags (see src/html.ts), without its facts. */
   description: string;
+  /** Short line under the title at the top of some postings. */
+  subtitle: string;
   /** "Location", "Type", "Duration"... lines from the top of the posting. */
   facts: { label: string; value: string }[];
   slug: string;
@@ -95,7 +97,7 @@ export interface PublicJob {
 /** Map a Crelate job to its public portal posting (allowlisted fields only). */
 export function toPublicJob(j: any): PublicJob {
   const title = toLines(text(j.PortalTitle)).join(' ');
-  const { facts, html: description, summary } = structurePosting(text(j.PortalDescription), title);
+  const { facts, html: description, summary, subtitle } = structurePosting(text(j.PortalDescription), title);
   return {
     id: text(j.Id),
     title,
@@ -103,6 +105,7 @@ export function toPublicJob(j: any): PublicJob {
     state: text(j.PortalState),
     zip: text(j.PortalZip).slice(0, 5),
     summary,
+    subtitle,
     description,
     facts,
     slug: text(j.PortalUrlSlug),
@@ -121,20 +124,51 @@ export function toPublicJob(j: any): PublicJob {
 
 const ref = (id: string, entityName: string) => ({ Id: id, EntityName: entityName });
 
+// Contact "RecordType" values (Candidate / Client Contact), from
+// /api/apply?check=5. Left out of new records until confirmed.
+export const RECORD_TYPE: { candidate?: number; client?: number } = {};
+
+let sourceCache: { at: number; id: string | null } | null = null;
+/** Crelate contact source named like "Website" (e.g. "Company Website"), if one exists. */
+async function websiteSourceId(): Promise<string | null> {
+  if (sourceCache && Date.now() - sourceCache.at < 60 * 60 * 1000) return sourceCache.id;
+  const sources = await crelate('contactsources', { params: { limit: 200 } }).then(listOf, () => []);
+  const name = (s: any) => String(s?.Name ?? s?.Title ?? s?.Display ?? '');
+  const hit = sources.find((s) => /^(company )?web ?site$/i.test(name(s).trim())) ?? sources.find((s) => /web ?site|career/i.test(name(s)));
+  sourceCache = { at: Date.now(), id: hit?.Id ? String(hit.Id) : null };
+  return sourceCache.id;
+}
+
 /** The contact with this email, or create one (a client inquiry, or a
  *  candidate). Returns its Id. Reusing the existing record avoids duplicates
  *  when someone applies twice or is already in Crelate. */
-export async function createContact(p: { firstName: string; lastName: string; email: string; phone?: string }): Promise<string> {
+export async function createContact(p: { firstName: string; lastName: string; email: string; phone?: string; kind: 'candidate' | 'client' }): Promise<string> {
   const existing = await crelate('contacts', { params: { emails: p.email, limit: 1 } }).then(listOf, () => []);
   const found = existing[0]?.Id;
   if (found) return String(found);
-  const entity = {
-    FirstName: p.firstName,
-    LastName: p.lastName,
-    EmailAddresses_Personal: { Value: p.email, IsPrimary: true },
-    ...(p.phone && { PhoneNumbers_Mobile: { Value: p.phone, IsPrimary: true } }),
+  const sourceId = await websiteSourceId();
+  const recordType = RECORD_TYPE[p.kind];
+  const entity = (list: boolean) => {
+    // Email and phone fields are "collections"; Crelate may want one value or a list.
+    const one = (v: string) => (list ? [{ Value: v, IsPrimary: true }] : { Value: v, IsPrimary: true });
+    return {
+      FirstName: p.firstName,
+      LastName: p.lastName,
+      EmailAddresses_Personal: one(p.email),
+      ...(p.phone && { PhoneNumbers_Mobile: one(p.phone) }),
+      ...(recordType !== undefined && { RecordType: recordType }),
+      ...(sourceId && { ContactSourceId: { Id: sourceId } }),
+    };
   };
-  const id = idOf(await crelate('contacts', { method: 'POST', body: { entity } }));
+  const create = (list: boolean) => crelate('contacts', { method: 'POST', body: { entity: entity(list) } });
+  const res = await create(false).catch((e) => {
+    if (e instanceof CrelateError && e.status === 400) {
+      console.warn('[crelate] contact create rejected single-value email/phone, retrying as lists:', e.detail);
+      return create(true);
+    }
+    throw e;
+  });
+  const id = idOf(res);
   if (!id) throw new Error('No contact Id in Crelate response');
   return id;
 }

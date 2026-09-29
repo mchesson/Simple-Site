@@ -15,6 +15,7 @@ import { allJobs, publicJobs, jobPath, jobsEnabled } from '../../jobs';
 import { resolveLocation, jobPoint, miles, isRemote } from '../../geo';
 import { site } from '../../data/site';
 import { json } from './_shared';
+import { decode } from '../../html';
 
 export const prerender = false;
 
@@ -46,8 +47,9 @@ export const GET: APIRoute = async ({ url }) => {
         ok: true,
         jobs: jobs.map((j) => ({
           title: j.title,
+          subtitle: j.subtitle,
           facts: j.facts,
-          outline: [...j.description.matchAll(/<(h3|p|ul|ol)>([\s\S]*?)<\/\1>/g)].slice(0, 25).map((m) => `${m[1]}: ${m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 70)}`),
+          outline: [...j.description.matchAll(/<(h3|p|ul|ol)>([\s\S]*?)<\/\1>/g)].slice(0, 25).map((m) => `${m[1]}: ${decode(m[2].replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 70)}`),
         })),
       }, 200, { 'Cache-Control': 'no-store' });
     }
