@@ -254,6 +254,20 @@ file to the user under a new file name each time (viewers cache by name). If you
 change a page script, mirror it in `scripts/preview-runtime.js`. Forms only
 work on the live site.
 
+## Motion and 3D (owner chose options A and D)
+- **A · 3D chevron** (`src/components/Mark3D.astro`): homepage banner only, via
+  `<Banner>`'s `slot="aside"`. CSS 3D (stacked chevron layers), slow turn,
+  tilts toward the mouse; above the headline on tablets, hidden under 560px.
+  The flat background chevron is hidden beside it.
+- **D · Scroll motion** (`src/scripts/motion.ts`, styles at the end of
+  `global.css`), every page: banner headline words rise in; headings, text
+  and content items below the fold fade up; `data-count` numbers count up;
+  photo-block chevrons drift; industry columns and linked cards lift on hover.
+- Rules: content is never hidden without JavaScript; only opacity/transform
+  move (no layout shift); everything holds still under
+  `prefers-reduced-motion`. The site check scrolls each page and fails if
+  anything stays hidden.
+
 ## Tests
 - `npm test` runs everything: unit tests (`tests/`, Vitest) for job posting
   parsing, the Crelate privacy allowlist, location search and the form

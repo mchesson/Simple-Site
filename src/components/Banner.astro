@@ -1,18 +1,27 @@
 ---
-// Dark full-width banner used at the top of every page.
+// Dark full-width banner used at the top of every page. An optional
+// slot="aside" (the homepage's 3D chevron) sits to the right of the text.
 interface Props { tagline?: boolean; eyebrow?: string; compact?: boolean }
 const { tagline = false, eyebrow, compact = false } = Astro.props;
 import { site } from '../data/site';
+const aside = Astro.slots.has('aside');
 ---
 <section class:list={['banner', { compact }]}>
   <div class="photo" aria-hidden="true"><slot name="photo" /></div>
-  <div class="wrap banner-in">
-    {tagline && <p class="tag">{site.tagline}</p>}
-    {eyebrow && <span class="eyebrow">{eyebrow}</span>}
-    <slot />
+  <div class:list={['wrap', 'banner-in', { split: aside }]}>
+    <div>
+      {tagline && <p class="tag">{site.tagline}</p>}
+      {eyebrow && <span class="eyebrow">{eyebrow}</span>}
+      <slot />
+    </div>
+    {aside && <slot name="aside" />}
   </div>
 </section>
 <style>
   .compact .banner-in { padding-block: clamp(3.5rem, 7vw, 5.5rem); }
   .compact :global(h1) { font-size: clamp(2rem, 4vw, 3.1rem); max-width: 34ch; }
+  /* With the 3D chevron beside the text, the flat background chevron would compete with it. */
+  @media (min-width: 561px) { .banner:has(.split) > .photo::before { display: none; } }
+  .split { display: grid; grid-template-columns: 1.35fr 1fr; align-items: center; gap: 2rem; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } .split > :global(:last-child) { order: -1; } }
 </style>

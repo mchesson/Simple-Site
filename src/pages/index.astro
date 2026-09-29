@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
+import Mark3D from '../components/Mark3D.astro';
 import Steps from '../components/Steps.astro';
 import IndustryRow from '../components/IndustryRow.astro';
 import StoryGrid from '../components/StoryGrid.astro';
@@ -19,6 +20,7 @@ const stories = (await getStories()).slice(0, 3);
       <a class="btn btn-green" href="/contact">Get Project Support</a>
       <a class="btn btn-outline-light" href="/careers#jobs">Explore Careers</a>
     </div>
+    <Mark3D slot="aside" />
   </Banner>
 
   <section class="sec">
@@ -55,7 +57,7 @@ const stories = (await getStories()).slice(0, 3);
         <h2>We understand the work before we propose a plan.</h2>
         <p class="muted-light">Our people specialize by industry. They know the regulations, the technology and the pace your project runs at, and they stay accountable until the work is done, wherever your project is.</p>
         <div class="stats">
-          <div><p class="stat">10+</p><p class="muted-light">years supporting complex technical projects</p></div>
+          <div><p class="stat" data-count="10" data-suffix="+">10+</p><p class="muted-light">years supporting complex technical projects</p></div>
         </div>
       </div>
     </div>
