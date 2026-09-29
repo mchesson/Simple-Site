@@ -36,7 +36,7 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
       <h2>Projects We Help Deliver</h2>
       <div class="grid g3 focus">
         {d.focus.map((f) => (
-          <div class="card" style={`--c:${d.color}`}><span class="chev"></span><h3>{f.title}</h3><p>{f.body}</p></div>
+          <div class="card" style={`--c:${d.color}`}><h3>{f.title}</h3><p>{f.body}</p></div>
         ))}
       </div>
     </div>
@@ -94,7 +94,7 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
         <div class="grid g2">
           {others.map((o) => (
             <a class="card oth" href={`/industries/${o.id}`} style={`--c:${o.data.color}`}>
-              <span class="chev"></span><h3>{o.data.name}</h3><p>{o.data.short}</p>
+              <h3>{o.data.name}</h3><p>{o.data.short}</p>
             </a>
           ))}
         </div>
@@ -107,14 +107,10 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
   .focus { margin-top: 1.5rem; grid-template-columns: repeat(3, 1fr); }
   @media (max-width: 1000px) { .focus { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 640px) { .focus { grid-template-columns: 1fr; } }
-  .focus .chev { margin-bottom: 1rem; }
   .two { gap: 3rem; align-items: center; }
   .expertise { gap: .9rem; }
   .expertise li { font-size: 1.05rem; color: var(--ink); font-weight: 600; }
-  .svc, .oth { text-decoration: none; color: inherit; transition: border-color .15s; }
-  .svc:hover, .oth:hover { border-color: var(--blue); color: inherit; }
   .g3 { margin-top: 1.5rem; }
   .head { justify-content: space-between; align-items: end; }
   .head h2 { margin: 0; }
-  .oth .chev { margin-bottom: .8rem; }
 </style>

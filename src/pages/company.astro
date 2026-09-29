@@ -44,9 +44,9 @@ const values = [
     <div class="wrap">
       <span class="eyebrow">Our Values</span>
       <h2>How We Show Up</h2>
-      <div class="grid g3 values">
-        {values.map(([t, b]) => <div class="card"><h3>{t}</h3><p>{b}</p></div>)}
-      </div>
+      <dl class="values">
+        {values.map(([t, b]) => <div class="value"><dt>{t}</dt><dd>{b}</dd></div>)}
+      </dl>
     </div>
   </section>
 
@@ -67,7 +67,12 @@ const values = [
 </Base>
 <style>
   .two { gap: 3rem; align-items: center; }
-  .commit, .values { margin-top: 1.5rem; }
+  .commit { margin-top: 1.5rem; }
+  .values { margin: 1.75rem 0 0; border-top: 1px solid var(--line); }
+  .value { display: grid; grid-template-columns: 16rem 1fr; gap: .25rem 2rem; align-items: baseline; padding: 1.25rem 0; border-bottom: 1px solid var(--line); }
+  .value dt { font-family: var(--font-head); font-size: 1.35rem; }
+  .value dd { margin: 0; color: var(--muted); font-size: 1.05rem; }
+  @media (max-width: 640px) { .value { grid-template-columns: 1fr; } }
   .muted-light { color: #CCC; }
 
 </style>

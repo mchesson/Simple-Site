@@ -111,9 +111,10 @@ const reasons = [
   .search { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
   .search input, .search select { flex: 1 1 12rem; padding: .8rem .9rem; border: 1px solid var(--light); border-radius: 6px; font: inherit; background: #fff; }
   .job-count { color: var(--muted); margin: 1.25rem 0 .75rem; font-size: .95rem; }
-  .jobs { list-style: none; margin: 0; padding: 0; display: grid; gap: 1rem; }
-  .jobs :global(a) { display: block; padding: 1.4rem 1.5rem; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); text-decoration: none; color: inherit; transition: border-color .15s; }
-  .jobs :global(a:hover) { border-color: var(--blue); }
+  .jobs { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
+  .jobs :global(li) { border-bottom: 1px solid var(--line); }
+  .jobs :global(a) { display: block; padding: 1.4rem 0; text-decoration: none; color: inherit; }
+  .jobs :global(a:hover h3) { color: var(--blue); }
   .jobs :global(h3) { margin: 0 0 .25rem; }
   .jobs :global(.meta) { color: var(--aqua-deep); font-weight: 600; font-size: .9rem; margin: 0 0 .5rem; }
   .jobs :global(p) { color: var(--muted); margin: 0 0 .5rem; }

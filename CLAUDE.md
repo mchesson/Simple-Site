@@ -104,6 +104,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   `#0D71BA`, Aqua `#00BAB4`, Energy `#C0D961`, Ash Grey `#898989`, Light Grey `#BCBCBC`.
   Aqua and Energy fail contrast as text on white: use them for fills, gradients
   and dark backgrounds only. Use True Blue or `--aqua-deep` for text on white.
+- **No boxed cards anywhere** (owner's request). Content items are open: a
+  thin fading line on top (`.card`, colored by `--c`), like the How We Work
+  steps and Where We Work columns. Lists of rows use hairline dividers. Only
+  menus and form inputs have borders. Avoid grids that leave a lone item on the
+  last row (e.g. 5 items in rows of 4): use a row list or a matching column count.
 - Headings: Vollkorn. Body: Open Sans. Banner headlines highlight their key words
   in Energy green (`<span class="hl">`).
 - Logo files in `public/`: `logo.svg`, `logo-white.svg` (mark + wordmark, no
