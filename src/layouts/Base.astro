@@ -9,6 +9,7 @@ import vollkornFont from '@fontsource-variable/vollkorn/files/vollkorn-latin-wgh
 import openSansFont from '@fontsource-variable/open-sans/files/open-sans-latin-wght-normal.woff2?url';
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+import Chat from '../components/Chat.astro';
 import { site } from '../data/site';
 import { getIndustries } from '../lib';
 
@@ -84,6 +85,7 @@ const ogImage = new URL(image, Astro.site);
     <Header />
     <main id="main"><slot /></main>
     <Footer />
+    <Chat />
     <script src="../scripts/industry.ts"></script>
     <script src="../scripts/motion.ts"></script>
   </body>
