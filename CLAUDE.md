@@ -20,7 +20,7 @@ and consistent with this file.
 | `/services` | `src/pages/services.astro` | The three services, from `services` in `src/data/site.ts` |
 | `/industries`, `/industries/<id>` | `src/pages/industries/` | Generated from `src/content/industries/` |
 | `/insights`, `/insights/<id>` | `src/pages/insights/` | Stories, filterable by industry; RSS feeds |
-| `/careers` | `src/pages/careers.astro` | Kept low-key; open jobs from Crelate, "Stay in Touch" signup to Crelate |
+| `/careers` | `src/pages/careers.astro` | Kept low-key; "Search Jobs" links to the Crelate job portal; "Stay in Touch" signup to Crelate |
 | `/contact` | `src/pages/contact.astro` | Form sends to Crelate |
 
 Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
@@ -120,21 +120,23 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   `npm run og-image` after editing `scripts/og-image.html`.
 
 ## Crelate (ATS + CRM)
-- Forms and job listings talk to Crelate through server functions in
-  `src/pages/api/` (`contact.ts`, `talent.ts`, `jobs.ts`), using the helper in
-  `src/crelate.ts`. Pages stay static; only these endpoints run on Vercel.
+- **Jobs:** open positions and applications live in Crelate's hosted job portal,
+  `site.jobsPortal` in `src/data/site.ts`
+  (https://jobs.crelate.com/portal/technicalsource). Careers links to it; the
+  team manages postings in Crelate. No API needed for jobs.
+- **Forms** talk to Crelate through server functions in `src/pages/api/`
+  (`contact.ts`, `talent.ts`), using the helper in `src/crelate.ts`. Pages stay
+  static; only these endpoints run on Vercel.
 - **API key:** Vercel → Settings → Environment Variables → `CRELATE_API_KEY`.
   Never in the repo or chat. Optional `CRELATE_API_BASE` (default
-  `https://app.crelate.com/api3`). Redeploy after changing variables.
+  `https://app.crelate.com/api3`). Redeploy after changing variables. A
+  dedicated Crelate "website" user's key is preferred over a personal key.
 - Contact form → Crelate **contact** + **note** (industry, service, page, message).
   Careers "Stay in Touch" → Crelate **candidate** + **note**.
-  `/api/jobs` → open jobs for `/careers` (cached 10 minutes);
-  `/api/jobs?check=1` lists the field names of the first job to help mapping.
-- Field mapping lives in `src/crelate.ts` (`toJob`, request bodies). It was built
+- Request bodies live in `src/crelate.ts` and the endpoints. They were built
   from Crelate's API3 conventions without access to the live API, so check the
   Vercel function logs after the first real submissions and adjust if needed.
-- Without the key, the forms tell visitors to email `site.email`, and the jobs
-  list shows an invitation to join the talent network.
+- Without the key, the forms tell visitors to email `site.email`.
 - Spam: hidden honeypot field; Astro's origin check blocks cross-site posts.
 
 ## Analytics
@@ -176,8 +178,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 `npm run preview:file` builds the site and packs it into one self-contained
 `preview.html` (all pages, CSS, fonts, logos inlined; hash-based links). Send that
 file to the user under a new file name each time (viewers cache by name). If you
-change a page script, mirror it in `scripts/preview-runtime.js`. Forms and the
-Crelate job list only work on the live site.
+change a page script, mirror it in `scripts/preview-runtime.js`. Forms only
+work on the live site.
 
 ## Checks before pushing
 - `npm run build` must pass (output goes to `.vercel/output/static`).
