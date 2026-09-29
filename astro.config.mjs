@@ -10,7 +10,8 @@ export default defineConfig({
   integrations: [sitemap()],
   // Pages stay static; only the form and jobs endpoints in src/pages/api run as
   // Vercel functions (they hold the Crelate API key).
-  adapter: vercel(),
+  // maxDuration: time for /api/jobs to page through every Crelate job on a cold start.
+  adapter: vercel({ maxDuration: 60 }),
   // Old WordPress addresses, so existing links and search results keep working.
   // TODO: confirm the full list of old URLs once WordPress access is available.
   redirects: {
