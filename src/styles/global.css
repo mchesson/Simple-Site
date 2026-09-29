@@ -154,13 +154,6 @@ a.card:hover h3 { color: var(--blue); }
 .prose li { margin-bottom: .4rem; }
 .prose li::marker { color: var(--aqua-deep); }
 
-/* Industry memory: highlights the visitor's industry (see src/scripts/industry.ts) */
-.is-yours .yours { display: inline-block; }
-.yours {
-  display: none; margin-left: .5rem; vertical-align: middle;
-  font: 700 .65rem var(--font-body); letter-spacing: .08em; text-transform: uppercase;
-  color: var(--ink); background: var(--energy); padding: .15rem .45rem; border-radius: 999px;
-}
 .is-hidden { display: none !important; }
 
 /* Form result message (src/scripts/forms.ts) */

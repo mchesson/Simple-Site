@@ -20,9 +20,6 @@
 
   function applyIndustry(industry) {
     document.documentElement.dataset.visitorIndustry = industry || '';
-    main.querySelectorAll('[data-industry-list] [data-industry]').forEach((el) => {
-      el.classList.toggle('is-yours', el.dataset.industry === industry);
-    });
     if (!industry) return;
     main.querySelectorAll('[data-industry-sort]').forEach((list) => {
       const items = Array.from(list.children);

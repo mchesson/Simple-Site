@@ -37,8 +37,8 @@ Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
   `color` must be a brand color. `draft: true` hides it from the live site.
 - `src/scripts/industry.ts` remembers the visitor's industry (`?industry=<id>`,
   an industry-page visit, or localStorage) and quietly tailors shared pages:
-  "Your industry" tag in industry lists, their stories first, and form
-  preselection. Industry-specific links (LinkedIn posts, emails, ads, QR codes)
+  their stories first and form preselection. Nothing visible marks it (a
+  "Your industry" tag was removed: it looked like a random badge). Industry-specific links (LinkedIn posts, emails, ads, QR codes)
   should point to the industry page or carry `?industry=<id>`.
 
 ## Stories (news, insights, case studies)

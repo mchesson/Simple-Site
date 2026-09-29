@@ -28,7 +28,7 @@ const cols = n < 3 ? n : n === 4 ? 2 : 3;
       {industries.map((i) => (
         <a class="ind" href={`/industries/${i.id}`} data-industry={i.id} style={`--c:${i.data.color}`}>
           <span class="top" aria-hidden="true"><span class="chev"></span></span>
-          <h3>{i.data.name}<span class="yours">Your industry</span></h3>
+          <h3>{i.data.name}</h3>
           <p class="short">{i.data.short}</p>
           <ul class="focus">{i.data.focus.slice(0, 3).map((f) => <li>{f.title}</li>)}</ul>
           <span class="go">Learn More →</span>
