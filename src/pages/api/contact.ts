@@ -51,7 +51,7 @@ export const POST: APIRoute = async ({ request }) => {
   let filed = false;
   if (isConfigured()) {
     try {
-      const contactId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email });
+      const contactId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email, kind: 'client' });
       await addNote(contactId, `Website inquiry (contact form)\n${details}`).catch((e) =>
         console.error('[contact] Crelate note failed', e instanceof CrelateError ? `${e.status} ${e.detail}` : e),
       );

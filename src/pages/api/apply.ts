@@ -11,6 +11,7 @@
 //   GET /api/apply?check=2  the record fields those create calls expect
 //   GET /api/apply?check=3  file types set up in Crelate (e.g. Resume)
 //   GET /api/apply?check=4&q=email  search the API description's fields
+//   GET /api/apply?check=5  contact field settings (RecordType values) and source names
 import type { APIRoute } from 'astro';
 import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, CrelateError } from '../../crelate';
 import { publicJobs } from '../../jobs';
@@ -72,7 +73,7 @@ export const POST: APIRoute = async ({ request }) => {
   let filed = false;
   if (isConfigured()) {
     try {
-      const candidateId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone });
+      const candidateId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone, kind: 'candidate' });
       filed = true;
 
       const resumeSaved = await uploadResume(candidateId, new Blob([bytes], { type: resume.type || 'application/octet-stream' }), resume.name).then(() => true, (e) => (log('resume upload', e), false));
@@ -97,9 +98,30 @@ export const POST: APIRoute = async ({ request }) => {
 
 export const GET: APIRoute = async ({ url }) => {
   const check = url.searchParams.get('check');
-  if (!['1', '2', '3', '4'].includes(check ?? '')) return json({ ok: false, error: 'unknown-check', got: check }, 404);
+  if (!['1', '2', '3', '4', '5'].includes(check ?? '')) return json({ ok: false, error: 'unknown-check', got: check }, 404);
   const base = (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
   try {
+    if (check === '5') {
+      // Crelate's field settings for contacts (RecordType values, email/phone
+      // format) and the contact source names. Settings only, no contact data.
+      if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
+      const info: any = await crelate('contacts/info').catch((e) => ({ error: e instanceof CrelateError ? `${e.status} ${e.detail}` : String(e) }));
+      const want = /^(RecordType|ContactSourceId|EmailAddresses_Personal|PhoneNumbers_Mobile)$/;
+      const walk = (o: any, out: any[] = [], depth = 0): any[] => {
+        if (!o || typeof o !== 'object' || depth > 6) return out;
+        if (want.test(String(o.Name ?? o.name ?? o.FieldName ?? ''))) out.push(o);
+        for (const v of Object.values(o)) walk(v, out, depth + 1);
+        return out;
+      };
+      const sources = listOf(await crelate('contactsources', { params: { limit: 200 } }).catch(() => []));
+      return json({
+        ok: true,
+        fields: walk(info).slice(0, 10),
+        infoKeys: info && typeof info === 'object' ? Object.keys(info).slice(0, 20) : typeof info,
+        infoError: info?.error,
+        contactSources: sources.map((s: any) => ({ id: s?.Id, name: s?.Name ?? s?.Title ?? s?.Display })),
+      }, 200, { 'Cache-Control': 'no-store' });
+    }
     if (check === '3') {
       // File types set up in Crelate (e.g. "Resume"): names and Ids only.
       if (!isConfigured()) return json({ ok: false, error: 'not-configured' });

@@ -86,7 +86,15 @@ function blocks(html: string): Block[] {
     } else pending.push(n); // loose text, <strong>, <br> between blocks
   }
   flushPending();
-  return out;
+  // Lists split by an empty line in the editor read as one list.
+  return out.reduce<Block[]>((acc, b) => {
+    const last = acc[acc.length - 1];
+    if (b.kind === 'list' && last?.kind === 'list' && !!last.ordered === !!b.ordered) {
+      last.items!.push(...b.items!);
+      last.text += ' ' + b.text;
+    } else acc.push(b);
+    return acc;
+  }, []);
 }
 
 const factOf = (text: string): Fact | null => {
@@ -98,11 +106,20 @@ const factOf = (text: string): Fact | null => {
   return { label, value: m[2].replace(/\s*\|\s*/g, /location/i.test(label) ? ', ' : ' · ').trim() };
 };
 
-export function structurePosting(raw: string, title: string): { facts: Fact[]; html: string; summary: string } {
+export function structurePosting(raw: string, title: string): { facts: Fact[]; html: string; summary: string; subtitle: string } {
   let list = blocks(cleanHtml(raw));
   // The posting often repeats the job title as its first line.
   const t = norm(title);
   list = list.filter((b, i) => !(i < 3 && (norm(b.text) === t || (b.kind !== 'list' && norm(b.text).startsWith(t) && b.text.length < title.length + 25))));
+
+  // A short first line that isn't a sentence is a subtitle ("Owner's
+  // Representative – Construction Manager (Pharmaceutical Projects)"): shown
+  // under the title in the banner rather than as the first paragraph.
+  let subtitle = '';
+  if (list[0]?.kind === 'p' && list[0].text.length <= 120 && !/[.!?]$/.test(list[0].text) && !factOf(list[0].text)) {
+    subtitle = list[0].text;
+    list = list.slice(1);
+  }
 
   // Facts: the first run of "Label: value" lines (or list items) near the top,
   // with a heading just before it ("Job Details") dropped too.
@@ -133,5 +150,5 @@ export function structurePosting(raw: string, title: string): { facts: Fact[]; h
   const teaser = list.filter((b) => b.kind === 'p' && !factOf(b.text) && b.text.length >= 40).map((b) => b.text).join(' ');
   const source = teaser || list.map((b) => b.text).join(' ');
   const summary = source.length > 220 ? source.slice(0, 217).replace(/\s+\S*$/, '') + '…' : source;
-  return { facts, html, summary };
+  return { facts, html, summary, subtitle };
 }
