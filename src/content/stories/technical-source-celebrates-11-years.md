@@ -1,5 +1,5 @@
 ---
-title: "Technical Source celebrates 11 years"
+title: "Technical Source Celebrates 11 Years"
 date: 2026-09-15
 summary: "More than a decade of supporting complex technical projects, and a new look to go with it."
 type: company-news
@@ -13,11 +13,11 @@ linkedin: |
 
 This month Technical Source celebrates 11 years of supporting complex technical projects.
 
-## Thank you
+## Thank You
 
 To our clients: thank you for trusting us with projects that matter. To our consultants: your expertise is the reason those projects succeed.
 
-## What's new
+## What's New
 
 We've refreshed our website to make it easier to find the support you need, whether that's one specialist, a full project team or a defined scope of work.
 

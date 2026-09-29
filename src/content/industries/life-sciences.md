@@ -1,7 +1,7 @@
 ---
 name: Life Sciences
 order: 1
-short: Pharmaceutical and biotech manufacturing
+short: Pharmaceutical and Biotech Manufacturing
 summary: Pharmaceutical and biotech manufacturing projects, from new facilities and expansions to commissioning, qualification and validation.
 color: "#00BAB4"
 headline: Life sciences projects, on schedule and inspection-ready.
@@ -19,10 +19,10 @@ focus:
   - title: Quality and Compliance
     body: Remediation, data integrity and quality system improvements.
 expertise:
-  - Commissioning, qualification and validation
-  - Computer system validation
-  - Process engineering
-  - Automation and controls
-  - Project and construction management
-  - Quality assurance
+  - Commissioning, Qualification and Validation
+  - Computer System Validation
+  - Process Engineering
+  - Automation and Controls
+  - Project and Construction Management
+  - Quality Assurance
 ---

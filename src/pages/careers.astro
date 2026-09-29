@@ -4,9 +4,9 @@ import Banner from '../components/Banner.astro';
 import { getIndustries } from '../lib';
 const industries = await getIndustries();
 const reasons = [
-  ['Work that matters', 'Join projects that build new facilities, bring capacity online and put new technology to work.'],
-  ['A team that knows your field', 'Work with people who understand your craft and the standards you work to.'],
-  ['Room to grow', 'We invest in your development and help you find the next project that fits.'],
+  ['Work That Matters', 'Join projects that build new facilities, bring capacity online and put new technology to work.'],
+  ['A Team That Knows Your Field', 'Work with people who understand your craft and the standards you work to.'],
+  ['Room to Grow', 'We invest in your development and help you find the next project that fits.'],
 ];
 ---
 <Base title="Careers" description="Build your career on meaningful projects with Technical Source.">
@@ -19,15 +19,15 @@ const reasons = [
   <section class="sec">
     <div class="wrap">
       <span class="eyebrow">Why Technical Source</span>
-      <h2>Why people work with us</h2>
+      <h2>Why People Work with Us</h2>
       <div class="grid g3 reasons">{reasons.map(([t, b]) => <div class="card"><h3>{t}</h3><p>{b}</p></div>)}</div>
     </div>
   </section>
 
   <section class="sec mist" id="jobs">
     <div class="wrap">
-      <span class="eyebrow">Open positions</span>
-      <h2>Search jobs</h2>
+      <span class="eyebrow">Open Positions</span>
+      <h2>Search Jobs</h2>
       <form class="search" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
         <input aria-label="Job title or keyword" placeholder="Job title, skill or keyword" />
         <select aria-label="Industry" id="industry-select">
@@ -43,8 +43,8 @@ const reasons = [
 
   <section class="sec" id="network">
     <div class="wrap narrow">
-      <span class="eyebrow">Stay in touch</span>
-      <h2>Not looking right now?</h2>
+      <span class="eyebrow">Stay in Touch</span>
+      <h2>Not Looking Right Now?</h2>
       <p class="lede">Share your details and we’ll reach out when a project fits your experience.</p>
       <form class="form" onsubmit="event.preventDefault(); this.querySelector('.note').hidden = false;">
         <label>Name<input name="name" autocomplete="name" required /></label>

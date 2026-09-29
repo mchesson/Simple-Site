@@ -1,5 +1,5 @@
 ---
-title: "AI integration is a project, not a purchase"
+title: "AI Integration Is a Project, Not a Purchase"
 date: 2026-08-18
 summary: "Enterprise AI succeeds or fails on implementation. Treating it as a project with a finish line changes how you plan it."
 industry: enterprise-technology
@@ -12,7 +12,7 @@ linkedin: |
 
 Enterprise AI platforms are easy to buy and hard to put to work. The value comes from integration: connecting models to data, workflows and security controls on a defined timeline.
 
-## Plan it like a project
+## Plan It Like a Project
 
 - Bring in engineers who have deployed AI to production
 - Make the data usable before go-live, not after

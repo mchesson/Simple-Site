@@ -7,8 +7,6 @@ export const site = {
   linkedin: 'https://www.linkedin.com/company/technical-source-llc',
   // TODO(confirm): general inbox shown in public listings. No phone numbers on the site.
   email: 'info@technicalsource.com',
-  // Where we work. No office or headquarters locations on the site (owner's request).
-  coverage: 'Supporting projects nationwide',
 };
 
 export const services = [
