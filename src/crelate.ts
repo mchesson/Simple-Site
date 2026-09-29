@@ -129,9 +129,10 @@ export function toPublicJob(j: any): PublicJob {
   const remote = /\bremote\b/i.test(`${title} ${city}`);
   const jobTypes = (Array.isArray(j.JobTypeIds) ? j.JobTypeIds : []).map((x: any) => text(x?.Title)).filter(Boolean).join(' · ');
   const fallback: Record<string, string> = { Location: remote ? 'Remote' : [city, state].filter(Boolean).join(', '), 'Job Type': jobTypes };
-  // All three always show, so every job page looks the same.
+  // All three labels always show, so every job page looks the same; a detail
+  // nobody entered is left blank (owner's choice).
   const facts = ['Location', 'Job Type', 'Duration'].map(
-    (label) => fromText.find((f) => f.label === label) ?? { label, value: fallback[label] || 'To be confirmed' },
+    (label) => fromText.find((f) => f.label === label) ?? { label, value: fallback[label] || '' },
   );
   return {
     id: text(j.Id),

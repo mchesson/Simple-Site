@@ -151,7 +151,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     choice), in that order: from the posting text, else Location from the
     job's city/state and Job Type from its Crelate job types. Duration shows
     only when the posting states it (Crelate's `Duration` field has no unit);
-    a missing detail reads "To be confirmed", so every job looks the same.
+    a detail nobody entered is left blank under its label (owner's choice),
+    so every job still has the same layout.
     A posting that starts without a heading gets "About the Role".
     Other detail lines (Overtime, Schedule...) move to an "Additional Details"
     list at the end; notes in
