@@ -17,8 +17,14 @@ export const GET: APIRoute = async ({ url }) => {
     if (url.searchParams.get('check')) {
       return json({ ok: true, count: raw.length, fields: raw[0] ? Object.keys(raw[0]).sort() : [] });
     }
-    const jobs = raw.map(toJob).filter((j) => j.title && !CLOSED.test(j.status));
-    return json({ ok: true, jobs }, 200, { 'Cache-Control': 'public, s-maxage=600, stale-while-revalidate=3600' });
+    // DISABLED: the API's job name/description are internal (they can include
+    // client and recruiter names), and the API doesn't say which jobs are
+    // published to the portal. Until the public posting title and a "published"
+    // flag are confirmed from /api/jobs?check=1, return no jobs, so the careers
+    // page shows the "View Open Positions" portal button. Never map internal
+    // name/description fields to anything public.
+    void toJob; void CLOSED;
+    return json({ ok: true, jobs: [] }, 200, { 'Cache-Control': 'no-store' });
   } catch (e) {
     console.error('[jobs] Crelate error', e instanceof CrelateError ? `${e.status} ${e.detail}` : e);
     return json({ ok: false, error: 'unavailable', jobs: [] }, 200);

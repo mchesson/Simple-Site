@@ -128,6 +128,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   If the API returns no jobs (key missing, Crelate unreachable, nothing open),
   the section falls back to a "View Open Positions" button to the portal.
   `/api/jobs?check=1` lists the field names of the first job to help mapping.
+  **The styled list is currently disabled** (`/api/jobs` returns no jobs):
+  Crelate's job name and description fields are internal and showed client
+  and recruiter names. Only map fields that are the public portal posting
+  (title, location, public description) and only show jobs flagged as
+  published to the portal. Never expose client or recruiter names.
 - **Forms** talk to Crelate through `src/pages/api/contact.ts` and `talent.ts`,
   using the helper in `src/crelate.ts`. Pages stay static; only the endpoints
   run on Vercel.
