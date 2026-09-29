@@ -5,22 +5,18 @@
 //    link to the job, and a note saying where it came from.
 // The visitor sees success if either one worked.
 //
-// GET /api/apply?check=1 reads Crelate's public API description (OpenAPI) and
-// lists the endpoints for candidates, notes, attachments/resumes and job
-// pipelines, with their fields. No key, no candidate data. Use it to confirm
-// the paths in RESUME_UPLOAD and JOB_LINK below.
+// Diagnostics (no candidate data):
+//   GET /api/apply?check=1  endpoints for contacts, notes, files and job
+//                           pipelines, from Crelate's public API description
+//   GET /api/apply?check=2  the record fields those create calls expect
+//   GET /api/apply?check=3  file types set up in Crelate (e.g. Resume)
 import type { APIRoute } from 'astro';
-import { crelate, idOf, isConfigured, CrelateError } from '../../crelate';
+import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, CrelateError } from '../../crelate';
 import { publicJobs } from '../../jobs';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
 
 export const prerender = false;
-
-// Built from Crelate's API3 conventions without access to the live API docs.
-// Confirm against /api/apply?check=1 and the Vercel function logs.
-const RESUME_UPLOAD = (candidateId: string) => `candidates/${candidateId}/attachments`;
-const JOB_LINK = (jobId: string) => `jobs/${jobId}/contacts`;
 
 const OK_TYPES = /\.(pdf|docx?|rtf|txt)$/i;
 const MAX_BYTES = 4 * 1024 * 1024;
@@ -75,18 +71,11 @@ export const POST: APIRoute = async ({ request }) => {
   let filed = false;
   if (isConfigured()) {
     try {
-      const candidate = await crelate('candidates', {
-        method: 'POST',
-        body: { firstName: f.firstName, lastName: f.lastName, email: f.email, ...(f.phone && { phone: f.phone }) },
-      });
-      const candidateId = idOf(candidate);
-      if (!candidateId) throw new Error('No candidate Id in Crelate response');
+      const candidateId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone });
       filed = true;
 
-      const upload = new FormData();
-      upload.append('file', new Blob([bytes], { type: resume.type || 'application/octet-stream' }), resume.name);
-      const resumeSaved = await crelate(RESUME_UPLOAD(candidateId), { method: 'POST', body: upload }).then(() => true, (e) => (log('resume upload', e), false));
-      const linked = job ? await crelate(JOB_LINK(job.id), { method: 'POST', body: { contactId: candidateId } }).then(() => true, (e) => (log('job link', e), false)) : false;
+      const resumeSaved = await uploadResume(candidateId, new Blob([bytes], { type: resume.type || 'application/octet-stream' }), resume.name).then(() => true, (e) => (log('resume upload', e), false));
+      const linked = job ? await addToJob(job.id, candidateId).then(() => true, (e) => (log('job link', e), false)) : false;
 
       const note = [
         `Website ${what}`,
@@ -95,7 +84,7 @@ export const POST: APIRoute = async ({ request }) => {
         '',
         details,
       ].filter((l) => l !== null).join('\n');
-      await crelate('notes', { method: 'POST', body: { body: note, candidateId, ...(job && { jobId: job.id }) } }).catch((e) => log('note', e));
+      await addNote(candidateId, note, job?.id).catch((e) => log('note', e));
     } catch (e) {
       log('Crelate candidate', e);
     }
@@ -106,12 +95,43 @@ export const POST: APIRoute = async ({ request }) => {
 };
 
 export const GET: APIRoute = async ({ url }) => {
-  if (url.searchParams.get('check') !== '1') return json({ ok: false }, 404);
+  const check = url.searchParams.get('check');
+  if (check !== '1' && check !== '2' && check !== '3') return json({ ok: false }, 404);
   const base = (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
   try {
+    if (check === '3') {
+      // File types set up in Crelate (e.g. "Resume"): names and Ids only.
+      if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
+      const types = listOf(await crelate('artifacttypes', { params: { limit: 100 } }));
+      return json({ ok: true, artifactTypes: types.map((x: any) => ({ id: x?.Id, name: x?.Name ?? x?.Title ?? x?.Display, entities: x?.AllowedEntityNames ?? null })) });
+    }
     const res = await fetch(`${base}/docs/v3/crelate-openapi.json`);
     const spec: any = await res.json();
     const ref = (s: any): any => (s?.$ref ? s.$ref.split('/').slice(1).reduce((o: any, k: string) => o?.[k], spec) : s);
+    if (check === '2') {
+      // The record fields each create call expects (from the public API description).
+      const describe = (s: any, depth = 0): any => {
+        const r = ref(s);
+        if (!r) return null;
+        if (r.items) return [describe(r.items, depth)];
+        if (r.enum) return { enum: r.enum.slice(0, 30) };
+        if (r.properties) {
+          if (depth > 1) return Object.keys(r.properties);
+          return Object.fromEntries(Object.entries(r.properties).map(([k, v]: [string, any]) => [k, describe(v, depth + 1)]));
+        }
+        return r.type ?? (r.allOf || r.oneOf || r.anyOf ? describe((r.allOf || r.oneOf || r.anyOf)[0], depth) : null);
+      };
+      const want: [string, string][] = [['/contacts', 'post'], ['/notes', 'post'], ['/artifacts/primary', 'post'], ['/artifacts', 'post'], ['/jobs/{jobId}/contacts', 'post'], ['/activities/withattachments', 'post']];
+      const out = want.map(([p, m]) => {
+        const op = spec.paths?.[p]?.[m];
+        return {
+          path: p,
+          params: (op?.parameters ?? []).map((x: any) => ref(x)).map((x: any) => ({ name: x?.name, in: x?.in, required: x?.required ?? false, type: describe(x?.schema, 2), about: String(x?.description ?? '').slice(0, 200) })),
+          body: Object.fromEntries(Object.entries(op?.requestBody?.content ?? {}).map(([ct, c]: [string, any]) => [ct, describe(c.schema)])),
+        };
+      });
+      return json({ ok: true, calls: out });
+    }
     const fields = (s: any) => {
       const r = ref(s?.items ? s.items : s);
       return r?.properties ? Object.keys(r.properties) : r?.type ?? null;
