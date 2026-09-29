@@ -80,9 +80,12 @@ const posting = job && {
 
 <style>
   /* Key facts (Location, Type, Duration...) as an open row, like How We Work. */
-  /* One row with a column per fact (no lone item on a second row); stacked on phones. */
+  /* One row with a column per fact; two columns on phones (an odd last one spans both). */
   .facts { display: grid; grid-template-columns: repeat(var(--n), 1fr); gap: 1.5rem 2rem; margin: 0 0 3rem; }
-  @media (max-width: 860px) { .facts { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    .facts { grid-template-columns: 1fr 1fr; gap: 1.25rem 1.5rem; }
+    .facts div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  }
   .facts div { position: relative; padding-top: 1rem; }
   .facts div::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--aqua), transparent); opacity: .6; }
   .facts dt { font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--aqua-deep); margin-bottom: .35rem; }

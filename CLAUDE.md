@@ -134,11 +134,14 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     pages add `?industry=<id>`).
   - "Not Looking Right Now?" on Careers is the same form without a job
     (general consideration), `src/components/ApplyForm.astro`.
-  - Descriptions are Crelate rich text: `src/html.ts` decodes entities,
-    rebuilds them with plain tags only (no attributes, links, scripts or
-    styles), turns bold one-line labels into headings and splits off the
-    facts. List teasers skip the repeated title, "Label: value" lines and
-    short headings.
+  - Descriptions are Crelate rich text, typed in many formats. `src/html.ts`
+    decodes entities and strips everything but plain tags (no attributes,
+    links, scripts or styles); `src/posting.ts` then rebuilds the posting:
+    drops a repeated title, pulls the first run of "Label: value" lines (or
+    list items, emoji allowed) into the facts row, turns bold or "Label:"
+    lines into headings, splits `<br>` lines into paragraphs, turns "•"/"-"
+    lines into lists, and writes the list teaser. `/api/jobs?check=5&q=<title>`
+    shows how a live posting was read (facts and outline).
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
   `PortalState`, `PortalZip`, `PortalUrlSlug`, `PortalLastPostedOn`. Never use

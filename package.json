@@ -20,6 +20,7 @@
     "@fontsource-variable/open-sans": "^5.3.0",
     "@fontsource-variable/vollkorn": "^5.3.0",
     "astro": "^7.3.5",
+    "node-html-parser": "^9.0.4",
     "zipcodes": "^8.0.0"
   },
   "devDependencies": {
