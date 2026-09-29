@@ -1,7 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
-import IndustryRow from '../components/IndustryRow.astro';
 import CtaBand from '../components/CtaBand.astro';
 import { site } from '../data/site';
 const values = [
@@ -50,19 +49,17 @@ const values = [
     </div>
   </section>
 
-  <section class="sec dark" id="locations">
+  <section class="sec mist" id="locations">
     <div class="wrap grid g2 two">
       <div>
         <span class="eyebrow">Where We Work</span>
         <h2>Supporting Projects Nationwide</h2>
-        <p class="muted-light">Our people support projects across the country, wherever the work is.</p>
-        <a class="btn btn-green" href="/contact">Contact Us</a>
+        <p class="lede">Our people support projects across the country, wherever the work is.</p>
       </div>
       <div class="photo" aria-hidden="true"></div>
     </div>
   </section>
 
-  <IndustryRow />
   <CtaBand />
 </Base>
 <style>
