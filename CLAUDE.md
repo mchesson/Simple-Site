@@ -83,9 +83,13 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Tagline: **Connecting Talent. Delivering Excellence.** The old tagline "The Right
   People. The Right Opportunity." is retired.
 
-## Contact details
+## Contact details and locations
 - **No phone numbers anywhere on the site** (owner's request). Use the contact
   form and `site.email` in `src/data/site.ts`.
+- **Don't mention Raleigh, North Carolina or any headquarters/office location**
+  (owner's request). To show we're not local-only, use simple "nationwide" /
+  "across the country" wording (`site.coverage`). No state counts, and avoid
+  "all U.S. states and territories".
 
 ## Brand
 - Colors (tokens in `src/styles/global.css`): Near Black `#212121`, True Blue
@@ -109,9 +113,14 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Analytics (GA4 + LinkedIn Insight Tag) to be added at launch.
 
 ## Hosting
-- Test copy: Vercel project connected to this repo, with the environment variable
-  `SITE_URL=https://teksourcetalent.com` so links point at the test domain.
-- Production: leave `SITE_URL` unset (defaults to https://technicalsource.com).
+- Vercel team **teksourcetalent**, project **simple-site**, connected to this
+  repo (separate from the team that hosts tsworkspace.com).
+- Live test site: https://simple-site-gules.vercel.app (built from `master`;
+  every other branch gets its own preview URL). Environment variable
+  `SITE_URL=https://simple-site-gules.vercel.app` so links point at it.
+- No custom domain for now. At launch, set `SITE_URL` to the real domain (or
+  remove it to default to https://technicalsource.com) and add the domain in
+  Vercel under Settings → Domains.
 
 ## Before launch
 - Remove the `noindex` meta tag in `src/layouts/Base.astro`.
