@@ -5,6 +5,7 @@
 // Diagnostics (no job text, no client data):
 //   ?check=1  field names of the first job
 //   ?check=2  counts and the distinct values of a few status fields
+//   ?check=3  published jobs: public title + non-identifying status fields
 import type { APIRoute } from 'astro';
 import { crelate, isConfigured, listOf, isPublished, toPublicJob, CrelateError, type PublicJob } from '../../crelate';
 import { resolveLocation, jobPoint, miles, isRemote } from '../../geo';
@@ -43,6 +44,25 @@ export const GET: APIRoute = async ({ url }) => {
     if (check) {
       const { raw, capped } = await allJobs();
       if (check === '1') return json({ ok: true, count: raw.length, fields: raw[0] ? Object.keys(raw[0]).sort() : [] });
+      if (check === '3') {
+        // Published jobs with their PUBLIC title and non-identifying status
+        // fields, to spot why the portal shows a different number of jobs.
+        const pick = (j: any) => ({
+          title: toPublicJob(j).title,
+          hasSlug: Boolean(j?.PortalUrlSlug),
+          lastPosted: j?.PortalLastPostedOn ?? null,
+          visibility: j?.PortalVisibility ?? null,
+          featured: j?.IsFeatured ?? null,
+          freeBoards: j?.IsPublishedToFreeBoards ?? null,
+          openings: j?.NumberOfOpenings ?? null,
+          placements: j?.NumberOfPlacements ?? null,
+          placementStatus: j?.PlacementStatus?.Title ?? j?.PlacementStatus ?? null,
+          estimatedEnd: j?.EstimatedEndDate ?? null,
+          isLead: j?.IsLead ?? null,
+          hasParent: Boolean(j?.ParentJobId),
+        });
+        return json({ ok: true, published: raw.filter(isPublished).map(pick).sort((a, b) => String(a.title).localeCompare(String(b.title))) });
+      }
       const distinct = (k: string) => [...new Set(raw.map((j) => JSON.stringify(j?.[k] ?? null)))].slice(0, 25);
       const published = raw.filter(isPublished);
       return json({
