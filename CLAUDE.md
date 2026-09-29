@@ -143,7 +143,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     lines into lists, and writes the list teaser. Text typed after the last
     bullet often stays inside that bullet in Crelate's editor: a heading
     inside a list item closes the list there. A generic first line like
-    "Job Description — Contract Position" is dropped. `/api/jobs?check=5&q=<title>`
+    "Job Description — Contract Position" is dropped. Details written as a
+    table, as bold labels without colons (`LABELS` in `src/posting.ts`), or as
+    a label line followed by its value also become facts.
+    `/api/jobs?check=6&q=<title>` returns one posting's raw public markup. `/api/jobs?check=5&q=<title>`
     shows how a live posting was read (facts and outline).
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,

@@ -70,7 +70,18 @@ function blocks(html: string): Block[] {
     if (last?.kind === 'list' && !!last.ordered === ordered) { last.items!.push(item); last.text += ' ' + text; }
     else out.push({ kind: 'list', html: '', text, ordered, items: [item] });
   };
-  const addLine = (l: Line) => {
+  const addLine = (l: Line): void => {
+    // Several bold labels in one line ("<b>Location</b> X <b>Job Type</b> Y"):
+    // one line per label.
+    const starts = [...l.html.matchAll(BOLD_LABEL)].map((m) => m.index!);
+    if (starts.length >= 2) {
+      const cuts = squash(l.html.slice(0, starts[0]).replace(/<[^>]+>/g, '')) ? [0, ...starts] : [0, ...starts.slice(1)];
+      cuts.map((s, i) => l.html.slice(s, cuts[i + 1])).forEach((h) => {
+        const text = squash(decode(h.replace(/<[^>]+>/g, ' ')));
+        if (text) addLine({ kind: 'line', html: squash(h), text, boldOnly: false });
+      });
+      return;
+    }
     if (isHeading(l)) {
       const t = l.text.replace(/\s*:$/, '');
       out.push({ kind: 'h', html: esc(t), text: t });
@@ -112,8 +123,14 @@ function blocks(html: string): Block[] {
   }, []);
 }
 
+// Detail labels recruiters use, recognised even without a colon
+// ("Location Spartanburg, SC", "Duration – 12 months").
+const LABELS = 'Location|Work Location|Job Location|Job Type|Type|Employment Type|Position Type|Contract Type|Duration|Project Duration|Contract Length|Length|Schedule|Shift|Hours|Work Schedule|Overtime|Pay|Pay Rate|Rate|Compensation|Salary|Start Date|Start|Travel|Per Diem|Work Setting|Work Arrangement|Clearance|Industry';
+const BARE_FACT = new RegExp(`^[^A-Za-z0-9]{0,3}\\s*(${LABELS})\\s*(?:[-–—|]\\s*)?(\\S.{0,150})$`, 'i');
+const BOLD_LABEL = new RegExp(`<strong>\\s*(?:${LABELS})\\s*:?\\s*</strong>`, 'gi');
+
 const factOf = (text: string): Fact | null => {
-  const m = text.match(FACT);
+  const m = text.match(FACT) ?? text.match(BARE_FACT);
   if (!m) return null;
   const label = m[1].trim();
   // Sentences that happen to contain a colon aren't facts.
@@ -148,7 +165,18 @@ export function structurePosting(raw: string, title: string): { facts: Fact[]; h
       const fs = b.items!.map((it) => factOf(squash(decode(it.replace(/<[^>]+>/g, ' ')))));
       if (fs.length >= 2 && fs.every(Boolean)) { run.push(...(fs as Fact[])); j = i + 1; }
     } else {
-      while (j < list.length && list[j].kind === 'p' && factOf(list[j].text)) run.push(factOf(list[j++].text)!);
+      const LABEL_ONLY = new RegExp(`^(${LABELS})$`, 'i');
+      for (;;) {
+        const cur = list[j];
+        if (cur?.kind === 'p' && factOf(cur.text)) { run.push(factOf(cur.text)!); j++; continue; }
+        // "Location" on its own line, the value on the next one.
+        const next = list[j + 1];
+        if (cur && cur.kind !== 'list' && LABEL_ONLY.test(cur.text.replace(/:$/, '').trim()) && next?.kind === 'p' && next.text.length <= 160) {
+          const f = factOf(`${cur.text.replace(/:$/, '').trim()}: ${next.text}`);
+          if (f) { run.push(f); j += 2; continue; }
+        }
+        break;
+      }
     }
     if (run.length >= 2) {
       facts.push(...run);
