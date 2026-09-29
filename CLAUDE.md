@@ -167,11 +167,17 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     `MAIL_TO` (default `site.email`) and `MAIL_FROM`. Until technicalsource.com
     is verified in Resend (DNS records), the default test sender only delivers
     to the address the Resend account was created with.
-  - Crelate request bodies and the resume/job-link paths (`RESUME_UPLOAD`,
-    `JOB_LINK` in `apply.ts`) were built without access to Crelate's live API
-    docs. `/api/apply?check=1` lists the matching endpoints and fields from
-    Crelate's public OpenAPI description; confirm against it and the Vercel
-    function logs, then adjust.
+  - Crelate writes go through the helpers at the end of `src/crelate.ts`
+    (`createContact`, `addNote`, `uploadResume`, `addToJob`). From Crelate's
+    API description: create calls send `{ entity: {...} }`; candidates are
+    contacts (`POST /contacts`, reused when the email already exists); resumes
+    are the contact's primary artifact (`POST /artifacts/primary`); the job
+    pipeline is `POST /jobs/{jobId}/contacts?contact_ids=`. Applications can't
+    be created through the API. Field names inside `entity` still need
+    confirming against the live API.
+  - Diagnostics: `/api/apply?check=1` (endpoints), `?check=2` (fields each
+    create call expects), `?check=3` (file types set up in Crelate). Check the
+    Vercel function logs after real submissions.
 - Pages are static except the job pages; endpoints and job pages run on Vercel.
 - **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
   `RESEND_API_KEY`). Never in the repo or chat. Optional `CRELATE_API_BASE`

@@ -125,3 +125,52 @@ export function toPublicJob(j: any): PublicJob {
     postedOn: text(j.PortalLastPostedOn),
   };
 }
+
+// ---------------------------------------------------------------------------
+// Writing to Crelate: the form endpoints use only these helpers, so the field
+// mapping lives in one place. Paths come from Crelate's API description
+// (/api/apply?check=1): create calls take the record as { entity: {...} },
+// candidates are contacts, files are "artifacts". Field names inside `entity`
+// follow Crelate's naming (as in its job records); confirm them with
+// /api/apply?check=2 and the Vercel function logs, and adjust here.
+// ---------------------------------------------------------------------------
+
+const ref = (id: string, entityName: string) => ({ Id: id, EntityName: entityName });
+
+/** The contact with this email, or create one (a client inquiry, or a
+ *  candidate). Returns its Id. Reusing the existing record avoids duplicates
+ *  when someone applies twice or is already in Crelate. */
+export async function createContact(p: { firstName: string; lastName: string; email: string; phone?: string }): Promise<string> {
+  const existing = await crelate('contacts', { params: { emails: p.email, limit: 1 } }).then(listOf, () => []);
+  const found = existing[0]?.Id;
+  if (found) return String(found);
+  const entity = {
+    FirstName: p.firstName,
+    LastName: p.lastName,
+    EmailAddresses_Personal: { Value: p.email, IsPrimary: true },
+    ...(p.phone && { PhoneNumbers_Mobile: { Value: p.phone, IsPrimary: true } }),
+  };
+  const id = idOf(await crelate('contacts', { method: 'POST', body: { entity } }));
+  if (!id) throw new Error('No contact Id in Crelate response');
+  return id;
+}
+
+/** Add a note to a contact, optionally regarding a job. */
+export async function addNote(contactId: string, body: string, jobId?: string): Promise<void> {
+  await crelate('notes', {
+    method: 'POST',
+    body: { entity: { Display: body, ParentId: ref(contactId, 'Contacts'), ...(jobId && { RegardingId: ref(jobId, 'Jobs') }) } },
+  });
+}
+
+/** Save a resume as the contact's primary document. */
+export async function uploadResume(contactId: string, file: Blob, name: string): Promise<void> {
+  const form = new FormData();
+  form.append('file', file, name);
+  await crelate('artifacts/primary', { method: 'POST', params: { target_entity_name: 'Contacts', target_record_id: contactId }, body: form });
+}
+
+/** Add a contact to a job's pipeline. */
+export async function addToJob(jobId: string, contactId: string): Promise<void> {
+  await crelate(`jobs/${jobId}/contacts`, { method: 'POST', params: { contact_ids: contactId }, body: {} });
+}

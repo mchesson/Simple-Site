@@ -3,7 +3,7 @@
 // 2. Also files it in Crelate as a contact + note, when the key is set.
 // The visitor sees success if either one worked.
 import type { APIRoute } from 'astro';
-import { crelate, idOf, isConfigured, CrelateError } from '../../crelate';
+import { isConfigured, createContact, addNote, CrelateError } from '../../crelate';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
 
@@ -51,16 +51,10 @@ export const POST: APIRoute = async ({ request }) => {
   let filed = false;
   if (isConfigured()) {
     try {
-      const contact = await crelate('contacts', {
-        method: 'POST',
-        body: { firstName: f.firstName, lastName: f.lastName, email: f.email, ...(f.company && { companyName: f.company }) },
-      });
-      const contactId = idOf(contact);
-      if (contactId) {
-        await crelate('notes', { method: 'POST', body: { body: `Website inquiry (contact form)\n${details}`, contactId } }).catch((e) =>
-          console.error('[contact] Crelate note failed', e instanceof CrelateError ? `${e.status} ${e.detail}` : e),
-        );
-      }
+      const contactId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email });
+      await addNote(contactId, `Website inquiry (contact form)\n${details}`).catch((e) =>
+        console.error('[contact] Crelate note failed', e instanceof CrelateError ? `${e.status} ${e.detail}` : e),
+      );
       filed = true;
     } catch (e) {
       console.error('[contact] Crelate error', e instanceof CrelateError ? `${e.status} ${e.detail}` : e);
