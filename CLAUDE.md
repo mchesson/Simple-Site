@@ -146,11 +146,21 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     "Job Description — Contract Position" is dropped. Details written as a
     table, as bold labels without colons (`LABELS` in `src/posting.ts`), or as
     a label line followed by its value also become facts.
-    `/api/jobs?check=6&q=<title>` returns one posting's raw public markup. `/api/jobs?check=5&q=<title>`
+    `/api/jobs?check=6&q=<title>` returns one posting's raw public markup.
+  - The facts row on every job is Location, Job Type, Duration (owner's
+    choice), in that order: from the posting text, else Location from the
+    job's city/state and Job Type from its Crelate job types. Duration shows
+    only when the posting states it (Crelate's `Duration` field has no unit);
+    a missing detail reads "To be confirmed", so every job looks the same.
+    A posting that starts without a heading gets "About the Role".
+    Other detail lines (Overtime, Schedule...) move to an "Additional Details"
+    list at the end; notes in
+    brackets are left out of the row. `/api/jobs?check=5&q=<title>`
     shows how a live posting was read (facts and outline).
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
-  `PortalState`, `PortalZip`, `PortalUrlSlug`, `PortalLastPostedOn`. Never use
+  `PortalState`, `PortalZip`, `PortalUrlSlug`, `PortalLastPostedOn`, plus job
+  type titles (`JobTypeIds`, e.g. "Contract"). Never use
   `Name`, `Description`, `PortalCompanyName`, contacts, owner/recruiter IDs or
   rates: they contain client and recruiter names. `isPublished` keeps only jobs
   with `OnPortal` true, not hidden, on hold or closed, not private, and with a

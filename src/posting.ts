@@ -129,13 +129,23 @@ const LABELS = 'Location|Work Location|Job Location|Job Type|Type|Employment Typ
 const BARE_FACT = new RegExp(`^[^A-Za-z0-9]{0,3}\\s*(${LABELS})\\s*(?:[-–—|]\\s*)?(\\S.{0,150})$`, 'i');
 const BOLD_LABEL = new RegExp(`<strong>\\s*(?:${LABELS})\\s*:?\\s*</strong>`, 'gi');
 
+// The facts row: these three, in this order, under these names.
+const TOP_FACTS: [string, RegExp][] = [
+  ['Location', /location/i],
+  ['Job Type', /^(job |employment |position |contract )?type$/i],
+  ['Duration', /duration|length/i],
+];
+
 const factOf = (text: string): Fact | null => {
   const m = text.match(FACT) ?? text.match(BARE_FACT);
   if (!m) return null;
   const label = m[1].trim();
   // Sentences that happen to contain a colon aren't facts.
   if (label.split(' ').length > 4) return null;
-  return { label, value: m[2].replace(/\s*\|\s*/g, /location/i.test(label) ? ', ' : ' · ').trim() };
+  // Notes in brackets ("Contract (client conversion possible...)") stay out of
+  // the facts row: it shows the plain detail only.
+  const value = m[2].replace(/\s*\|\s*/g, /location/i.test(label) ? ', ' : ' · ').trim();
+  return { label, value: value.replace(/\s*\([^)]*\)/g, '').replace(/\s*[·,]\s*$/, '').trim() || value };
 };
 
 export function structurePosting(raw: string, title: string): { facts: Fact[]; html: string; summary: string; subtitle: string } {
@@ -143,20 +153,23 @@ export function structurePosting(raw: string, title: string): { facts: Fact[]; h
   // The posting often repeats the job title as its first line.
   const t = norm(title);
   list = list.filter((b, i) => !(i < 3 && (norm(b.text) === t || (b.kind !== 'list' && norm(b.text).startsWith(t) && b.text.length < title.length + 25))));
+  // Generic labels near the top ("Job Description — Contract Position",
+  // also run together with the title) add nothing.
+  list = list.filter((b, i) => !(i < 4 && b.kind !== 'list' && b.text.length <= 100 && /\b(job|position) description\b/i.test(b.text)));
 
   // A short first line that isn't a sentence is a subtitle ("Owner's
   // Representative – Construction Manager (Pharmaceutical Projects)"): shown
   // under the title in the banner rather than as the first paragraph.
   let subtitle = '';
   if (list[0] && list[0].kind !== 'list' && list[0].text.length <= 120 && !/[.!?]$/.test(list[0].text) && !factOf(list[0].text)) {
-    // A generic label like "Job Description — Contract Position" adds nothing.
-    if (!/^(job )?description\b/i.test(list[0].text)) subtitle = list[0].text;
-    if (list[0].kind === 'p' || !subtitle) list = list.slice(1);
+    subtitle = list[0].text;
+    if (list[0].kind === 'p') list = list.slice(1);
   }
 
   // Facts: the first run of "Label: value" lines (or list items) near the top,
   // with a heading just before it ("Job Details") dropped too.
   const facts: Fact[] = [];
+  let extra: Fact[] = [];
   for (let i = 0; i < Math.min(list.length, 8); i++) {
     const b = list[i];
     const run: Fact[] = [];
@@ -179,11 +192,27 @@ export function structurePosting(raw: string, title: string): { facts: Fact[]; h
       }
     }
     if (run.length >= 2) {
-      facts.push(...run);
+      // The row shows Location, Job Type and Duration only (owner's choice);
+      // other details (Overtime, Schedule, Pay...) go back into the text.
+      const shown = TOP_FACTS.map(([name, re]) => {
+        const f = run.find((x) => re.test(x.label));
+        return f ? { label: name, value: f.value } : null;
+      }).filter(Boolean) as Fact[];
+      const others = run.filter((x) => !TOP_FACTS.some(([, re]) => re.test(x.label)));
+      facts.push(...shown);
       const start = i > 0 && list[i - 1].kind === 'h' && i - 1 < 2 ? i - 1 : i;
       list.splice(start, j - start);
+      extra = others;
       break;
     }
+  }
+
+  // Every posting opens with a heading, like the others.
+  if (list[0] && list[0].kind !== 'h') list.unshift({ kind: 'h', html: 'About the Role', text: 'About the Role' });
+  // Other details from the top (Overtime, Schedule...) close the posting.
+  if (extra.length) {
+    list.push({ kind: 'h', html: 'Additional Details', text: 'Additional Details' });
+    list.push({ kind: 'list', html: '', text: extra.map((x) => `${x.label}: ${x.value}`).join(' '), items: extra.map((x) => `<strong>${esc(x.label)}:</strong> ${esc(x.value)}`) });
   }
 
   const html = list
