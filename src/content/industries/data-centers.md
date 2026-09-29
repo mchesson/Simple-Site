@@ -1,7 +1,7 @@
 ---
 name: Data Centers & AI
 order: 2
-short: Construction, commissioning and AI infrastructure
+short: Construction, Commissioning and AI Infrastructure
 summary: Data center construction, commissioning and the infrastructure behind AI, delivered on schedule.
 color: "#0D71BA"
 headline: Data center capacity, delivered on schedule.
@@ -21,10 +21,10 @@ focus:
   - title: Operations Readiness
     body: Documentation, training and turnover so sites run from day one.
 expertise:
-  - Project and construction management
-  - Electrical and mechanical engineering
+  - Project and Construction Management
+  - Electrical and Mechanical Engineering
   - Commissioning
-  - Building and power controls
-  - Network and infrastructure engineering
-  - High-performance computing infrastructure
+  - Building and Power Controls
+  - Network and Infrastructure Engineering
+  - High-Performance Computing Infrastructure
 ---

@@ -1,11 +1,11 @@
 ---
-// "Where we work": a header row, then one card per industry, generated from
+// "Where We Work": a header row, then one card per industry, generated from
 // src/content/industries. Columns adapt to the number of industries
 // (3 across; 4 becomes 2 x 2; 5+ wraps in rows of 3).
 import { getIndustries } from '../lib';
 interface Props { heading?: string; intro?: string }
 const {
-  heading = 'Where we work',
+  heading = 'Where We Work',
   intro = 'Specialized expertise for industries where precision, compliance and timing matter.',
 } = Astro.props;
 const industries = await getIndustries();
@@ -20,7 +20,7 @@ const cols = n < 3 ? n : n === 4 ? 2 : 3;
         <h2>{heading}</h2>
         <p>{intro}</p>
       </div>
-      <a class="all" href="/industries">View all industries →</a>
+      <a class="all" href="/industries">View All Industries →</a>
     </div>
 
     <div class="cards" style={`--cols:${cols}`} data-industry-list>
@@ -32,7 +32,7 @@ const cols = n < 3 ? n : n === 4 ? 2 : 3;
             <p class="short">{i.data.short}</p>
           </div>
           <ul class="checks">{i.data.focus.slice(0, 3).map((f) => <li>{f.title}</li>)}</ul>
-          <span class="go">Learn more →</span>
+          <span class="go">Learn More →</span>
         </a>
       ))}
     </div>

@@ -32,8 +32,8 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
 
   <section class="sec">
     <div class="wrap">
-      <span class="eyebrow">What we support</span>
-      <h2>Projects we help deliver</h2>
+      <span class="eyebrow">What We Support</span>
+      <h2>Projects We Help Deliver</h2>
       <div class="grid g3 focus">
         {d.focus.map((f) => (
           <div class="card" style={`--c:${d.color}`}><span class="chev"></span><h3>{f.title}</h3><p>{f.body}</p></div>
@@ -45,8 +45,8 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
   <section class="sec mist">
     <div class="wrap grid g2 two">
       <div>
-        <span class="eyebrow">Expertise we bring</span>
-        <h2>People who know the work</h2>
+        <span class="eyebrow">Expertise We Bring</span>
+        <h2>People Who Know the Work</h2>
         <p class="lede">Specialists with direct experience in {d.name.toLowerCase()} projects, the standards they have to meet and the pace they run at.</p>
       </div>
       <ul class="checks expertise">{d.expertise.map((e) => <li>{e}</li>)}</ul>
@@ -55,8 +55,8 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
 
   <section class="sec">
     <div class="wrap">
-      <span class="eyebrow">How we can help</span>
-      <h2>Support that fits your project</h2>
+      <span class="eyebrow">How We Can Help</span>
+      <h2>Support That Fits Your Project</h2>
       <div class="grid g3">
         {services.map((s) => (
           <a class="card svc" href={`/services#${s.id}`}><h3>{s.name}</h3><p>{s.body}</p></a>
@@ -67,8 +67,8 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
 
   <section class="sec mist">
     <div class="wrap">
-      <span class="eyebrow">Our approach</span>
-      <h2>How we work</h2>
+      <span class="eyebrow">Our Approach</span>
+      <h2>How We Work</h2>
       <Steps />
     </div>
   </section>
@@ -77,7 +77,7 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
     <section class="sec">
       <div class="wrap">
         <div class="row head">
-          <div><span class="eyebrow">Insights</span><h2>{d.name} insights</h2></div>
+          <div><span class="eyebrow">Insights</span><h2>{d.name} Insights</h2></div>
           <a class="btn btn-outline" href={`/insights?industry=${industry.id}`}>All {d.name} Insights</a>
         </div>
         <StoryGrid stories={stories} />
@@ -90,7 +90,7 @@ const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headlin
   {others.length > 0 && (
     <section class="sec other">
       <div class="wrap">
-        <span class="eyebrow">Other industries</span>
+        <span class="eyebrow">Other Industries</span>
         <div class="grid g2">
           {others.map((o) => (
             <a class="card oth" href={`/industries/${o.id}`} style={`--c:${o.data.color}`}>

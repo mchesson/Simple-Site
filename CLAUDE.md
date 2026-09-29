@@ -79,6 +79,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Don't commit to things we don't do today (e.g. owning turnover packages or
   outcomes). "How we work" steps must be true for every service; "Hand Off" says
   we *help plan* the transition, nothing more.
+- Capitalization: Title Case for headings, card titles, labels, industry `short`
+  lines, expertise items and story titles ("Pharmaceutical and Biotech
+  Manufacturing"; small words like and/of/the/to stay lowercase). Full sentences
+  ending in a period (banner headlines, statements, paragraphs, sentence-like
+  bullets) stay in sentence case.
 - Plain, confident, specific. No staffing clichés ("best-in-class", "top talent",
   "fill seats").
 - Tagline: **Connecting Talent. Delivering Excellence.** The old tagline "The Right
@@ -89,8 +94,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   form and `site.email` in `src/data/site.ts`.
 - **Don't mention Raleigh, North Carolina or any headquarters/office location**
   (owner's request). To show we're not local-only, use simple "nationwide" /
-  "across the country" wording (`site.coverage`). No state counts, and avoid
-  "all U.S. states and territories".
+  "across the country" wording in company-focused sections (e.g. the Company
+  page "Where We Work" section), not as a stray line in the footer or contact
+  details. No state counts, and avoid "all U.S. states and territories".
 
 ## Brand
 - Colors (tokens in `src/styles/global.css`): Near Black `#212121`, True Blue

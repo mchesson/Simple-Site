@@ -1,7 +1,7 @@
 ---
 name: Enterprise Technology
 order: 3
-short: AI, system integration and cybersecurity
+short: AI, System Integration and Cybersecurity
 summary: AI, system integration and cybersecurity projects that have to work the first time.
 color: "#8DB33A"
 headline: Technology projects that have to work the first time.
@@ -21,10 +21,10 @@ focus:
   - title: Industrial and OT Security
     body: Protecting control systems and critical infrastructure.
 expertise:
-  - AI and machine learning engineering
-  - Data platform engineering
-  - Systems architecture
-  - Security architecture
-  - Identity and access management
-  - Technical project management
+  - AI and Machine Learning Engineering
+  - Data Platform Engineering
+  - Systems Architecture
+  - Security Architecture
+  - Identity and Access Management
+  - Technical Project Management
 ---

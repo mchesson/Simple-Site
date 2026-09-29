@@ -39,7 +39,7 @@ const related = stories.filter((s) => s.id !== story.id && s.data.industry?.id =
 
   {related.length > 0 && (
     <section class="sec mist">
-      <div class="wrap"><h2>More {industry ? `${industry.data.name} insights` : 'company news'}</h2><StoryGrid stories={related} /></div>
+      <div class="wrap"><h2>More {industry ? `${industry.data.name} Insights` : 'Company News'}</h2><StoryGrid stories={related} /></div>
     </section>
   )}
   <CtaBand />
