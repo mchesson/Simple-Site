@@ -87,8 +87,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - **No phone numbers anywhere on the site** (owner's request). Use the contact
   form and `site.email` in `src/data/site.ts`.
 - **Don't mention Raleigh, North Carolina or any headquarters/office location**
-  (owner's request). Say instead that we serve clients in all U.S. states and
-  territories, with projects and people in more than 20 states (`site.coverage`).
+  (owner's request). To show we're not local-only, use simple "nationwide" /
+  "across the country" wording (`site.coverage`). No state counts, and avoid
+  "all U.S. states and territories".
 
 ## Brand
 - Colors (tokens in `src/styles/global.css`): Near Black `#212121`, True Blue

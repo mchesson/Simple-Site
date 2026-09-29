@@ -8,7 +8,7 @@ export const site = {
   // TODO(confirm): general inbox shown in public listings. No phone numbers on the site.
   email: 'info@technicalsource.com',
   // Where we work. No office or headquarters locations on the site (owner's request).
-  coverage: 'Serving clients in all U.S. states and territories',
+  coverage: 'Supporting projects nationwide',
 };
 
 export const services = [
