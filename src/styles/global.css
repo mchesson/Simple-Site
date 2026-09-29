@@ -26,7 +26,7 @@
 }
 
 *, *::before, *::after { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
+html { -webkit-text-size-adjust: 100%; scroll-padding-top: 5.5rem; } /* clears the sticky header on #anchor links */
 body {
   margin: 0; background: #fff; color: var(--ink);
   font: 400 1.0625rem/1.65 var(--font-body);

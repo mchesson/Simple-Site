@@ -1,0 +1,80 @@
+---
+// One open position, in the site's own style. Rendered on request (Vercel
+// function) from Crelate's public portal fields; "Apply" goes to the job's
+// posting on the Crelate portal, where applications are submitted.
+import Base from '../../../layouts/Base.astro';
+import Banner from '../../../components/Banner.astro';
+import { isConfigured } from '../../../crelate';
+import { findJob, applyUrl, jobPath, jobsEnabled } from '../../../jobs';
+import { isRemote } from '../../../geo';
+import { site } from '../../../data/site';
+
+export const prerender = false;
+
+let job;
+try {
+  if (isConfigured() && jobsEnabled()) job = await findJob(Astro.params.id ?? '');
+} catch (e) {
+  console.error('[job page] Crelate error', e);
+}
+if (job) Astro.response.headers.set('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+else Astro.response.status = 404;
+
+const location = job ? (isRemote(job.title, job.city) ? 'Remote' : [job.city, job.state].filter(Boolean).join(', ')) : '';
+const apply = job ? applyUrl(job) : site.jobsPortal;
+const posting = job && {
+  '@context': 'https://schema.org',
+  '@type': 'JobPosting',
+  title: job.title,
+  description: job.description || job.summary,
+  ...(job.postedOn && { datePosted: job.postedOn.slice(0, 10) }),
+  hiringOrganization: { '@id': `${new URL('/', Astro.site)}#organization` },
+  url: new URL(jobPath(job), Astro.site).toString(),
+  ...(location === 'Remote'
+    ? { jobLocationType: 'TELECOMMUTE', applicantLocationRequirements: { '@type': 'Country', name: 'United States' } }
+    : { jobLocation: { '@type': 'Place', address: { '@type': 'PostalAddress', addressLocality: job.city, addressRegion: job.state, postalCode: job.zip, addressCountry: 'US' } } }),
+};
+---
+{job ? (
+  <Base title={`${job.title} | Careers`} description={job.summary || `${job.title}: an open position with ${site.name}.`} extraSchema={[posting]}>
+    <Banner eyebrow="Open Position" compact>
+      <h1>{job.title}</h1>
+      {location && <p class="banner-sub">{location}</p>}
+      <div class="row">
+        <a class="btn btn-green" href={apply} target="_blank" rel="noopener">Apply Now</a>
+        <a class="btn btn-outline-light" href="/careers#jobs">All Open Positions</a>
+      </div>
+    </Banner>
+
+    <section class="sec">
+      <div class="wrap">
+        <div class="prose posting" set:html={job.description || `<p>${job.summary}</p>`} />
+        <div class="apply">
+          <a class="btn btn-primary" href={apply} target="_blank" rel="noopener">Apply Now</a>
+          <p>You’ll finish your application on our secure job portal.</p>
+        </div>
+        <p class="back"><a href="/careers#jobs">← Back to All Open Positions</a></p>
+      </div>
+    </section>
+  </Base>
+) : (
+  <Base title="Position Not Found | Careers" description="This position is no longer open.">
+    <Banner eyebrow="Careers" compact>
+      <h1>This position is <span class="hl">no longer open.</span></h1>
+      <p class="banner-sub">It may have been filled or closed. See what’s open now.</p>
+      <div class="row"><a class="btn btn-green" href="/careers#jobs">Search Open Positions</a></div>
+    </Banner>
+  </Base>
+)}
+
+<style>
+  .posting { margin-inline: 0; }
+  .posting :global(h2) { font-size: 1.5rem; margin-top: 2rem; }
+  .posting :global(h3) { font-size: 1.2rem; margin-top: 1.5rem; }
+  .posting :global(strong) { font-weight: 700; }
+  .apply { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1.25rem; margin-top: 2.5rem; padding-top: 1.5rem; border-top: 1px solid var(--line); max-width: 42rem; }
+  .apply p { margin: 0; color: var(--muted); font-size: .95rem; }
+  .back { margin-top: 2rem; font-weight: 600; }
+  .back a { text-decoration: none; }
+  .back a:hover { text-decoration: underline; }
+</style>
