@@ -140,7 +140,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     drops a repeated title, pulls the first run of "Label: value" lines (or
     list items, emoji allowed) into the facts row, turns bold or "Label:"
     lines into headings, splits `<br>` lines into paragraphs, turns "•"/"-"
-    lines into lists, and writes the list teaser. `/api/jobs?check=5&q=<title>`
+    lines into lists, and writes the list teaser. Text typed after the last
+    bullet often stays inside that bullet in Crelate's editor: a heading
+    inside a list item closes the list there. A generic first line like
+    "Job Description — Contract Position" is dropped. `/api/jobs?check=5&q=<title>`
     shows how a live posting was read (facts and outline).
 - **Public fields only.** `toPublicJob` in `src/crelate.ts` is an allowlist of
   the portal posting fields: `PortalTitle`, `PortalDescription`, `PortalCity`,
@@ -184,7 +187,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     after real submissions.
 - Pages are static except the job pages; endpoints and job pages run on Vercel.
 - **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
-  `RESEND_API_KEY`). Never in the repo or chat. Optional `CRELATE_API_BASE`
+  `RESEND_API_KEY`). Never in the repo or chat. The Crelate key goes only in
+  the `X-Api-Key` header, never in a URL (Crelate echoes request URLs in its
+  errors), and public responses show only Crelate's error messages
+  (`crelateMessage`), never raw error details. Optional `CRELATE_API_BASE`
   (default `https://app.crelate.com/api3`). Redeploy after changing variables.
   A dedicated Crelate "website" user's key is preferred over a personal key.
 - With neither key set, the forms tell visitors to email `site.email`.

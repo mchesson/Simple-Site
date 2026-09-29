@@ -6,7 +6,7 @@
 //   CRELATE_API_KEY   required; from Crelate → Settings → Your Settings & Preferences → API Key
 //   CRELATE_API_BASE  optional; defaults to https://app.crelate.com/api3
 //
-// Crelate passes the key as the `api_key` query parameter. Field names below
+// The key is sent in the X-Api-Key header, never in the URL. Field names below
 // follow Crelate's API3 (firstName, lastName, email, companyName, notes with
 // contactId/candidateId). If Crelate rejects a field, the error is logged in
 // Vercel → Deployments → Functions/Logs; adjust the mapping here.
@@ -16,6 +16,23 @@ import { structurePosting } from './posting';
 
 const base = () => (process.env.CRELATE_API_BASE || 'https://app.crelate.com/api3').replace(/\/$/, '');
 export const isConfigured = () => Boolean(process.env.CRELATE_API_KEY);
+
+/** Strip anything key-like from text before it is logged. */
+const redact = (s: string) => {
+  const key = process.env.CRELATE_API_KEY;
+  return (key ? s.split(key).join('[key]') : s).replace(/api_key=[^&"\s]*/gi, 'api_key=[key]');
+};
+
+/** Crelate's own error messages (from its Errors array), without the request address. */
+export const crelateMessage = (e: unknown) => {
+  if (!(e instanceof CrelateError)) return 'request failed';
+  try {
+    const msgs = (JSON.parse(e.detail)?.Errors ?? []).map((x: any) => String(x?.Message ?? '')).filter(Boolean);
+    return `${e.status}${msgs.length ? ': ' + msgs.join('; ') : ''}`;
+  } catch {
+    return String(e.status);
+  }
+};
 
 export class CrelateError extends Error {
   constructor(public status: number, public detail: string) {
@@ -29,9 +46,8 @@ export async function crelate<T = unknown>(
 ): Promise<T> {
   const url = new URL(`${base()}/${path}`);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, String(v));
-  // Crelate's API docs name the X-Api-Key header; the api_key query parameter
-  // (used since the start, and working for jobs) is kept alongside it.
-  url.searchParams.set('api_key', process.env.CRELATE_API_KEY ?? '');
+  // The key goes only in the X-Api-Key header (as Crelate's API docs say),
+  // never in the address: Crelate repeats the address in its error messages.
   const res = await fetch(url, {
     method,
     // FormData (file uploads) sets its own multipart Content-Type.
@@ -43,7 +59,7 @@ export async function crelate<T = unknown>(
     body: body instanceof FormData ? body : body ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
-  if (!res.ok) throw new CrelateError(res.status, text.slice(0, 500));
+  if (!res.ok) throw new CrelateError(res.status, redact(text).slice(0, 500));
   try {
     return JSON.parse(text) as T;
   } catch {
@@ -150,7 +166,7 @@ const hourly = <T>(load: () => Promise<T>) => {
 
 /** Crelate contact source named like "Website" (e.g. "Company Website"), if one exists. */
 const websiteSourceId = hourly(async (): Promise<string | null> => {
-  const sources = await crelate('contactsources', { params: { limit: 200 } }).then(listOf, () => []);
+  const sources = await crelate('contactsources', { params: { limit: 100 } }).then(listOf, () => []);
   const name = (s: any) => String(s?.Name ?? '').trim();
   const hit = sources.find((s) => /^(company )?web ?site$/i.test(name(s))) ?? sources.find((s) => /web ?site|career/i.test(name(s)));
   return hit?.Id ? String(hit.Id) : null;

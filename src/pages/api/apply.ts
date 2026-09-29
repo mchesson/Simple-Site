@@ -9,7 +9,7 @@
 //   GET /api/apply?check=1  Crelate settings the forms use: pipeline stages,
 //                           contact sources, file types, note parent types
 import type { APIRoute } from 'astro';
-import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, recruitingStages, APPLY_STAGE, CrelateError } from '../../crelate';
+import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, recruitingStages, APPLY_STAGE, CrelateError, crelateMessage } from '../../crelate';
 import { publicJobs } from '../../jobs';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
@@ -98,10 +98,11 @@ export const GET: APIRoute = async ({ url }) => {
   if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
   // Crelate settings the forms rely on: pipeline stages, contact sources,
   // file types, and the record types a note can belong to. No contact data.
-  const safe = <T>(p: Promise<T>) => p.catch((e) => ({ error: e instanceof CrelateError ? `${e.status} ${e.detail}` : String(e) }));
+  // Errors show Crelate's message only, never the request details.
+  const safe = <T>(p: Promise<T>) => p.catch((e) => ({ error: crelateMessage(e) }));
   const [stages, sources, types, activityInfo] = await Promise.all([
     safe(recruitingStages()),
-    safe(crelate('contactsources', { params: { limit: 200 } }).then(listOf)),
+    safe(crelate('contactsources', { params: { limit: 100 } }).then(listOf)),
     safe(crelate('artifacttypes', { params: { limit: 100 } }).then(listOf)),
     safe(crelate('activities/info')),
   ]);
