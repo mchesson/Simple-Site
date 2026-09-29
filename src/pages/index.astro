@@ -54,8 +54,10 @@ const stories = (await getStories()).slice(0, 3);
         <span class="eyebrow">Why Technical Source</span>
         <h2>We understand the work before we propose a plan.</h2>
         <p class="muted-light">Our people specialize by industry. They know the regulations, the technology and the pace your project runs at, and they stay accountable until the work is done.</p>
-        <p class="stat">10+</p>
-        <p class="muted-light">years supporting complex technical projects</p>
+        <div class="stats">
+          <div><p class="stat">10+</p><p class="muted-light">years supporting complex technical projects</p></div>
+          <div><p class="stat">20+</p><p class="muted-light">states where our projects and people have worked</p></div>
+        </div>
       </div>
     </div>
   </section>
@@ -82,7 +84,9 @@ const stories = (await getStories()).slice(0, 3);
   .why { gap: 3rem; align-items: center; }
   .why .photo { min-height: 20rem; }
   .muted-light { color: #CCC; }
-  .stat { font-family: var(--font-head); font-size: 3rem; line-height: 1.1; color: var(--energy); margin: 1.5rem 0 0; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }
+  .stats p { margin: 0; }
+  .stat { font-family: var(--font-head); font-size: 3rem; line-height: 1.1; color: var(--energy); }
   .head { justify-content: space-between; align-items: end; }
   .head h2 { margin: 0; }
 </style>

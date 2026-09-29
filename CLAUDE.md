@@ -83,9 +83,12 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Tagline: **Connecting Talent. Delivering Excellence.** The old tagline "The Right
   People. The Right Opportunity." is retired.
 
-## Contact details
+## Contact details and locations
 - **No phone numbers anywhere on the site** (owner's request). Use the contact
   form and `site.email` in `src/data/site.ts`.
+- **Don't mention Raleigh, North Carolina or any headquarters/office location**
+  (owner's request). Say instead that we serve clients in all U.S. states and
+  territories, with projects and people in more than 20 states (`site.coverage`).
 
 ## Brand
 - Colors (tokens in `src/styles/global.css`): Near Black `#212121`, True Blue
