@@ -1,12 +1,13 @@
 // /api/chat: the website chat assistant (src/assistant.ts).
 //   GET   { enabled }: the chat bubble shows only when this says true
+//   GET   ?check=1: which key name, environment and switch it sees (no values)
 //   POST  { messages: [{ role, text }...] } → the answer, streamed as one JSON
 //         object per line: text pieces, job links, a handoff form, done.
 // Protections: same-site requests only (Origin), a per-visitor rate limit,
 // and caps on message and conversation length (LIMITS). Conversations are
 // never stored or logged here.
 import type { APIRoute } from 'astro';
-import { chatEnabled, runChat, LIMITS, type ChatEvent, type ChatTurn } from '../../assistant';
+import { chatEnabled, keyName, runChat, LIMITS, type ChatEvent, type ChatTurn } from '../../assistant';
 import { json, sameOrigin, visitor, rateLimiter } from './_shared';
 
 export const prerender = false;
@@ -14,7 +15,14 @@ export const prerender = false;
 const perMinute = rateLimiter(6, 1);
 const perDay = rateLimiter(80, 24 * 60);
 
-export const GET: APIRoute = () => json({ enabled: chatEnabled() }, 200, { 'Cache-Control': 'no-store' });
+export const GET: APIRoute = ({ url } = {} as any) => {
+  // ?check=1: which settings the chat sees (names only, never the key).
+  if (url?.searchParams.get('check') === '1') {
+    const similar = Object.keys(process.env).filter((k) => /anthropic/i.test(k));
+    return json({ enabled: chatEnabled(), keyFoundAs: keyName(), similarNames: similar, chatEnabledSetting: process.env.CHAT_ENABLED ?? null, vercelEnvironment: process.env.VERCEL_ENV ?? null }, 200, { 'Cache-Control': 'no-store' });
+  }
+  return json({ enabled: chatEnabled() }, 200, { 'Cache-Control': 'no-store' });
+};
 
 /** Checks the conversation the browser sent; returns it clean, or an error. */
 export function readConversation(body: unknown): ChatTurn[] | string {

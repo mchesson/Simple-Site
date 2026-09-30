@@ -217,8 +217,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 ## Chat assistant (Claude)
 - A chat bubble on every page (`src/components/Chat.astro`, script
   `src/scripts/chat.ts`). It stays hidden until `GET /api/chat` says it's on:
-  `ANTHROPIC_API_KEY` is set in Vercel and `CHAT_ENABLED` isn't `false`
-  (the off switch). Without JavaScript nothing shows.
+  `ANTHROPIC_API_KEY` is set in Vercel (any capitalization is accepted) and
+  `CHAT_ENABLED` isn't `false` (the off switch). Without JavaScript nothing
+  shows. `/api/chat?check=1` shows which key name, Vercel environment and
+  switch the site sees (names only, never values).
 - **What it knows:** `src/data/assistant.md`, which the owner edits to
   "teach" it, plus the industry files, `services` and `steps` in
   `src/data/site.ts`, and `site.email` / `site.linkedin`. Keep that file in

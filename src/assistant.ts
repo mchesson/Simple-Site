@@ -20,7 +20,12 @@ export const MODEL = 'claude-opus-5-5';
 /** Conversation limits, checked by /api/chat before anything reaches Claude. */
 export const LIMITS = { messageChars: 1000, userTurns: 20, totalChars: 24000 } as const;
 
-export const chatEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY) && process.env.CHAT_ENABLED !== 'false';
+/** The Anthropic key. Its name should be ANTHROPIC_API_KEY, but Vercel shows
+ *  names as typed, so any capitalization (e.g. Anthropic_API_Key) is accepted. */
+export const keyName = () =>
+  process.env.ANTHROPIC_API_KEY?.trim() ? 'ANTHROPIC_API_KEY' : Object.keys(process.env).find((k) => k.trim().toUpperCase() === 'ANTHROPIC_API_KEY' && process.env[k]?.trim()) ?? null;
+const apiKey = () => { const k = keyName(); return k ? process.env[k]!.trim() : undefined; };
+export const chatEnabled = () => Boolean(apiKey()) && process.env.CHAT_ENABLED !== 'false';
 
 // ---------------------------------------------------------------------------
 // System prompt. It stays byte-for-byte the same between requests so it can
@@ -153,7 +158,7 @@ export type ChatEvent =
   | { t: 'done' };
 
 let client: Anthropic | null = null;
-const anthropic = () => (client ??= new Anthropic());
+const anthropic = () => (client ??= new Anthropic({ apiKey: apiKey() }));
 
 const SORRY = 'Sorry, I can’t help with that here. I can tell you about our services and industries, help you find open jobs, or connect you with someone on our team.';
 
