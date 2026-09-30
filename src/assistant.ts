@@ -190,6 +190,16 @@ async function runTool(name: string, input: unknown, emit: (e: ChatEvent) => voi
 
 /** Answer the visitor's latest message, streaming events as they happen.
  *  `history` is text only, oldest first, ending with the visitor's message. */
+/** What went wrong talking to Claude, without anything the visitor wrote:
+ *  the HTTP status and Anthropic's own error type and message. */
+export function describeError(e: unknown): { status: number | null; type: string; message: string } {
+  if (e instanceof Anthropic.APIError) {
+    const body = (e as any).error?.error ?? (e as any).error ?? {};
+    return { status: e.status ?? null, type: String(body.type ?? e.name), message: String(body.message ?? e.message).slice(0, 300) };
+  }
+  return { status: null, type: e instanceof Error ? e.name : 'unknown', message: e instanceof Error ? e.message.slice(0, 300) : '' };
+}
+
 export async function runChat(history: ChatTurn[], emit: (e: ChatEvent) => void): Promise<void> {
   const messages: Anthropic.Beta.BetaMessageParam[] = history.map((m) => ({ role: m.role, content: m.text }));
   // A few tool rounds are plenty for a search and an answer.

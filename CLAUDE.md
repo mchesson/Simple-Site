@@ -224,7 +224,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   `ANTHROPIC_API_KEY` is set in Vercel (any capitalization is accepted) and
   `CHAT_ENABLED` isn't `false` (the off switch). Without JavaScript nothing
   shows. `/api/chat?check=1` shows which key name, Vercel environment and
-  switch the site sees (names only, never values).
+  switch the site sees (names only, never values). `/api/chat?check=2` asks
+  Claude one short test question and shows the answer or Claude's own error
+  (bad key, no credit...). Vercel's function logs show the same error for
+  failed chats (`[chat] failed`).
 - **What it knows:** `src/data/assistant.md`, which the owner edits to
   "teach" it, plus the industry files, `services` and `steps` in
   `src/data/site.ts`, and `site.email` / `site.linkedin`. Keep that file in

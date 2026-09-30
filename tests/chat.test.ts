@@ -87,6 +87,12 @@ describe('GET /api/chat', () => {
     expect(check).not.toContain('sk-secret-value');
     delete process.env.Anthropic_API_Key;
   });
+  it('?check=2 asks Claude one test question and reports the answer', async () => {
+    replies = [{ text: 'We support complex technical projects.' }];
+    const { GET } = await import('../src/pages/api/chat');
+    const req = new Request('http://site/api/chat?check=2', { headers: { 'x-real-ip': '7.7.7.7' } });
+    expect(await (await (GET as any)({ url: new URL(req.url), request: req })).json()).toEqual({ ok: true, answer: 'We support complex technical projects.' });
+  });
   it('can be switched off with CHAT_ENABLED=false', async () => {
     process.env.CHAT_ENABLED = 'false';
     const { GET } = await import('../src/pages/api/chat');
