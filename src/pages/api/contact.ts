@@ -1,12 +1,14 @@
 // POST /api/contact: "Tell us about your project" form.
 // 1. Emails the inquiry to the team inbox (src/mail.ts): the main delivery.
-// 2. Also files it in Crelate as a contact + note, when the key is set.
-// The visitor sees success if either one worked.
+// 2. Also files it in Crelate as a contact + note, when the key is set, and
+//    sends it to TS Workspace (src/ats.ts) at the same time.
+// The visitor sees success if any one of them worked.
 import type { APIRoute } from 'astro';
 import { isConfigured, createContact, addNote, CrelateError } from '../../crelate';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
-import { describeSource } from '../../source';
+import { describeSource, sourceAttribution } from '../../source';
+import { atsConfigured, sendToAts, newExternalId } from '../../ats';
 
 export const prerender = false;
 
@@ -28,8 +30,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (!f.firstName || !f.lastName || !validEmail(f.email)) {
     return isJson ? json({ ok: false, error: 'Please add your name and a valid email.' }, 400) : back(request, 'error');
   }
-  if (!mailConfigured() && !isConfigured()) {
-    console.warn('[contact] neither RESEND_API_KEY nor CRELATE_API_KEY is set; submission not sent', { email: f.email });
+  if (!mailConfigured() && !isConfigured() && !atsConfigured()) {
+    console.warn('[contact] none of RESEND_API_KEY, CRELATE_API_KEY or ATS_INTAKE_KEY is set; submission not sent', { email: f.email });
     return isJson ? json({ ok: false, error: 'not-configured' }, 503) : back(request, 'error');
   }
 
@@ -50,6 +52,19 @@ export const POST: APIRoute = async ({ request }) => {
         .then(() => true, (e) => (console.error('[contact] email failed', e), false))
     : false;
 
+  // TS Workspace runs alongside Crelate, so it adds no waiting time.
+  const ats = sendToAts({
+    type: 'inquiry',
+    externalId: newExternalId(),
+    submittedAt: new Date().toISOString(),
+    contact: { firstName: f.firstName, lastName: f.lastName, email: f.email, company: f.company },
+    industry: f.industry,
+    service: f.service,
+    message: f.message,
+    page: f.page,
+    attribution: sourceAttribution(data.source),
+  });
+
   let filed = false;
   if (isConfigured()) {
     try {
@@ -63,6 +78,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  if (emailed || filed) return isJson ? json({ ok: true }) : back(request, 'sent');
+  const sent = (await ats).ok;
+  if (emailed || filed || sent) return isJson ? json({ ok: true }) : back(request, 'sent');
   return isJson ? json({ ok: false, error: 'send-failed' }, 502) : back(request, 'error');
 };
