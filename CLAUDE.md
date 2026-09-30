@@ -363,6 +363,33 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Confirm the official LinkedIn URL and email in `src/data/site.ts`.
 - Confirm the full list of old WordPress URLs for `redirects`.
 
+## Switching technicalsource.com from WordPress, with a way back
+The old WordPress site runs on technicalsource.com today; this site
+replaces it once finished (owner, Sept 30, 2026). teksourcetalent.com is a
+temporary address for test copies. The owner must be able to go back to
+WordPress quickly if this site breaks. The plan:
+- **Keep WordPress running, untouched,** at its current host until the new
+  site has run well for a while (at least a month). Don't cancel its hosting.
+  Take a full WordPress backup (files and database) from the host first.
+- **Before the switch:** save a copy (screenshot or export) of every DNS
+  record for technicalsource.com, and lower the TTL of the website records
+  (the root `@` A record and `www`) to 5 minutes a day ahead, so changes
+  (and a rollback) take effect in minutes.
+- **The switch changes only the website records:** `@` and `www` point to
+  Vercel (the values Vercel shows under Settings → Domains). **Never touch
+  email records** (MX, SPF/DKIM/DMARC TXT, autodiscover): Microsoft 365
+  email runs on this domain.
+- **Going back to WordPress:** put the saved `@` and `www` values back.
+  WordPress is back within minutes. If only the latest version of this site
+  is broken, Vercel's **Instant Rollback** (Deployments → an earlier one →
+  Promote) restores the previous version without touching DNS.
+- **Still to confirm:** where technicalsource.com's DNS is managed and where
+  WordPress is hosted (docs/open-questions.md in ts-ats).
+- The ATS/CRM (TS Workspace) moves from ts-ats-zeta.vercel.app to
+  **tsworkspace.com** later. When it does, set `ATS_INTAKE_URL` here to the
+  new address (`https://tsworkspace.com/api/intake`) and redeploy; nothing
+  else on this site changes.
+
 ## Showing the site in chat
 `npm run preview:file` builds the site and packs it into one self-contained
 `preview.html` (all pages, CSS, fonts, logos inlined; hash-based links). Send that
