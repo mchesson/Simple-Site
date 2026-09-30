@@ -24,7 +24,7 @@ and consistent with this file.
 | `/insights`, `/insights/<id>` | `src/pages/insights/` | Stories, filterable by industry; RSS feeds |
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
-| `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate |
+| `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
 
 Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
 
@@ -180,8 +180,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   portal page).
 - `/api/jobs` pages through every Crelate job (100 per request, 5 at a time,
   up to 10,000; Vercel `maxDuration: 60`), cached 10 minutes per instance.
-- **Forms deliver by email first, Crelate second.** The visitor sees success
-  if either worked:
+- **Forms deliver by email first, then Crelate and TS Workspace** (side by
+  side; see "TS Workspace intake"). The visitor sees success if any of them
+  worked:
   - Contact form (`src/pages/api/contact.ts`) → email to the team inbox, plus
     Crelate **contact** + **note**.
   - Job applications (`src/pages/api/apply.ts`) → email with the resume
@@ -231,7 +232,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     after real submissions.
 - Pages are static except the job pages; endpoints and job pages run on Vercel.
 - **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
-  `RESEND_API_KEY`, `ANTHROPIC_API_KEY`). Shared variables live under
+  `RESEND_API_KEY`, `ANTHROPIC_API_KEY`, `ATS_INTAKE_KEY` with
+  `ATS_INTAKE_URL`). Shared variables live under
   **TS Website** in Vercel and are linked to simple-site. Names are
   case-sensitive: they must be exactly these, in capitals. A "Sensitive"
   variable's value looks blank after saving; that's normal. Check
@@ -241,7 +243,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   (`crelateMessage`), never raw error details. Optional `CRELATE_API_BASE`
   (default `https://app.crelate.com/api3`). Redeploy after changing variables.
   A dedicated Crelate "website" user's key is preferred over a personal key.
-- With neither key set, the forms tell visitors to email `site.email`.
+- With none of the email, Crelate or TS Workspace settings, the forms tell
+  visitors to email `site.email`.
 - Spam: hidden honeypot field; Astro's origin check blocks cross-site posts.
 
 ## Chat assistant (Claude)
@@ -311,7 +314,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Anonymous visitors are not identified or tracked; visit counts and
   sources for everyone come from analytics at launch. A privacy policy page
   should mention this before launch.
-- Later: the same lines go to the tsworkspace.com ATS/CRM with each lead.
+- The same data goes to TS Workspace with each lead as `attribution`
+  (`sourceAttribution` in `src/source.ts`; see "TS Workspace intake").
 
 ## Analytics
 - GA4 + LinkedIn Insight Tag to be added at launch.
@@ -341,8 +345,37 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   how they found us) flow into it and alert the right salesperson, and
   contractors log in there to see what they're allowed to. This site only
   links to it ("Contractor Login"); logins, permissions and records live in
-  tsworkspace.com, not here. Until it can receive records, Crelate stays the
-  place website leads are filed.
+  tsworkspace.com, not here. Until switch-over (owner's decision), every
+  website lead goes to the team email, Crelate **and** TS Workspace.
+
+## TS Workspace intake
+- Every submission (contact form, job application, "Not Looking Right Now?"
+  resume, chat "talk to a person") is also sent to TS Workspace, the
+  company's own ATS/CRM, by `sendToAts` in `src/ats.ts`. Format: the ATS
+  repo's `docs/website-intake.md` (mchesson/ts-ats); keep the two in step.
+  Email and Crelate are unchanged; Crelate stays until switch-over.
+- Types: `inquiry` (`/api/contact`), `application` (`/api/apply` with a job:
+  job id, public title and our job page URL), `resume` (`/api/apply` without
+  a job), `chat` (`/api/chat-handoff`: `jobSeeker` and the transcript). Each
+  carries a new `externalId` (`web-<uuid>`, so the ATS never files one twice),
+  `submittedAt`, contact fields, industry/service/message/page as the form
+  has them, and `attribution` ("how they found us"). Resumes go as
+  multipart (`data` JSON text + `resume` file); everything else as JSON.
+- It runs alongside Crelate (after the email), with an 8-second limit, and
+  never throws: a failure is logged (`[ats] <type> failed <status>`) and the
+  visitor still sees success if the email or Crelate worked. A success there
+  also counts as delivered. Logs show only the status and the lead id.
+- Settings (Vercel, TS Website): `ATS_INTAKE_URL`
+  (`https://tsworkspace.com/api/intake`) and `ATS_INTAKE_KEY` (same value as
+  `INTAKE_API_KEY` in the ATS project; sensitive, set by Claude through the
+  Vercel API, never in chat). Without either, nothing is sent (logged once).
+- Checks: `/api/apply?check=1` includes `tsWorkspace: { url, key }`
+  (true/false only); `/api/apply?check=2` tests the connection with the key
+  (the ATS answers `{ ok: true }`, a wrong key 401).
+- Not sent (the site doesn't collect them): `pagesViewed` (only a page count
+  is kept), industry and service for applications and chats.
+  `industryOfInterest` is the remembered industry id in words
+  ("life-sciences" → "Life Sciences").
 
 ## Search engines (SEO)
 - Indexing is controlled by the `ALLOW_INDEXING` environment variable. Unset
@@ -417,7 +450,9 @@ preview).
 ## Tests
 - `npm test` runs everything: unit tests (`tests/`, Vitest) for job posting
   parsing, the Crelate privacy allowlist, location search, the form
-  endpoints (Crelate and email faked, key only in the header) and the chat
+  endpoints (Crelate and email faked, key only in the header), the TS
+  Workspace intake (`tests/ats.test.ts`: each form's payload, missing
+  settings, network errors, a refused key) and the chat
   assistant (`tests/chat.test.ts`, Claude faked), then builds
   and runs `scripts/site-check.mjs`, which opens every page in a browser at
   desktop and phone width: status, script errors, broken links, overflow,

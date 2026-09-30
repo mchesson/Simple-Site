@@ -7,17 +7,21 @@
 //      with the visitor's message once Crelate has made it a contact;
 //    - if that fails, or for a general resume: candidate, resume upload, link
 //      to the job at the "Maybe" stage, and a note saying where it came from.
-// The visitor sees success if either one worked.
+// 3. Sends it to TS Workspace (src/ats.ts), resume included, alongside Crelate.
+// The visitor sees success if any one of them worked.
 //
 // Diagnostics (no candidate data):
 //   GET /api/apply?check=1  Crelate settings the forms use: pipeline stages,
-//                           contact sources, file types, note parent types
+//                           contact sources, file types, note parent types,
+//                           and whether ATS_INTAKE_URL / ATS_INTAKE_KEY are set
+//   GET /api/apply?check=2  test the TS Workspace connection (status only)
 import type { APIRoute } from 'astro';
 import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, applyToJob, recruitingStages, APPLY_STAGE, CrelateError, crelateMessage } from '../../crelate';
-import { publicJobs } from '../../jobs';
+import { publicJobs, jobPath } from '../../jobs';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
-import { describeSource } from '../../source';
+import { describeSource, sourceAttribution } from '../../source';
+import { atsConfigured, atsSettings, sendToAts, newExternalId, pingAts } from '../../ats';
 
 export const prerender = false;
 
@@ -46,8 +50,8 @@ export const POST: APIRoute = async ({ request }) => {
   if (!resume) return fail('Please attach your resume.', 400);
   if (!OK_TYPES.test(resume.name)) return fail('Please attach your resume as a PDF or Word file.', 400);
   if (resume.size > MAX_BYTES) return fail('Please choose a resume under 4 MB.', 413);
-  if (!mailConfigured() && !isConfigured()) {
-    console.warn('[apply] neither RESEND_API_KEY nor CRELATE_API_KEY is set; application not sent', { email: f.email });
+  if (!mailConfigured() && !isConfigured() && !atsConfigured()) {
+    console.warn('[apply] none of RESEND_API_KEY, CRELATE_API_KEY or ATS_INTAKE_KEY is set; application not sent', { email: f.email });
     return fail('not-configured', 503);
   }
 
@@ -71,6 +75,21 @@ export const POST: APIRoute = async ({ request }) => {
     ? await sendMail({ subject: job ? `Application from ${f.firstName} ${f.lastName}: ${job.title}` : `Resume from ${f.firstName} ${f.lastName} (general consideration)`, text: details, replyTo: f.email, attachments: [{ filename: resume.name, content: bytes }] })
         .then(() => true, (e) => (log('email', e), false))
     : false;
+
+  // TS Workspace runs alongside Crelate, so it adds no waiting time. A job
+  // id that isn't a published job (or Crelate is off) still goes as an
+  // application, with the id only.
+  const siteUrl = (process.env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
+  const ats = sendToAts({
+    type: job || f.jobId ? 'application' : 'resume',
+    externalId: newExternalId(),
+    submittedAt: new Date().toISOString(),
+    contact: { firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone, location: f.location },
+    message: f.message,
+    job: job ? { id: job.id, title: job.title, url: `${siteUrl}${jobPath(job)}` } : f.jobId ? { id: f.jobId } : undefined,
+    page: f.page,
+    attribution: sourceAttribution(data.source),
+  }, { file: new Blob([bytes], { type: resume.type || 'application/octet-stream' }), name: resume.name });
 
   let filed = false;
   // A job application goes through Crelate's own "apply to job" first.
@@ -105,14 +124,18 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  if (emailed || filed) return isJson ? json({ ok: true }) : back(request, 'sent');
+  const sent = (await ats).ok;
+  if (emailed || filed || sent) return isJson ? json({ ok: true }) : back(request, 'sent');
   return fail('send-failed', 502);
 };
 
 export const GET: APIRoute = async ({ url }) => {
   const check = url.searchParams.get('check');
+  // TS Workspace: whether the settings are there (true/false, never values).
+  const tsWorkspace = atsSettings();
+  if (check === '2') return json({ ok: true, tsWorkspace: { ...tsWorkspace, connection: await pingAts() } }, 200, { 'Cache-Control': 'no-store' });
   if (check !== '1') return json({ ok: false, error: 'unknown-check', got: check }, 404);
-  if (!isConfigured()) return json({ ok: false, error: 'not-configured' });
+  if (!isConfigured()) return json({ ok: false, error: 'not-configured', tsWorkspace });
   // Crelate settings the forms rely on: pipeline stages, contact sources,
   // file types, and the record types a note can belong to. No contact data.
   // Errors show Crelate's message only, never the request details.
@@ -137,5 +160,6 @@ export const GET: APIRoute = async ({ url }) => {
     contactSources: names(sources),
     fileTypes: names(types),
     noteParent: find(activityInfo, 'ParentId'),
+    tsWorkspace,
   }, 200, { 'Cache-Control': 'no-store' });
 };

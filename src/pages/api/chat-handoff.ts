@@ -3,13 +3,15 @@
 // 1. Emails the details and the chat transcript to the team inbox.
 // 2. Also files it in Crelate, when the key is set: a contact (candidate for
 //    job seekers, client contact otherwise) with a note.
-// The visitor sees success if either one worked.
+// 3. Sends it to TS Workspace (src/ats.ts), alongside Crelate.
+// The visitor sees success if any one of them worked.
 import type { APIRoute } from 'astro';
 import { isConfigured, createContact, addNote, CrelateError } from '../../crelate';
 import { mailConfigured, sendMail } from '../../mail';
 import { LIMITS } from '../../assistant';
 import { json, clean, validEmail, sameOrigin, visitor, rateLimiter } from './_shared';
-import { describeSource } from '../../source';
+import { describeSource, sourceAttribution } from '../../source';
+import { atsConfigured, sendToAts, newExternalId } from '../../ats';
 
 export const prerender = false;
 
@@ -34,12 +36,13 @@ export const POST: APIRoute = async ({ request }) => {
   if (!f.firstName || !f.lastName || !validEmail(f.email)) return json({ ok: false, error: 'Please add your name and a valid email.' }, 400);
   if (!f.need) return json({ ok: false, error: 'Please tell us briefly what you need.' }, 400);
   if (!perHour(visitor(request))) return json({ ok: false, error: 'Too many requests. Please email info@technicalsource.com instead.' }, 429);
-  if (!mailConfigured() && !isConfigured()) return json({ ok: false, error: 'not-configured' }, 503);
+  if (!mailConfigured() && !isConfigured() && !atsConfigured()) return json({ ok: false, error: 'not-configured' }, 503);
 
-  const transcript = (Array.isArray(data.transcript) ? data.transcript : [])
+  const turns = (Array.isArray(data.transcript) ? data.transcript : [])
     .slice(-LIMITS.userTurns * 2)
-    .map((m: any) => `${m?.role === 'user' ? 'Visitor' : 'Assistant'}: ${clean(m?.text, 6000)}`)
-    .join('\n\n');
+    .map((m: any) => ({ role: m?.role === 'user' ? 'user' as const : 'assistant' as const, text: clean(m?.text, 6000) }))
+    .filter((m: { text: string }) => m.text);
+  const transcript = turns.map((m: { role: string; text: string }) => `${m.role === 'user' ? 'Visitor' : 'Assistant'}: ${m.text}`).join('\n\n');
   const what = f.jobSeeker ? 'Job seeker' : 'Project or general inquiry';
   const details = [
     `Website chat: ${what}`,
@@ -59,6 +62,18 @@ export const POST: APIRoute = async ({ request }) => {
         .then(() => true, (e) => (log('email', e), false))
     : false;
 
+  const ats = sendToAts({
+    type: 'chat',
+    externalId: newExternalId(),
+    submittedAt: new Date().toISOString(),
+    contact: { firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone, company: f.company },
+    message: f.need,
+    jobSeeker: f.jobSeeker,
+    transcript: turns,
+    page: f.page,
+    attribution: sourceAttribution(data.source),
+  });
+
   let filed = false;
   if (isConfigured()) {
     try {
@@ -70,6 +85,7 @@ export const POST: APIRoute = async ({ request }) => {
     }
   }
 
-  if (emailed || filed) return json({ ok: true });
+  const sent = (await ats).ok;
+  if (emailed || filed || sent) return json({ ok: true });
   return json({ ok: false, error: 'send-failed' }, 502);
 };

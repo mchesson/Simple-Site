@@ -20,6 +20,8 @@ beforeEach(() => {
   process.env.RESEND_API_KEY = 're_test';
   process.env.RESEND_API_URL = 'http://mail.test/emails';
   process.env.JOBS_LIST_ENABLED = 'true';
+  delete process.env.ATS_INTAKE_URL; // TS Workspace is covered in ats.test.ts
+  delete process.env.ATS_INTAKE_KEY;
   vi.stubGlobal('fetch', async (input: string | URL, init: RequestInit = {}) => {
     const url = new URL(String(input));
     const headers = Object.fromEntries(Object.entries((init.headers as Record<string, string>) ?? {}));
