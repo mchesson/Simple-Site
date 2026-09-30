@@ -14,7 +14,8 @@
 //   - site rules from CLAUDE.md: no phone numbers, no Raleigh/headquarters,
 //     no "Your industry" tag, no "To be confirmed"
 // Live only: /api/jobs returns jobs, a job page shows the facts row and the
-// application form, and robots.txt answers.
+// application form, /api/chat answers (and refuses other sites), and
+// robots.txt answers.
 import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
@@ -29,9 +30,11 @@ const problems = [];
 const problem = (page, what) => problems.push(`${page}: ${what}`);
 
 // Site rules (CLAUDE.md). Text only, not markup.
+// The Raleigh rule is about our own wording: a job that is located in Raleigh
+// may say so (job list items, and a job page's banner, facts and posting).
 const RULES = [
   [/\(?\b\d{3}\)?[-.\s]\d{3}[-.\s]\d{4}\b/, 'shows a phone number'],
-  [/\bRaleigh\b|\bheadquarter/i, 'mentions Raleigh or a headquarters'],
+  [/\bRaleigh\b|\bheadquarter/i, 'mentions Raleigh or a headquarters', 'ownText'],
   [/To be confirmed/i, 'shows "To be confirmed"'],
   [/The Right People\. The Right Opportunity/i, 'uses the retired tagline'],
 ];
@@ -75,7 +78,15 @@ async function main() {
       errors.forEach((e) => problem(path, `script error: ${e}`));
       failed.forEach((u) => problem(path, `failed to load ${u}`));
 
-      const info = await page.evaluate(() => ({
+      const info = await page.evaluate(() => {
+        // Page text without job details from Crelate (see RULES).
+        const ownText = () => {
+          const body = /** @type {HTMLElement} */ (document.body.cloneNode(true));
+          const job = location.pathname.startsWith('/careers/jobs/') ? ', .banner' : '';
+          body.querySelectorAll(`#job-list, .facts, .posting${job}`).forEach((el) => el.remove());
+          return body.textContent ?? '';
+        };
+        return {
         title: document.title,
         description: document.querySelector('meta[name="description"]')?.getAttribute('content') ?? '',
         h1: document.querySelectorAll('h1').length,
@@ -83,9 +94,11 @@ async function main() {
         noAlt: [...document.images].filter((i) => !i.hasAttribute('alt')).length,
         wide: document.documentElement.scrollWidth > window.innerWidth + 1,
         text: document.body.innerText,
+        ownText: ownText(),
         links: [...document.querySelectorAll('a[href]')].map((a) => a.getAttribute('href')),
         industryTag: [...document.querySelectorAll('body *')].some((el) => el.children.length === 0 && /^your industry$/i.test(el.textContent?.trim() ?? '')),
-      }));
+      };
+      });
       if (!info.title) problem(path, 'no <title>');
       else if (titles.has(info.title)) problem(path, `same <title> as ${titles.get(info.title)}`);
       else titles.set(info.title, path);
@@ -94,7 +107,7 @@ async function main() {
       if (!info.canonical) problem(path, 'no canonical link');
       if (info.noAlt) problem(path, `${info.noAlt} image(s) without alt text`);
       if (info.wide) problem(path, 'wider than the screen on desktop');
-      for (const [re, what] of RULES) if (re.test(info.text)) problem(path, what);
+      for (const [re, what, where = 'text'] of RULES) if (re.test(info[where])) problem(path, what);
       if (info.industryTag) problem(path, 'shows the "Your industry" tag');
 
       // Let scroll motion finish (src/scripts/motion.ts): scroll through the
@@ -153,8 +166,13 @@ async function liveChecks(page) {
     if (labels.join('|') !== 'Location|Job Type|Duration') problem(job.url, `facts row is "${labels.join(', ')}"`);
     if (!(await page.$('#apply form'))) problem(job.url, 'no application form');
     const text = await page.evaluate(() => document.body.innerText);
-    for (const [re, what] of RULES) if (re.test(text)) problem(job.url, what);
+    for (const [re, what, where] of RULES) if (!where && re.test(text)) problem(job.url, what);
   }
+  // Chat assistant: answers whether it's on, and turns away other sites.
+  const chat = await (await fetch(`${BASE}/api/chat`)).json().catch(() => null);
+  if (typeof chat?.enabled !== 'boolean') problem('/api/chat', 'does not report whether the chat is on');
+  const foreign = await fetch(`${BASE}/api/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://example.com' }, body: '{"messages":[{"role":"user","text":"hi"}]}' });
+  if (foreign.status !== 403) problem('/api/chat', `accepted a post from another site (status ${foreign.status})`);
   const robots = await fetch(`${BASE}/robots.txt`);
   if (!robots.ok) problem('/robots.txt', `status ${robots.status}`);
 }

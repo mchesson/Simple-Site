@@ -1,0 +1,106 @@
+---
+// Website chat assistant: a bubble in the corner of every page. Hidden until
+// /api/chat reports the chat is switched on (ANTHROPIC_API_KEY set), so
+// without it, or without JavaScript, nothing shows. Behaviour:
+// src/scripts/chat.ts. Server side: src/assistant.ts.
+---
+<div class="chat" id="chat" hidden>
+  <button class="chat-bubble" id="chat-open" type="button" aria-expanded="false" aria-controls="chat-panel">
+    <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><path fill="currentColor" d="M4 4h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-5 4v-4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm3 6.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm5 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Zm5 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" transform="translate(0 1)"/></svg>
+    <span class="chat-bubble-label">Ask Us</span>
+  </button>
+
+  <section class="chat-panel" id="chat-panel" role="dialog" aria-labelledby="chat-title" hidden>
+    <div class="chat-head">
+      <span class="chat-mark" aria-hidden="true"></span>
+      <h2 id="chat-title">Ask Technical Source</h2>
+      <button class="chat-icon" id="chat-new" type="button" title="Start a new chat" aria-label="Start a new chat">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg>
+      </button>
+      <button class="chat-icon" id="chat-close" type="button" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path stroke="currentColor" stroke-width="2" stroke-linecap="round" d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p class="chat-note">Answers are AI-generated and can be wrong. For anything important, <button type="button" class="chat-link" data-handoff>talk to a person</button>.</p>
+
+    <div class="chat-log" id="chat-log" role="log" aria-live="polite">
+      <div class="chat-msg bot"><p>Hi! I can tell you about our services and industries, help you find open jobs, or connect you with someone on our team. How can I help?</p></div>
+    </div>
+
+    <form class="chat-input" id="chat-form">
+      <label class="visually-hidden" for="chat-text">Your message</label>
+      <textarea id="chat-text" rows="1" maxlength="1000" placeholder="Type your question…" required></textarea>
+      <button class="btn btn-primary" type="submit">Send</button>
+    </form>
+    <p class="chat-foot"><button type="button" class="chat-link" data-handoff>Talk to a person</button></p>
+  </section>
+</div>
+
+<style is:global>
+  .chat { position: fixed; right: 16px; bottom: 16px; z-index: 60; font-size: .98rem; }
+  .chat[hidden], .chat [hidden] { display: none !important; }
+  .chat-bubble {
+    display: flex; align-items: center; gap: .5rem; height: 3.4rem; padding: 0 1.2rem 0 1rem;
+    border: 0; border-radius: 999px; background: var(--blue); color: #fff; cursor: pointer;
+    font: 600 1rem/1 var(--font-body); box-shadow: 0 8px 24px rgb(0 0 0 / .22);
+  }
+  .chat-bubble:hover { background: var(--blue-deep); }
+  .chat-bubble[aria-expanded='true'] { display: none; }
+  @media (max-width: 520px) { .chat-bubble-label { display: none; } .chat-bubble { width: 3.4rem; padding: 0; justify-content: center; } }
+
+  .chat-panel {
+    display: flex; flex-direction: column; width: min(24rem, calc(100vw - 32px)); height: min(36rem, calc(100dvh - 32px));
+    background: #fff; border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden;
+    box-shadow: 0 16px 48px rgb(0 0 0 / .24);
+  }
+  .chat-head { display: flex; align-items: center; gap: .6rem; padding: .8rem .6rem .8rem 1rem; background: var(--ink); color: #fff; }
+  .chat-head h2 { flex: 1; margin: 0; font-size: 1.15rem; color: #fff; }
+  .chat-mark { width: 1.1rem; height: 1rem; background: var(--energy); clip-path: var(--chev); flex: none; }
+  .chat-icon { display: grid; place-items: center; width: 2.2rem; height: 2.2rem; border: 0; border-radius: 6px; background: transparent; color: #fff; cursor: pointer; }
+  .chat-icon:hover { background: rgb(255 255 255 / .12); }
+  .chat-note { margin: 0; padding: .5rem 1rem; font-size: .8rem; line-height: 1.45; color: var(--muted); background: var(--mist); }
+  .chat-link { padding: 0; border: 0; background: none; font: inherit; color: var(--blue); text-decoration: underline; text-underline-offset: .18em; cursor: pointer; }
+  .chat-link:hover { color: var(--blue-deep); }
+
+  .chat-log { flex: 1; overflow-y: auto; padding: 1rem; display: grid; align-content: start; gap: .9rem; overscroll-behavior: contain; }
+  .chat-msg p, .chat-msg ul { margin: 0 0 .5em; }
+  .chat-msg > :last-child { margin-bottom: 0; }
+  .chat-msg ul { padding-left: 1.1rem; }
+  .chat-msg.user { justify-self: end; max-width: 85%; padding: .55rem .85rem; border-radius: 14px 14px 4px 14px; background: var(--mist); white-space: pre-wrap; }
+  .chat-msg.bot { max-width: 95%; }
+  .chat-msg.bot.error { color: #8A1F1F; }
+  .chat-typing::after { content: '…'; animation: chat-blink 1s steps(2) infinite; }
+  @keyframes chat-blink { 50% { opacity: .3; } }
+  @media (prefers-reduced-motion: reduce) { .chat-typing::after { animation: none; } }
+
+  .chat-jobs { list-style: none; margin: .4rem 0 0; padding: 0; }
+  .chat-jobs li { border-top: 1px solid var(--line); }
+  .chat-jobs li:last-child { border-bottom: 1px solid var(--line); }
+  .chat-jobs a { display: block; padding: .5rem 0; text-decoration: none; font-weight: 600; }
+  .chat-jobs small { display: block; font-weight: 400; color: var(--muted); }
+
+  .chat-handoff { position: relative; padding-top: 1rem; }
+  .chat-handoff::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, var(--aqua), transparent); opacity: .6; }
+  .chat-handoff h3 { font-size: 1.1rem; margin: 0 0 .3rem; }
+  .chat-handoff > p { margin: 0 0 .7rem; font-size: .9rem; color: var(--muted); }
+  .chat-handoff.form { gap: .7rem; }
+  .chat-handoff.form input, .chat-handoff.form textarea { padding: .55rem .7rem; font-size: .95rem; }
+  .chat-handoff .check { display: flex; align-items: center; gap: .5rem; font-weight: 400; }
+  .chat-handoff .check input { width: auto; }
+
+  .chat-input { display: flex; gap: .5rem; align-items: flex-end; padding: .75rem; border-top: 1px solid var(--line); }
+  .chat-input textarea {
+    flex: 1; min-height: 2.75rem; max-height: 8rem; resize: none; padding: .6rem .75rem;
+    font: inherit; font-size: 1rem; border: 1px solid var(--light); border-radius: 6px;
+  }
+  .chat-input textarea:focus { outline: 2px solid var(--blue); outline-offset: 1px; border-color: var(--blue); }
+  .chat-input .btn { padding: .7rem 1rem; }
+  .chat-foot { margin: 0; padding: 0 .75rem .6rem; font-size: .85rem; text-align: right; }
+
+  @media (max-width: 520px) {
+    .chat:has(.chat-panel:not([hidden])) { inset: auto 0 0 0; }
+    .chat-panel { width: 100vw; height: min(100dvh, 40rem); border-radius: var(--radius) var(--radius) 0 0; border-width: 1px 0 0; }
+  }
+</style>
+
+<script src="../scripts/chat.ts"></script>

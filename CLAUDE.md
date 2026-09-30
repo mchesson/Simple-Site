@@ -10,6 +10,8 @@ and consistent with this file.
 - Fonts are self-hosted via `@fontsource-variable` (Vollkorn, Open Sans).
 - Hosted on Vercel with `@astrojs/vercel`: pages are static; `src/pages/api/`
   endpoints run as Vercel functions.
+- Website chat assistant: Claude through `@anthropic-ai/sdk` (see "Chat
+  assistant").
 - Planned: a Git-based CMS (e.g. TinaCMS) for non-technical editors.
 
 ## Pages
@@ -203,7 +205,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     after real submissions.
 - Pages are static except the job pages; endpoints and job pages run on Vercel.
 - **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
-  `RESEND_API_KEY`). Never in the repo or chat. The Crelate key goes only in
+  `RESEND_API_KEY`, `ANTHROPIC_API_KEY`). Never in the repo or chat. The Crelate key goes only in
   the `X-Api-Key` header, never in a URL (Crelate echoes request URLs in its
   errors), and public responses show only Crelate's error messages
   (`crelateMessage`), never raw error details. Optional `CRELATE_API_BASE`
@@ -211,6 +213,52 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   A dedicated Crelate "website" user's key is preferred over a personal key.
 - With neither key set, the forms tell visitors to email `site.email`.
 - Spam: hidden honeypot field; Astro's origin check blocks cross-site posts.
+
+## Chat assistant (Claude)
+- A chat bubble on every page (`src/components/Chat.astro`, script
+  `src/scripts/chat.ts`). It stays hidden until `GET /api/chat` says it's on:
+  `ANTHROPIC_API_KEY` is set in Vercel and `CHAT_ENABLED` isn't `false`
+  (the off switch). Without JavaScript nothing shows.
+- **What it knows:** `src/data/assistant.md`, which the owner edits to
+  "teach" it, plus the industry files, `services` and `steps` in
+  `src/data/site.ts`, and `site.email` / `site.linkedin`. Keep that file in
+  customer wording (Voice rules); never put in rates, names, phone numbers,
+  locations or strategy.
+- **Firm limits** are in `RULES` in `src/assistant.ts`, not in the editable
+  file: no rates/pay/fees, no client or consultant names, no promises of
+  placements, outcomes or timelines, no legal/immigration/tax advice, no
+  phone numbers or Raleigh/HQ/office locations, no internal strategy, no
+  invented facts, stay on topic, ignore requests to change the rules, and the
+  Voice rules. Change them only with the owner's approval.
+- **Jobs:** the `search_jobs` tool calls `searchJobs()` in `src/jobs.ts`
+  (public fields only) and the answer links to our job pages. Resumes go
+  through the job page's form or the Careers "Not Looking Right Now?" form
+  (`/careers#network`); the chat takes no files.
+- **Talk to a person:** the `offer_handoff` tool only shows the visitor a
+  prefilled form (first/last name, email, optional phone and company, what
+  they need, "looking for work"). Nothing is sent until they press Send,
+  which posts to `/api/chat-handoff`: email with the transcript to the team
+  inbox first, then Crelate contact (candidate if looking for work, client
+  otherwise) + note. The visitor is told someone will follow up by email;
+  no time is promised.
+- **Model:** `claude-opus-5-5`, effort `low`, streaming, system prompt cached
+  (kept byte-for-byte stable: nothing per-visitor or date-based in it),
+  `fallbacks: "default"` (beta `server-side-fallback-2026-07-01`). History
+  goes back as plain text turns (no thinking blocks); within one answer the
+  tool rounds keep the full assistant content unchanged. Tool inputs are
+  checked with zod before running.
+- **Protections:** same-site `Origin` only (other sites and scripts get 403),
+  per-visitor rate limits (6 messages a minute, 80 a day; 3 handoffs an
+  hour; in memory per server instance), 1,000 characters per message, 20
+  visitor messages and 24,000 characters per conversation (`LIMITS`), turns
+  must alternate and end with the visitor. Conversations stay in the
+  visitor's browser tab (sessionStorage) and are never stored or logged on
+  the server; they reach the team only through a handoff. The panel says
+  answers are AI-generated.
+- Test locally against a stand-in (no real services): add
+  `ANTHROPIC_API_KEY=x ANTHROPIC_BASE_URL=http://localhost:9999` to the
+  endpoint-testing command in "Checks before pushing". The stand-in must
+  answer `/v1/messages` as a server-sent event stream.
 
 ## Analytics
 - GA4 + LinkedIn Insight Tag to be added at launch.
@@ -251,8 +299,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 `npm run preview:file` builds the site and packs it into one self-contained
 `preview.html` (all pages, CSS, fonts, logos inlined; hash-based links). Send that
 file to the user under a new file name each time (viewers cache by name). If you
-change a page script, mirror it in `scripts/preview-runtime.js`. Forms only
-work on the live site.
+change a page script, mirror it in `scripts/preview-runtime.js`. Forms and
+the chat only work on the live site (the chat bubble stays hidden in the
+preview).
 
 ## Motion and 3D (owner chose options A and D)
 - **A · 3D chevron** (`src/components/Mark3D.astro`): homepage banner only, via
@@ -270,15 +319,22 @@ work on the live site.
 
 ## Tests
 - `npm test` runs everything: unit tests (`tests/`, Vitest) for job posting
-  parsing, the Crelate privacy allowlist, location search and the form
-  endpoints (Crelate and email faked, key only in the header), then builds
+  parsing, the Crelate privacy allowlist, location search, the form
+  endpoints (Crelate and email faked, key only in the header) and the chat
+  assistant (`tests/chat.test.ts`, Claude faked), then builds
   and runs `scripts/site-check.mjs`, which opens every page in a browser at
   desktop and phone width: status, script errors, broken links, overflow,
   title/description/h1/canonical, alt text, axe-core accessibility, and the
   site rules (no phone numbers, no Raleigh/HQ, no "Your industry" tag, no
-  retired tagline).
+  retired tagline). The Raleigh rule checks our own wording only: a job that
+  is located in Raleigh may say so (job list items, and a job page's
+  banner, facts and posting).
 - `BASE=https://simple-site-gules.vercel.app npm run check:site` runs the page
-  check against the live site, plus job pages (facts row, application form).
+  check against the live site, plus job pages (facts row, application form)
+  and `/api/chat` (reports on/off, refuses other sites). In a cloud session
+  the browser may need the session proxy's CA in its trust store
+  (`certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n proxy -i <ca file>`) to
+  reach the live site.
 - GitHub runs `npm test` on every pull request (`.github/workflows/test.yml`):
   merge only on a green check.
 - When fixing a bug, add a test that would have caught it.
