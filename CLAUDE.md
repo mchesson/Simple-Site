@@ -184,9 +184,17 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   if either worked:
   - Contact form (`src/pages/api/contact.ts`) → email to the team inbox, plus
     Crelate **contact** + **note**.
-  - Applications and resumes (`src/pages/api/apply.ts`) → email with the resume
-    attached, plus Crelate **candidate**, resume upload, link to the job, and
-    a **note**. Resumes: PDF/Word, up to 4 MB (Vercel's request limit is 4.5 MB).
+  - Job applications (`src/pages/api/apply.ts`) → email with the resume
+    attached, plus a real Crelate **application** through "apply to job"
+    (`applyToJob`, `POST /jobs/{id}/apply`, like the Crelate job portal).
+    Crelate's settings currently approve it straight into a contact; the
+    visitor's message is then added as a **note** about the job. If "apply
+    to job" fails, the old path runs instead: **candidate**, resume upload,
+    job pipeline at "Maybe", and a note.
+  - General resumes ("Not Looking Right Now?", owner's choice) → email, plus
+    Crelate **candidate**, resume upload and a note ("general
+    consideration"), no job. Resumes: PDF/Word, up to 4 MB (Vercel's request
+    limit is 4.5 MB).
   - Email goes through Resend (`src/mail.ts`): `RESEND_API_KEY`, optional
     `MAIL_TO` (default `site.email`) and `MAIL_FROM`. Until technicalsource.com
     is verified in Resend (DNS records), the default test sender only delivers
@@ -199,7 +207,25 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     2 Client Contact), contact source named like "Website", resume as the
     contact's primary artifact, job pipeline at the "Maybe" stage
     (`APPLY_STAGE`; the first Recruiting stage if it's renamed). An existing contact (same email) is reused and gets
-    the Candidate bit when they apply. The API can't create "Applications".
+    the Candidate bit when they apply. "Apply to job" is multipart:
+    `applicant` as a JSON text field (a JSON part answers 500) and the file
+    as `resumeFile` (any other name answers "A resume is required").
+  - **Contact source:** Crelate has no source named "Website" yet (it has
+    "Portal", "LinkedIn", job boards...), so website records get no source.
+    Only a source really named like "Website" is used; a loose match once
+    tagged everyone "CareerBuilderSearch". Once the owner adds "Website"
+    under Crelate → Settings → Contact Sources, it's picked up within an hour.
+  - **Live test against the real account:** `npm run crelate:live-test`
+    (`scripts/crelate-live-test.mjs`, needs `CRELATE_API_KEY`). It creates one
+    hidden job "TEST – Website Check, do not apply" (never on the portal or
+    job boards), applies to it, runs a general resume and a contact form with
+    fake "Website Test" people (website-test+<time>@example.com), checks each
+    in Crelate (right job, resume attached, record types, notes), then deletes
+    everything. Crelate can't delete applications, so test applications are
+    rejected. An interrupted run: `npm run crelate:live-test -- cleanup`
+    (IDs are kept in `.crelate-test-state.json`, git-ignored). The test file
+    must be a complete PDF: Crelate quietly drops files it can't read.
+    Never send test applications through the live site to real jobs.
   - `/api/apply?check=1` shows the Crelate settings these use (pipeline
     stages, contact sources, file types). Check the Vercel function logs
     after real submissions.
@@ -269,6 +295,24 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   endpoint-testing command in "Checks before pushing". The stand-in must
   answer `/v1/messages` as a server-sent event stream.
 
+## How they found us (lead source)
+- `src/scripts/source.ts` (every page) remembers in the visitor's own
+  browser where they came from: referring site, campaign tags (`utm_*`), ad
+  clicks (gclid, fbclid, li_fat_id, msclkid), landing page and date, for the
+  first visit (90 days) and this visit, plus pages viewed and their industry.
+- It leaves the browser only with a form the visitor sends (contact, job
+  application, resume, chat "talk to a person"). `src/source.ts`
+  (`describeSource`) turns it into plain lines in the info@ email and the
+  Crelate note, e.g. `How they found us: LinkedIn (social), campaign
+  "cq-post" (first visit 2026-09-30, landed on /industries/life-sciences)`.
+- Tag links you share so they show up by name:
+  `?utm_source=linkedin&utm_medium=social&utm_campaign=<post-name>`
+  (add `&industry=<id>` for industry-specific links).
+- Anonymous visitors are not identified or tracked; visit counts and
+  sources for everyone come from analytics at launch. A privacy policy page
+  should mention this before launch.
+- Later: the same lines go to the tsworkspace.com ATS/CRM with each lead.
+
 ## Analytics
 - GA4 + LinkedIn Insight Tag to be added at launch.
 
@@ -278,9 +322,13 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Live test site: https://simple-site-gules.vercel.app (built from `master`;
   every other branch gets its own preview URL). Environment variable
   `SITE_URL=https://simple-site-gules.vercel.app` so links point at it.
-- **Owner's workflow:** changes go through a pull request that the owner merges
-  on GitHub. Every time, give the owner both links: the pull request to merge,
-  and the live site (https://simple-site-gules.vercel.app) to check after merging.
+- **Owner's workflow:** every change goes through a pull request. Claude asks
+  the owner in chat ("Shall I merge #N?"); when the owner says yes, Claude
+  merges it (GitHub tools), but only once the `npm test` check on the pull
+  request is green. Never merge without that yes in chat for that pull
+  request. After merging, give the owner the live site link
+  (https://simple-site-gules.vercel.app) to check, once the new version is
+  live. The owner can still merge on GitHub themselves.
 - No custom domain for now. At launch, set `SITE_URL` to the real domain (or
   remove it to default to https://technicalsource.com) and add the domain in
   Vercel under Settings → Domains.

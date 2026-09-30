@@ -188,6 +188,10 @@ export function toPublicJob(j: any): PublicJob {
 //     with the file (the primary Artifact Type is assigned automatically)
 //   - job pipeline: POST /jobs/{jobId}/contacts?contact_ids= with a stage
 //     (statusName or statusId) from the Recruiting workflow
+//   - applications: POST /jobs/{jobId}/apply, multipart with "applicant" as a
+//     JSON text field and the resume as "resumeFile" (checked against the live
+//     account with scripts/crelate-live-test.mjs: a JSON part answers 500,
+//     other file field names answer "A resume is required")
 // ---------------------------------------------------------------------------
 
 export const RECORD_TYPE = { candidate: 1, client: 2 } as const;
@@ -208,7 +212,9 @@ const hourly = <T>(load: () => Promise<T>) => {
 const websiteSourceId = hourly(async (): Promise<string | null> => {
   const sources = await crelate('contactsources', { params: { limit: 100 } }).then(listOf, () => []);
   const name = (s: any) => String(s?.Name ?? '').trim();
-  const hit = sources.find((s) => /^(company )?web ?site$/i.test(name(s))) ?? sources.find((s) => /web ?site|career/i.test(name(s)));
+  // Only a source really named for the website: a loose match picked up
+  // "CareerBuilderSearch" (checked in the live Crelate account).
+  const hit = sources.find((s) => /^(company )?web ?site$/i.test(name(s))) ?? sources.find((s) => /\bweb ?site\b/i.test(name(s)));
   return hit?.Id ? String(hit.Id) : null;
 });
 
@@ -249,6 +255,28 @@ export async function createContact(p: { firstName: string; lastName: string; em
   const id = idOf(await crelate('contacts', { method: 'POST', body: { entity } }));
   if (!id) throw new Error('No contact Id in Crelate response');
   return id;
+}
+
+/** Apply to a job the way Crelate's own job portal does. Depending on
+ *  Crelate's settings the application waits in Recruiting Intake or is
+ *  approved straight away into a contact (returned when it is). */
+export async function applyToJob(jobId: string, p: { firstName: string; lastName: string; email: string; phone?: string }, file: Blob, fileName: string): Promise<{ applicationId: string; contactId?: string }> {
+  const sourceId = await websiteSourceId().catch(() => null);
+  const applicant = {
+    FirstName: p.firstName,
+    LastName: p.lastName,
+    Email_Personal: p.email,
+    ...(p.phone && { Phone_Mobile: p.phone }),
+    ...(sourceId && { ContactSourceId: { Id: sourceId } }),
+  };
+  const form = new FormData();
+  form.append('applicant', JSON.stringify(applicant));
+  form.append('resumeFile', file, fileName);
+  const applicationId = idOf(await crelate(`jobs/${jobId}/apply`, { method: 'POST', body: form }));
+  if (!applicationId || typeof applicationId !== 'string') throw new Error('No application Id in Crelate response');
+  const app: any = await crelate(`applications/${applicationId}`).catch(() => null);
+  const contactId = app?.Data?.ContactId?.Id;
+  return { applicationId, ...(contactId && { contactId: String(contactId) }) };
 }
 
 /** Add a note to a contact, optionally regarding a job. */

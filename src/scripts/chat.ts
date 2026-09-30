@@ -3,6 +3,7 @@
 // and goes to /api/chat for each answer; it reaches our team only if the
 // visitor asks for a person and presses Send.
 import { render, esc } from '../chat-render';
+import { readSource } from './source';
 
 type Turn = { role: 'user' | 'assistant'; text: string };
 type JobLink = { title: string; location: string; url: string };
@@ -193,7 +194,7 @@ function start(root: HTMLElement) {
         const res = await fetch('/api/chat-handoff', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ...data, jobSeeker: Boolean(data.jobSeeker), page: location.pathname, transcript: turns }),
+          body: JSON.stringify({ ...data, jobSeeker: Boolean(data.jobSeeker), page: location.pathname, source: readSource(), transcript: turns }),
         });
         const out = await res.json().catch(() => ({}));
         if (out.ok) {
