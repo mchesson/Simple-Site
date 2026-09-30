@@ -4,7 +4,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 type Call = { method: string; url: URL; headers: Record<string, string>; body: any };
 let calls: Call[] = [];
-let fail: { crelate?: boolean; email?: boolean } = {};
+let fail: { crelate?: boolean; email?: boolean; apply?: boolean } = {};
+let sources = [{ Id: 'src-career', Name: 'CareerBuilderSearch' }, { Id: 'src-web', Name: 'Company Website' }];
 const KEY = 'test-key-123';
 
 const ok = (data: unknown) => new Response(JSON.stringify({ Data: data, Errors: [], Metadata: {} }), { status: 200 });
@@ -12,6 +13,7 @@ const ok = (data: unknown) => new Response(JSON.stringify({ Data: data, Errors: 
 beforeEach(() => {
   calls = [];
   fail = {};
+  sources = [{ Id: 'src-career', Name: 'CareerBuilderSearch' }, { Id: 'src-web', Name: 'Company Website' }];
   vi.resetModules();
   process.env.CRELATE_API_KEY = KEY;
   process.env.CRELATE_API_BASE = 'http://crelate.test/api3';
@@ -29,7 +31,9 @@ beforeEach(() => {
     if (path === 'jobs') return ok(url.searchParams.get('offset') === '0' ? [{ Id: 'job-1', OnPortal: true, PortalTitle: 'Controls Engineer', PortalDescription: '<p>Hi.</p>' }] : []);
     if (path === 'contacts' && (init.method ?? 'GET') === 'GET') return ok([]);
     if (path === 'contacts') return ok('contact-1');
-    if (path === 'contactsources') return ok([{ Id: 'src-web', Name: 'Company Website' }]);
+    if (path === 'contactsources') return ok(sources);
+    if (path === 'jobs/job-1/apply') return fail.apply ? new Response(JSON.stringify({ Errors: [{ Message: 'An unknown error occurred.' }] }), { status: 500 }) : ok('app-1');
+    if (path === 'applications/app-1') return ok({ Id: 'app-1', ContactId: { Id: 'contact-7' }, JobId: { Id: 'job-1' } });
     if (path === 'workflowstatuses') return ok([{ Id: 'st-maybe', Name: 'Maybe', SortOrder: 0 }, { Id: 'st-2', Name: 'Short List', SortOrder: 1 }]);
     return ok(true);
   });
@@ -62,7 +66,7 @@ describe('Crelate key safety', () => {
 });
 
 describe('POST /api/apply', () => {
-  it('emails the resume and files the candidate on the job in Maybe', async () => {
+  it('emails the resume and applies through Crelate\'s "apply to job"', async () => {
     const { POST } = await import('../src/pages/api/apply');
     const res = await POST({ request: post('http://site/api/apply', application()) } as any);
     expect(await res.json()).toEqual({ ok: true });
@@ -71,12 +75,50 @@ describe('POST /api/apply', () => {
     expect(mail.body.to).toEqual(['info@technicalsource.com']);
     expect(mail.body.attachments[0].filename).toBe('cv.pdf');
 
+    // The shape the live Crelate account accepts: applicant as JSON text, file as resumeFile.
+    const apply = crelateCalls().find((c) => c.url.pathname.endsWith('/jobs/job-1/apply'))!;
+    expect(apply.method).toBe('POST');
+    const form = apply.body as FormData;
+    expect(JSON.parse(String(form.get('applicant')))).toEqual({ FirstName: 'Ann', LastName: 'Lee', Email_Personal: 'ann@example.com', Phone_Mobile: '9195551234', ContactSourceId: { Id: 'src-web' } });
+    expect((form.get('resumeFile') as File).name).toBe('cv.pdf');
+
+    // Crelate made it a contact: the visitor's details go on as a note about the job.
+    const note = crelateCalls().find((c) => c.url.pathname.endsWith('/notes'))!;
+    expect(note.body.entity.ParentId).toEqual({ Id: 'contact-7', EntityName: 'Contacts' });
+    expect(note.body.entity.RegardingId).toEqual({ Id: 'job-1' });
+    expect(note.body.entity.Display).toContain('app-1');
+    // No separate candidate, upload or pipeline step.
+    expect(crelateCalls().some((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))).toBe(false);
+    expect(crelateCalls().some((c) => c.url.pathname.endsWith('/jobs/job-1/contacts'))).toBe(false);
+  });
+  it('falls back to candidate + resume + Maybe pipeline + note when "apply to job" fails', async () => {
+    fail.apply = true;
+    const { POST } = await import('../src/pages/api/apply');
+    expect(await (await POST({ request: post('http://site/api/apply', application()) } as any)).json()).toEqual({ ok: true });
     const create = crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!;
     expect(create.body.entity).toMatchObject({ FirstName: 'Ann', RecordType: 1, EmailAddresses_Personal: { Value: 'ann@example.com' }, ContactSourceId: { Id: 'src-web' } });
     expect(crelateCalls().some((c) => c.url.pathname.endsWith('/artifacts/primary') && c.url.searchParams.get('target_record_id') === 'contact-1')).toBe(true);
     const pipeline = crelateCalls().find((c) => c.url.pathname.endsWith('/jobs/job-1/contacts'))!;
     expect(pipeline.body).toEqual({ statusId: 'st-maybe' });
     expect(crelateCalls().some((c) => c.url.pathname.endsWith('/notes'))).toBe(true);
+  });
+  it('files a general resume as candidate + resume + note, with no job', async () => {
+    const { POST } = await import('../src/pages/api/apply');
+    const fd = application({ jobId: '' });
+    expect(await (await POST({ request: post('http://site/api/apply', fd) } as any)).json()).toEqual({ ok: true });
+    expect(crelateCalls().some((c) => c.url.pathname.includes('/apply'))).toBe(false);
+    expect(crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!.body.entity.RecordType).toBe(1);
+    expect(crelateCalls().some((c) => c.url.pathname.endsWith('/artifacts/primary'))).toBe(true);
+    const note = crelateCalls().find((c) => c.url.pathname.endsWith('/notes'))!;
+    expect(note.body.entity.Display).toContain('general consideration');
+    expect(note.body.entity.RegardingId).toBeUndefined();
+  });
+  it('never tags website people with an unrelated source such as CareerBuilderSearch', async () => {
+    sources = [{ Id: 'src-career', Name: 'CareerBuilderSearch' }, { Id: 'src-portal', Name: 'Portal' }];
+    const { POST } = await import('../src/pages/api/apply');
+    await POST({ request: post('http://site/api/apply', application()) } as any);
+    const form = crelateCalls().find((c) => c.url.pathname.endsWith('/jobs/job-1/apply'))!.body as FormData;
+    expect(JSON.parse(String(form.get('applicant'))).ContactSourceId).toBeUndefined();
   });
   it('still succeeds when Crelate is down but the email went out', async () => {
     fail.crelate = true;

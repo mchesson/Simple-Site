@@ -1,15 +1,19 @@
 // POST /api/apply: job applications and general resume submissions from the
 // site's own forms (job pages and Careers "Not Looking Right Now?").
 // 1. Emails the application, resume attached, to the team inbox (src/mail.ts).
-// 2. Also files it in Crelate, when the key is set: candidate, resume upload,
-//    link to the job, and a note saying where it came from.
+// 2. Also files it in Crelate, when the key is set:
+//    - for a job: a real application through Crelate's "apply to job"
+//      (POST /jobs/{id}/apply, like the Crelate job portal), plus a note
+//      with the visitor's message once Crelate has made it a contact;
+//    - if that fails, or for a general resume: candidate, resume upload, link
+//      to the job at the "Maybe" stage, and a note saying where it came from.
 // The visitor sees success if either one worked.
 //
 // Diagnostics (no candidate data):
 //   GET /api/apply?check=1  Crelate settings the forms use: pipeline stages,
 //                           contact sources, file types, note parent types
 import type { APIRoute } from 'astro';
-import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, recruitingStages, APPLY_STAGE, CrelateError, crelateMessage } from '../../crelate';
+import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, addToJob, applyToJob, recruitingStages, APPLY_STAGE, CrelateError, crelateMessage } from '../../crelate';
 import { publicJobs } from '../../jobs';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
@@ -67,7 +71,18 @@ export const POST: APIRoute = async ({ request }) => {
     : false;
 
   let filed = false;
-  if (isConfigured()) {
+  // A job application goes through Crelate's own "apply to job" first.
+  if (isConfigured() && job) {
+    try {
+      const { applicationId, contactId } = await applyToJob(job.id, f, new Blob([bytes], { type: resume.type || 'application/octet-stream' }), resume.name);
+      filed = true;
+      const note = [`Website ${what}`, `Crelate application: ${applicationId}`, '', details].join('\n');
+      if (contactId) await addNote(contactId, note, job.id).catch((e) => log('note', e));
+    } catch (e) {
+      log('apply to job (falling back to candidate + pipeline)', e);
+    }
+  }
+  if (isConfigured() && !filed) {
     try {
       const candidateId = await createContact({ firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone, kind: 'candidate' });
       filed = true;

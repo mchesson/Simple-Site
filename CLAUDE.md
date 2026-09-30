@@ -184,9 +184,17 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   if either worked:
   - Contact form (`src/pages/api/contact.ts`) → email to the team inbox, plus
     Crelate **contact** + **note**.
-  - Applications and resumes (`src/pages/api/apply.ts`) → email with the resume
-    attached, plus Crelate **candidate**, resume upload, link to the job, and
-    a **note**. Resumes: PDF/Word, up to 4 MB (Vercel's request limit is 4.5 MB).
+  - Job applications (`src/pages/api/apply.ts`) → email with the resume
+    attached, plus a real Crelate **application** through "apply to job"
+    (`applyToJob`, `POST /jobs/{id}/apply`, like the Crelate job portal).
+    Crelate's settings currently approve it straight into a contact; the
+    visitor's message is then added as a **note** about the job. If "apply
+    to job" fails, the old path runs instead: **candidate**, resume upload,
+    job pipeline at "Maybe", and a note.
+  - General resumes ("Not Looking Right Now?", owner's choice) → email, plus
+    Crelate **candidate**, resume upload and a note ("general
+    consideration"), no job. Resumes: PDF/Word, up to 4 MB (Vercel's request
+    limit is 4.5 MB).
   - Email goes through Resend (`src/mail.ts`): `RESEND_API_KEY`, optional
     `MAIL_TO` (default `site.email`) and `MAIL_FROM`. Until technicalsource.com
     is verified in Resend (DNS records), the default test sender only delivers
@@ -199,7 +207,25 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     2 Client Contact), contact source named like "Website", resume as the
     contact's primary artifact, job pipeline at the "Maybe" stage
     (`APPLY_STAGE`; the first Recruiting stage if it's renamed). An existing contact (same email) is reused and gets
-    the Candidate bit when they apply. The API can't create "Applications".
+    the Candidate bit when they apply. "Apply to job" is multipart:
+    `applicant` as a JSON text field (a JSON part answers 500) and the file
+    as `resumeFile` (any other name answers "A resume is required").
+  - **Contact source:** Crelate has no source named "Website" yet (it has
+    "Portal", "LinkedIn", job boards...), so website records get no source.
+    Only a source really named like "Website" is used; a loose match once
+    tagged everyone "CareerBuilderSearch". Once the owner adds "Website"
+    under Crelate → Settings → Contact Sources, it's picked up within an hour.
+  - **Live test against the real account:** `npm run crelate:live-test`
+    (`scripts/crelate-live-test.mjs`, needs `CRELATE_API_KEY`). It creates one
+    hidden job "TEST – Website Check, do not apply" (never on the portal or
+    job boards), applies to it, runs a general resume and a contact form with
+    fake "Website Test" people (website-test+<time>@example.com), checks each
+    in Crelate (right job, resume attached, record types, notes), then deletes
+    everything. Crelate can't delete applications, so test applications are
+    rejected. An interrupted run: `npm run crelate:live-test -- cleanup`
+    (IDs are kept in `.crelate-test-state.json`, git-ignored). The test file
+    must be a complete PDF: Crelate quietly drops files it can't read.
+    Never send test applications through the live site to real jobs.
   - `/api/apply?check=1` shows the Crelate settings these use (pipeline
     stages, contact sources, file types). Check the Vercel function logs
     after real submissions.

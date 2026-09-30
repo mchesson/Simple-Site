@@ -6,3 +6,5 @@ dist/
 .DS_Store
 preview.html
 .vercel/
+.claude/settings.local.json
+.crelate-test-state.json

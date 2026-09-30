@@ -14,7 +14,8 @@
     "serve": "serve .vercel/output/static -l 4321",
     "test": "vitest run && npm run build && node scripts/site-check.mjs",
     "test:unit": "vitest run",
-    "check:site": "node scripts/site-check.mjs"
+    "check:site": "node scripts/site-check.mjs",
+    "crelate:live-test": "node scripts/crelate-live-test.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.129.0",
