@@ -366,7 +366,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 ## Switching technicalsource.com from WordPress, with a way back
 The old WordPress site runs on technicalsource.com today; this site
 replaces it once finished (owner, Sept 30, 2026). teksourcetalent.com is a
-temporary address for test copies. The owner must be able to go back to
+spare domain (unused; test copies use the Vercel address). The owner must be able to go back to
 WordPress quickly if this site breaks. The plan:
 - **Keep WordPress running, untouched,** at its current host until the new
   site has run well for a while (at least a month). Don't cancel its hosting.
@@ -383,8 +383,10 @@ WordPress quickly if this site breaks. The plan:
   WordPress is back within minutes. If only the latest version of this site
   is broken, Vercel's **Instant Rollback** (Deployments → an earlier one →
   Promote) restores the previous version without touching DNS.
-- **Still to confirm:** where technicalsource.com's DNS is managed and where
-  WordPress is hosted (docs/open-questions.md in ts-ats).
+- **Where things are (owner, Sept 30, 2026):** technicalsource.com's DNS is
+  at **GoDaddy** (all our domains are); the WordPress site is hosted at
+  WordPress ("technicalsource"). teksourcetalent.com was unused; test copies
+  use the Vercel address.
 - The ATS/CRM (TS Workspace) moves from ts-ats-zeta.vercel.app to
   **tsworkspace.com** later. When it does, set `ATS_INTAKE_URL` here to the
   new address (`https://tsworkspace.com/api/intake`) and redeploy; nothing
