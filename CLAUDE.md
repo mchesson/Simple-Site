@@ -205,7 +205,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     after real submissions.
 - Pages are static except the job pages; endpoints and job pages run on Vercel.
 - **API keys:** Vercel → Settings → Environment Variables (`CRELATE_API_KEY`,
-  `RESEND_API_KEY`, `ANTHROPIC_API_KEY`). Never in the repo or chat. The Crelate key goes only in
+  `RESEND_API_KEY`, `ANTHROPIC_API_KEY`). Shared variables live under
+  **TS Website** in Vercel and are linked to simple-site. Names are
+  case-sensitive: they must be exactly these, in capitals. A "Sensitive"
+  variable's value looks blank after saving; that's normal. Check
+  `/api/chat` (`"enabled": true`) to confirm the Anthropic key is seen. Never in the repo or chat. The Crelate key goes only in
   the `X-Api-Key` header, never in a URL (Crelate echoes request URLs in its
   errors), and public responses show only Crelate's error messages
   (`crelateMessage`), never raw error details. Optional `CRELATE_API_BASE`
