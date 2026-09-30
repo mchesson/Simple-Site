@@ -295,6 +295,24 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   endpoint-testing command in "Checks before pushing". The stand-in must
   answer `/v1/messages` as a server-sent event stream.
 
+## How they found us (lead source)
+- `src/scripts/source.ts` (every page) remembers in the visitor's own
+  browser where they came from: referring site, campaign tags (`utm_*`), ad
+  clicks (gclid, fbclid, li_fat_id, msclkid), landing page and date, for the
+  first visit (90 days) and this visit, plus pages viewed and their industry.
+- It leaves the browser only with a form the visitor sends (contact, job
+  application, resume, chat "talk to a person"). `src/source.ts`
+  (`describeSource`) turns it into plain lines in the info@ email and the
+  Crelate note, e.g. `How they found us: LinkedIn (social), campaign
+  "cq-post" (first visit 2026-09-30, landed on /industries/life-sciences)`.
+- Tag links you share so they show up by name:
+  `?utm_source=linkedin&utm_medium=social&utm_campaign=<post-name>`
+  (add `&industry=<id>` for industry-specific links).
+- Anonymous visitors are not identified or tracked; visit counts and
+  sources for everyone come from analytics at launch. A privacy policy page
+  should mention this before launch.
+- Later: the same lines go to the tsworkspace.com ATS/CRM with each lead.
+
 ## Analytics
 - GA4 + LinkedIn Insight Tag to be added at launch.
 

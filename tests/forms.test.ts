@@ -156,6 +156,14 @@ describe('POST /api/contact', () => {
     expect(crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!.body.entity.RecordType).toBe(2);
     expect(crelateCalls().find((c) => c.url.pathname.endsWith('/notes'))!.body.entity.ParentId).toEqual({ Id: 'contact-1', EntityName: 'Contacts' });
   });
+  it('adds "how they found us" to the email and the Crelate note', async () => {
+    const { POST } = await import('../src/pages/api/contact');
+    const source = JSON.stringify({ first: { ref: 'www.linkedin.com', utm: {}, ad: '', landing: '/industries/data-centers', at: '2026-09-28' }, visit: null, pages: 2, industry: 'data-centers' });
+    await POST({ request: post('http://site/api/contact', { ...inquiry, source }) } as any);
+    const line = 'How they found us: LinkedIn (first visit 2026-09-28, landed on /industries/data-centers)';
+    expect(calls.find((c) => c.url.host === 'mail.test')!.body.text).toContain(line);
+    expect(crelateCalls().find((c) => c.url.pathname.endsWith('/notes'))!.body.entity.Display).toContain(line);
+  });
   it('rejects a missing name or bad email', async () => {
     const { POST } = await import('../src/pages/api/contact');
     expect((await POST({ request: post('http://site/api/contact', { ...inquiry, email: 'x' }) } as any)).status).toBe(400);

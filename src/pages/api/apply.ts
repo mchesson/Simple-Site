@@ -17,6 +17,7 @@ import { crelate, isConfigured, listOf, createContact, addNote, uploadResume, ad
 import { publicJobs } from '../../jobs';
 import { mailConfigured, sendMail } from '../../mail';
 import { json, readForm, clean, validEmail, back } from './_shared';
+import { describeSource } from '../../source';
 
 export const prerender = false;
 
@@ -60,6 +61,7 @@ export const POST: APIRoute = async ({ request }) => {
     `Phone: ${f.phone || 'not given'}`,
     `Location: ${f.location || 'not given'}`,
     f.page ? `Page: ${f.page}` : null,
+    ...describeSource(data.source),
     '',
     f.message || '(no message)',
   ].filter((l) => l !== null).join('\n');

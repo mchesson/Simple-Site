@@ -9,6 +9,7 @@ import { isConfigured, createContact, addNote, CrelateError } from '../../crelat
 import { mailConfigured, sendMail } from '../../mail';
 import { LIMITS } from '../../assistant';
 import { json, clean, validEmail, sameOrigin, visitor, rateLimiter } from './_shared';
+import { describeSource } from '../../source';
 
 export const prerender = false;
 
@@ -47,6 +48,7 @@ export const POST: APIRoute = async ({ request }) => {
     `Phone: ${f.phone || 'not given'}`,
     `Company: ${f.company || 'not given'}`,
     f.page ? `Page: ${f.page}` : null,
+    ...describeSource(data.source),
     '',
     `What they need: ${f.need}`,
   ].filter((l) => l !== null).join('\n');

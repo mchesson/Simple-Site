@@ -1,3 +1,5 @@
+import { readSource } from './source';
+
 // Sends [data-form] forms to their endpoint (src/pages/api/) and shows the
 // result in the form's .status element. Without JavaScript the forms still
 // post normally and the endpoint redirects back with ?form=sent|error.
@@ -30,10 +32,13 @@ document.querySelectorAll<HTMLFormElement>('form[data-form]').forEach((form) => 
     try {
       // Forms with a file (resume) go as multipart; the rest as JSON.
       const multipart = form.enctype === 'multipart/form-data';
+      // "How they found us" (src/scripts/source.ts) goes along with the form.
+      const data = new FormData(form);
+      data.set('source', JSON.stringify(readSource()));
       const res = await fetch(form.action, {
         method: 'POST',
         headers: multipart ? { Accept: 'application/json' } : { 'Content-Type': 'application/json' },
-        body: multipart ? new FormData(form) : JSON.stringify(Object.fromEntries(new FormData(form))),
+        body: multipart ? data : JSON.stringify(Object.fromEntries(data)),
       });
       const out = await res.json().catch(() => ({}));
       if (out.ok) {
