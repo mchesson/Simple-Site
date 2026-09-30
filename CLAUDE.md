@@ -322,13 +322,15 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Live test site: https://simple-site-gules.vercel.app (built from `master`;
   every other branch gets its own preview URL). Environment variable
   `SITE_URL=https://simple-site-gules.vercel.app` so links point at it.
-- **Owner's workflow:** every change goes through a pull request. Claude asks
-  the owner in chat ("Shall I merge #N?"); when the owner says yes, Claude
-  merges it (GitHub tools), but only once the `npm test` check on the pull
-  request is green. Never merge without that yes in chat for that pull
-  request. After merging, give the owner the live site link
-  (https://simple-site-gules.vercel.app) to check, once the new version is
-  live. The owner can still merge on GitHub themselves.
+- **Owner's workflow:** every change goes through a pull request. **Claude
+  merges its own pull requests** (owner's decision, Sept 30, 2026, same as
+  the ATS) once the `npm test` check on the pull request is green, the build
+  passes and there's no merge conflict. Anything the owner should decide
+  first (costs, wording or claims about the company, what's public, deleting
+  content) waits for the owner's answer before merging. After merging, tell
+  the owner in plain words what changed, with the pull request link and the
+  live site link (https://simple-site-gules.vercel.app) to check, once the
+  new version is live. The owner can still merge on GitHub themselves.
 - No custom domain for now. At launch, set `SITE_URL` to the real domain (or
   remove it to default to https://technicalsource.com) and add the domain in
   Vercel under Settings → Domains.
