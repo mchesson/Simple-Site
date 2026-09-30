@@ -284,6 +284,15 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - No custom domain for now. At launch, set `SITE_URL` to the real domain (or
   remove it to default to https://technicalsource.com) and add the domain in
   Vercel under Settings → Domains.
+- **Launch domain:** this site goes live on **technicalsource.com** when it's
+  finished (owner's plan).
+- **tsworkspace.com** will be the company's own ATS/CRM (being built in a
+  separate Claude session). Plans: website leads (forms, chat handoffs, with
+  how they found us) flow into it and alert the right salesperson, and
+  contractors log in there to see what they're allowed to. This site only
+  links to it ("Contractor Login"); logins, permissions and records live in
+  tsworkspace.com, not here. Until it can receive records, Crelate stays the
+  place website leads are filed.
 
 ## Search engines (SEO)
 - Indexing is controlled by the `ALLOW_INDEXING` environment variable. Unset
