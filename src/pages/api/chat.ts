@@ -1,12 +1,14 @@
 // /api/chat: the website chat assistant (src/assistant.ts).
 //   GET   { enabled }: the chat bubble shows only when this says true
+//   GET   ?check=1: which key name, environment and switch it sees (no values)
+//   GET   ?check=2: one short test question to Claude; its answer or error
 //   POST  { messages: [{ role, text }...] } → the answer, streamed as one JSON
 //         object per line: text pieces, job links, a handoff form, done.
 // Protections: same-site requests only (Origin), a per-visitor rate limit,
 // and caps on message and conversation length (LIMITS). Conversations are
 // never stored or logged here.
 import type { APIRoute } from 'astro';
-import { chatEnabled, runChat, LIMITS, type ChatEvent, type ChatTurn } from '../../assistant';
+import { chatEnabled, keyName, describeError, runChat, LIMITS, type ChatEvent, type ChatTurn } from '../../assistant';
 import { json, sameOrigin, visitor, rateLimiter } from './_shared';
 
 export const prerender = false;
@@ -14,7 +16,27 @@ export const prerender = false;
 const perMinute = rateLimiter(6, 1);
 const perDay = rateLimiter(80, 24 * 60);
 
-export const GET: APIRoute = () => json({ enabled: chatEnabled() }, 200, { 'Cache-Control': 'no-store' });
+export const GET: APIRoute = async ({ url, request } = {} as any) => {
+  // ?check=1: which settings the chat sees (names only, never the key).
+  if (url?.searchParams.get('check') === '1') {
+    const similar = Object.keys(process.env).filter((k) => /anthropic/i.test(k));
+    return json({ enabled: chatEnabled(), keyFoundAs: keyName(), similarNames: similar, chatEnabledSetting: process.env.CHAT_ENABLED ?? null, vercelEnvironment: process.env.VERCEL_ENV ?? null }, 200, { 'Cache-Control': 'no-store' });
+  }
+  // ?check=2: sends Claude one short test question and reports whether it
+  // answered, or Claude's own error message (e.g. a bad key or no credit).
+  if (url?.searchParams.get('check') === '2') {
+    if (!chatEnabled()) return json({ ok: false, error: 'disabled' }, 200, { 'Cache-Control': 'no-store' });
+    if (!perMinute(`check:${visitor(request)}`)) return json({ ok: false, error: 'Too many checks. Wait a minute.' }, 429);
+    let answer = '';
+    try {
+      await runChat([{ role: 'user', text: 'In one short sentence, what does Technical Source do?' }], (e) => { if (e.t === 'text') answer += e.v; });
+      return json({ ok: true, answer }, 200, { 'Cache-Control': 'no-store' });
+    } catch (e) {
+      return json({ ok: false, claudeError: describeError(e) }, 200, { 'Cache-Control': 'no-store' });
+    }
+  }
+  return json({ enabled: chatEnabled() }, 200, { 'Cache-Control': 'no-store' });
+};
 
 /** Checks the conversation the browser sent; returns it clean, or an error. */
 export function readConversation(body: unknown): ChatTurn[] | string {
@@ -52,7 +74,7 @@ export const POST: APIRoute = async ({ request }) => {
         emit({ t: 'done' });
       } catch (e) {
         // The error type and status only: never the conversation.
-        console.error('[chat] failed', e instanceof Error ? `${e.name} ${(e as any).status ?? ''}` : 'unknown');
+        console.error('[chat] failed', JSON.stringify(describeError(e)));
         emit({ t: 'error', v: 'Sorry, something went wrong. Please try again, or use our contact form.' });
       } finally {
         controller.close();

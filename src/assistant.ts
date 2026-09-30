@@ -20,7 +20,12 @@ export const MODEL = 'claude-opus-5-5';
 /** Conversation limits, checked by /api/chat before anything reaches Claude. */
 export const LIMITS = { messageChars: 1000, userTurns: 20, totalChars: 24000 } as const;
 
-export const chatEnabled = () => Boolean(process.env.ANTHROPIC_API_KEY) && process.env.CHAT_ENABLED !== 'false';
+/** The Anthropic key. Its name should be ANTHROPIC_API_KEY, but Vercel shows
+ *  names as typed, so any capitalization (e.g. Anthropic_API_Key) is accepted. */
+export const keyName = () =>
+  process.env.ANTHROPIC_API_KEY?.trim() ? 'ANTHROPIC_API_KEY' : Object.keys(process.env).find((k) => k.trim().toUpperCase() === 'ANTHROPIC_API_KEY' && process.env[k]?.trim()) ?? null;
+const apiKey = () => { const k = keyName(); return k ? process.env[k]!.trim() : undefined; };
+export const chatEnabled = () => Boolean(apiKey()) && process.env.CHAT_ENABLED !== 'false';
 
 // ---------------------------------------------------------------------------
 // System prompt. It stays byte-for-byte the same between requests so it can
@@ -153,7 +158,7 @@ export type ChatEvent =
   | { t: 'done' };
 
 let client: Anthropic | null = null;
-const anthropic = () => (client ??= new Anthropic());
+const anthropic = () => (client ??= new Anthropic({ apiKey: apiKey() }));
 
 const SORRY = 'Sorry, I can’t help with that here. I can tell you about our services and industries, help you find open jobs, or connect you with someone on our team.';
 
@@ -185,6 +190,16 @@ async function runTool(name: string, input: unknown, emit: (e: ChatEvent) => voi
 
 /** Answer the visitor's latest message, streaming events as they happen.
  *  `history` is text only, oldest first, ending with the visitor's message. */
+/** What went wrong talking to Claude, without anything the visitor wrote:
+ *  the HTTP status and Anthropic's own error type and message. */
+export function describeError(e: unknown): { status: number | null; type: string; message: string } {
+  if (e instanceof Anthropic.APIError) {
+    const body = (e as any).error?.error ?? (e as any).error ?? {};
+    return { status: e.status ?? null, type: String(body.type ?? e.name), message: String(body.message ?? e.message).slice(0, 300) };
+  }
+  return { status: null, type: e instanceof Error ? e.name : 'unknown', message: e instanceof Error ? e.message.slice(0, 300) : '' };
+}
+
 export async function runChat(history: ChatTurn[], emit: (e: ChatEvent) => void): Promise<void> {
   const messages: Anthropic.Beta.BetaMessageParam[] = history.map((m) => ({ role: m.role, content: m.text }));
   // A few tool rounds are plenty for a search and an answer.
