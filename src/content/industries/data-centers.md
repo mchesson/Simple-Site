@@ -3,7 +3,6 @@ name: Data Centers & AI
 order: 2
 short: Construction, Commissioning and AI Infrastructure
 summary: Data center construction, commissioning and the infrastructure behind AI, delivered on schedule.
-photo: data-center-aisle
 color: "#0D71BA"
 headline: Data center capacity, delivered on schedule.
 highlight: delivered on schedule.

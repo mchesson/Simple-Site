@@ -1,6 +1,7 @@
 ---
 import { getEntry } from 'astro:content';
-import { typeLabel, formatDate, type Story } from '../lib';
+import { typeLabel, formatDate, photoOf, type Story } from '../lib';
+import Photo from './Photo.astro';
 interface Props { story: Story; order?: number }
 const { story, order = 0 } = Astro.props;
 const d = story.data;
@@ -9,7 +10,7 @@ const kicker = industry ? industry.data.name : typeLabel[d.type];
 ---
 <li class="story" data-industry={industry?.id ?? 'company'} data-order={order}>
   <a href={`/insights/${story.id}`}>
-    <div class="photo thumb" aria-hidden="true">{d.image && <img src={d.image} alt="" loading="lazy" />}</div>
+    <div class="photo thumb" aria-hidden="true"><Photo id={photoOf(story)} sizes="(max-width: 640px) 100vw, 400px" /></div>
     <div class="meta"><span class="kicker">{kicker}</span>{d.sample && <span class="chip">Sample</span>}</div>
     <h3>{d.title}</h3>
     <time datetime={d.date.toISOString()}>{formatDate(d.date)}</time>

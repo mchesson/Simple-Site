@@ -3,7 +3,6 @@ name: Life Sciences
 order: 1
 short: Pharmaceutical and Biotech Manufacturing
 summary: Pharmaceutical and biotech manufacturing projects, from new facilities and expansions to commissioning, qualification and validation.
-photo: capsule-filling
 color: "#00BAB4"
 headline: Life sciences projects, on schedule and inspection-ready.
 highlight: on schedule and inspection-ready.
