@@ -28,6 +28,9 @@ const { title, description = site.description, industry, image = '/og-default.pn
 const industries = await getIndustries();
 // Search engines index the site only when ALLOW_INDEXING=true (launch).
 const indexable = process.env.ALLOW_INDEXING === 'true';
+// Google Analytics only on the live (production) site, so test copies and
+// local builds don't count as visits.
+const analytics = process.env.VERCEL_ENV === 'production' && site.ga4;
 // Structured data (schema.org) so search engines understand the company.
 const origin = new URL('/', Astro.site).toString();
 const schema = [
@@ -68,6 +71,13 @@ const ogImage = new URL(image, Astro.site);
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
     {process.env.GOOGLE_SITE_VERIFICATION && <meta name="google-site-verification" content={process.env.GOOGLE_SITE_VERIFICATION} />}
     <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+    {analytics && <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${analytics}`}></script>}
+    {analytics && <script is:inline define:vars={{ id: analytics }}>
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag('js', new Date());
+      gtag('config', id);
+    </script>}
 
     <meta property="og:site_name" content={site.name} />
     <meta property="og:type" content={type} />

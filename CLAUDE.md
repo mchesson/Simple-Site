@@ -401,7 +401,14 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   (`sourceAttribution` in `src/source.ts`; see "TS Workspace intake").
 
 ## Analytics
-- GA4 + LinkedIn Insight Tag to be added at launch.
+- **Google Analytics 4 (added Oct 1, 2026):** account "Technical Source",
+  property technicalsource.com (Eastern time, USD), web stream ID
+  `G-EBTTZVYNL1` in `src/data/site.ts` (`ga4`). `Base.astro` loads it only
+  when `VERCEL_ENV` is `production`, so previews and local builds don't
+  count. The owner signs in at analytics.google.com with their work-email
+  Google account. No Measurement Protocol API secret is used.
+- LinkedIn Insight Tag: still to add (needs the partner ID from LinkedIn
+  Campaign Manager).
 
 ## Hosting
 - Vercel team **teksourcetalent**, project **simple-site**, connected to this

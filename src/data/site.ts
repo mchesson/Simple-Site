@@ -7,6 +7,9 @@ export const site = {
   linkedin: 'https://www.linkedin.com/company/technical-source-llc',
   // General inbox (confirmed by the owner, Oct 1, 2026). No phone numbers on the site.
   email: 'info@technicalsource.com',
+  // Google Analytics 4 (property "technicalsource.com", created Oct 1, 2026).
+  // Not secret: it's in every page. Loaded only on production deployments.
+  ga4: 'G-EBTTZVYNL1',
   // Crelate job portal. The site lists jobs and takes applications itself;
   // this is only the fallback when the job list is switched off.
   jobsPortal: 'https://jobs.crelate.com/portal/technicalsource',
