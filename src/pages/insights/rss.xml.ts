@@ -9,11 +9,12 @@ export async function GET(context: APIContext) {
     title: `${site.name} | Insights`,
     description: site.description,
     site: context.site!,
+    trailingSlash: false, // one address per page (astro.config trailingSlash: 'never')
     items: stories.map((s) => ({
       title: s.data.title,
       pubDate: s.data.date,
       description: s.data.summary,
-      link: `/insights/${s.id}/`,
+      link: `/insights/${s.id}`,
       categories: [s.data.industry?.id ?? 'company', s.data.type, ...s.data.audience],
     })),
   });

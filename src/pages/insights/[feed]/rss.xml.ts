@@ -21,11 +21,12 @@ export async function GET(context: APIContext) {
     title: `${site.name} | ${label}`,
     description: `${label} from ${site.name}.`,
     site: context.site!,
+    trailingSlash: false, // one address per page (astro.config trailingSlash: 'never')
     items: stories.map((s) => ({
       title: s.data.title,
       pubDate: s.data.date,
       description: s.data.summary,
-      link: `/insights/${s.id}/`,
+      link: `/insights/${s.id}`,
       categories: [feed, s.data.type, ...s.data.audience],
     })),
   });

@@ -1,42 +1,71 @@
 ---
-// Ported from the old WordPress site's Terms & Conditions
-// (technicalsource.com/terms-and-conditions). Changed only where facts changed:
-// no "global company" line, no website accounts, HTTPS on every page, and links
-// to the Privacy Policy.
-// Owner and counsel to review before launch.
+// Terms of Use (owner, Oct 1, 2026): short, plain terms for this website,
+// replacing the old WordPress "Terms & Conditions" (which was a privacy
+// notice). The address is kept so old links keep working. Privacy belongs in
+// /privacy-policy only; this page links to it.
+// Counsel to review before launch.
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
+import { site } from '../data/site';
 ---
-<Base title="Terms and Conditions" description="The terms that apply when you use the Technical Source website.">
+<Base title="Terms of Use" description="The terms that apply when you use the Technical Source website.">
   <Banner eyebrow="Legal" compact>
-    <h1>Terms and Conditions</h1>
+    <h1>Terms of Use</h1>
     <p class="banner-sub">Last updated October 2026</p>
   </Banner>
 
   <section class="sec">
     <div class="wrap prose legal">
-      <h2>Information Sharing and Disclosure</h2>
-      <p>Your personal information may be shared within Technical Source and with its affiliates. All such entities are governed by our <a href="/privacy-policy">Privacy Policy</a> or are bound by the appropriate confidentiality and data transfer agreements.</p>
-      <p>Your personal information is never shared outside Technical Source without your permission, except under conditions explained below. Inside Technical Source, data is stored in controlled servers with limited access. Your information may be stored and processed in the United States or any other country where Technical Source, its subsidiaries, affiliates or agents are located.</p>
-      <p>Technical Source may send your personal information to other companies or people under any of the following circumstances: when we have your consent to share the information; when we need to share your information to provide the product or service you have requested; when we need to send the information to companies who work on behalf of Technical Source to provide a product or service to you (we will only provide those companies the information they need to deliver the service, and when they are prohibited from using that information for any other purpose); or when we want to keep you up to date on the latest product announcements, software updates, special offers or other information we think you’d like to hear about either from us or from our business partners (unless you have opted out of these types of communications). We will also disclose your personal information if required to do so by law, to enforce our Terms of Use, or in urgent circumstances, to protect personal safety, the public, or our websites.</p>
+      <h2>Using This Site</h2>
+      <p>This website is run by Technical Source, LLC, based in Raleigh, North Carolina. By using it, you agree to these terms. If you don’t agree, please don’t use the site. These terms cover this website only; work we do with clients and consultants is covered by our separate written agreements. How we handle personal information is explained in our <a href="/privacy-policy">Privacy Policy</a>.</p>
 
-      <h2>Data Security</h2>
-      <p>Technical Source safeguards the security of the data you send us with physical, electronic, and managerial procedures. Every page of our website uses industry-standard encryption (HTTPS) to protect data in transit. While we strive to protect your personal information, we cannot ensure the security of the information you transmit to us, and so we urge you to take every precaution to protect your personal data when you are on the Internet. Change your passwords often, use a combination of letters and numbers, and make sure you use a secure browser.</p>
+      <h2>Our Content</h2>
+      <p>The text, graphics, logos and other content on this site belong to Technical Source or are used with permission. You’re welcome to view the site for your own personal or business use and to share links to our pages. Please don’t copy, scrape, republish or reuse our content without our written permission. Our name and logo are ours: please don’t use them in a way that suggests we endorse you or your business. Stock photos are used under their own licenses, listed on our <a href="/photo-credits">Photo Credits</a> page.</p>
 
-      <h2>Children and Privacy</h2>
-      <p>Our websites do not target and are not intended to attract children under the age of 13. Technical Source does not knowingly solicit personal information from children under the age of 13 or send them requests for personal information.</p>
+      <h2>Information Is General</h2>
+      <p>The information on this site is general. We work to keep it accurate, but we can’t promise it’s complete or current, and it isn’t professional, legal, financial or technical advice for your situation.</p>
 
-      <h2>Third-Party Sites</h2>
-      <p>Technical Source’s website contains links to other sites. Technical Source does not share your personal information with those websites and is not responsible for their privacy practices. We encourage you to learn about the privacy policies of those companies.</p>
-      <p>Our website may contain links to websites operated by other companies. Some of these third-party sites may be co-branded with a Technical Source logo, even though they are not operated or maintained by Technical Source. Although we choose our business partners carefully, Technical Source is not responsible for the privacy practices of websites operated by third parties that are linked to our site. Once you have left our website, you should check the applicable privacy policy of the third-party website to determine how they will handle any information they collect from you.</p>
+      <h2>Job Postings</h2>
+      <p>Job postings describe openings we’re working on. They are not an offer of employment or a contract. Positions may change, be filled or close at any time, and pay and other details in a posting can change. Applying doesn’t guarantee an interview or a job. Technical Source is an equal opportunity employer.</p>
 
-      <h2>Cookies and Tracking Technology</h2>
-      <p>A cookie is a small data file that certain websites write to your hard drive when you visit them. A cookie file can contain information such as a user ID that the site uses to track the pages you’ve visited, but the only personal information a cookie can contain is information you supply yourself. A cookie can’t read data off your hard disk or read cookie files created by other sites. Some parts of Technical Source’s website use cookies to track user traffic patterns. We do this in order to determine the usefulness of our website information to our users and to see how effective our navigational structure is in helping users reach that information. Our <a href="/privacy-policy">Privacy Policy</a> describes the cookies and browser storage our website uses.</p>
-      <p>If you prefer not to receive cookies while browsing our website, you can set your browser to warn you before accepting cookies and refuse the cookie when your browser alerts you to its presence. You can also refuse all cookies by turning them off in your browser, although you may not be able to take full advantage of Technical Source’s website if you do so. In particular, you may be required to accept cookies in order to complete certain actions on our website. You do not need to have cookies turned on, however, to use or navigate through many parts of our website, except access to certain of Technical Source’s web pages may require a login and password.</p>
+      <h2>Our Chat Assistant</h2>
+      <p>Our chat assistant’s answers are generated automatically by artificial intelligence. They may be wrong or incomplete, and they are not commitments, offers or advice from Technical Source. Please don’t share sensitive personal information in the chat, such as Social Security numbers or financial or health details. Where a question needs one, a person from our team follows up. Chat conversations are handled as described in our <a href="/privacy-policy">Privacy Policy</a>.</p>
+
+      <h2>What You Send Us</h2>
+      <p>When you send us a form, a resume or a referral, you confirm that the information is accurate and that you’re allowed to share it. For a referral, that means the person you refer knows you’re passing their details to us. We use what you send as our <a href="/privacy-policy">Privacy Policy</a> describes.</p>
+
+      <h2>Acceptable Use</h2>
+      <p>Please don’t:</p>
+      <ul>
+        <li>use the site for anything unlawful;</li>
+        <li>try to harm, overload or break into the site or the systems behind it;</li>
+        <li>scrape or collect content from the site with automated tools;</li>
+        <li>send us false information;</li>
+        <li>pretend to be someone else.</li>
+      </ul>
+      <p>We may block access for anyone who doesn’t follow these terms.</p>
+
+      <h2>Links to Other Sites</h2>
+      <p>Our site links to other websites, such as LinkedIn and the original articles behind our Insights. We don’t control those sites and aren’t responsible for their content or practices.</p>
+
+      <h2>No Warranties</h2>
+      <p>The site is provided “as is” and “as available,” without warranties of any kind. We don’t promise it will always be available or free of errors.</p>
+
+      <h2>Limitation of Liability</h2>
+      <p>To the extent the law allows, Technical Source is not liable for any indirect, incidental or consequential losses arising from your use of this site or your reliance on its content. Nothing in these terms limits rights you have that the law doesn’t allow us to limit.</p>
+
+      <h2>Governing Law</h2>
+      <p>These terms are governed by the laws of the State of North Carolina. Any dispute about them or this site will be handled in the state or federal courts located in Wake County, North Carolina.</p>
+
+      <h2>Changes to These Terms</h2>
+      <p>We may update these terms from time to time. When we do, we post the new version here with a new date. Using the site after a change means you accept the updated terms.</p>
+
+      <h2>Contact</h2>
+      <p>Questions about these terms? Email <a href={`mailto:${site.email}`}>{site.email}</a>.</p>
     </div>
   </section>
 </Base>
 <style>
   .legal h2:first-child { margin-top: 0; }
-  .legal p { color: var(--ink); }
+  .legal p, .legal li { color: var(--ink); }
 </style>
