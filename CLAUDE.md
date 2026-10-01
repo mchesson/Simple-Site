@@ -471,9 +471,14 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   the owner in plain words what changed, with the pull request link and the
   live site link (https://simple-site-gules.vercel.app) to check, once the
   new version is live. The owner can still merge on GitHub themselves.
-- No custom domain for now. At launch, set `SITE_URL` to the real domain (or
-  remove it to default to https://technicalsource.com) and add the domain in
-  Vercel under Settings → Domains.
+- **Live on https://technicalsource.com since Oct 1, 2026.** GoDaddy DNS:
+  `@` A 216.150.1.1 and 216.150.16.1, `www` CNAME
+  45d2f71ac51bfe29.vercel-dns-016.com (old values and the way back:
+  docs/website-rollback.md). Vercel domains: technicalsource.com (main),
+  www (308 to it), simple-site-gules.vercel.app (test address). Production
+  env set by Claude at launch: `SITE_URL=https://technicalsource.com`,
+  `ALLOW_INDEXING=true`, `HIDE_SAMPLE_STORIES=true`. WordPress stays
+  running untouched at its host for at least a month.
 - **Launch domain:** this site goes live on **technicalsource.com** when it's
   finished (owner's plan).
 - **tsworkspace.com** will be the company's own ATS/CRM (being built in a
@@ -542,7 +547,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   application, confirm it reaches the inbox, Crelate (an application on
   that job) and TS Workspace (/applicants), then confirm that closing it in
   Crelate takes it off the site within about 5 minutes.
-- Set `ALLOW_INDEXING=true` and point `SITE_URL` at the real domain.
+- [x] `ALLOW_INDEXING=true`, `SITE_URL` = the real domain (Oct 1, 2026).
 - Add the domain in Vercel; verify it in Google Search Console and Bing
   Webmaster Tools and submit the sitemap.
 - Replace sample stories (real posts now come from TS Workspace's Website
