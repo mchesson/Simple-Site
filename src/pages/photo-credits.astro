@@ -1,0 +1,38 @@
+---
+// Photo Credits: every photo on the site, from src/data/photo-credits.ts.
+import Base from '../layouts/Base.astro';
+import { photos, type PhotoCredit } from '../data/photo-credits';
+const list: PhotoCredit[] = Object.values(photos);
+---
+<Base title="Photo Credits" description="Credits and licenses for the photos used on the Technical Source website.">
+  <section class="sec">
+    <div class="wrap">
+      <span class="eyebrow">Photo Credits</span>
+      <h1>Photo Credits</h1>
+      <p class="lede">Thank you to the photographers whose work appears on this site.</p>
+      <ul class="credits">
+        {list.map((p) => (
+          <li>
+            <img src={`/photos/${p.name}-${p.widths.at(-1)}.webp`} alt="" width="160" height={Math.round(160 / p.aspect)} loading="lazy" />
+            <div>
+              <h2>{p.title}</h2>
+              <p>Photo by {p.creator}, <a href={p.source} rel="noopener">view the original</a>. License: <a href={p.licenseUrl} rel="noopener license">{p.license}</a>.</p>
+              <p class="used">Used on: {p.usedOn}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </section>
+</Base>
+
+<style>
+  h1 { font-size: clamp(2rem, 4vw, 2.8rem); }
+  .credits { list-style: none; margin: 2rem 0 0; padding: 0; border-top: 1px solid var(--line); }
+  .credits li { display: grid; grid-template-columns: 160px 1fr; gap: 1.5rem; align-items: center; padding: 1.25rem 0; border-bottom: 1px solid var(--line); }
+  .credits img { width: 160px; height: auto; border-radius: var(--radius); display: block; }
+  h2 { font-size: 1.15rem; margin: 0 0 .35rem; }
+  p { margin: 0; }
+  .used { color: var(--muted); font-size: .9rem; margin-top: .25rem; }
+  @media (max-width: 560px) { .credits li { grid-template-columns: 96px 1fr; gap: 1rem; } .credits img { width: 96px; } }
+</style>

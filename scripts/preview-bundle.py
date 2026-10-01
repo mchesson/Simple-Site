@@ -14,7 +14,7 @@ OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else ROOT / 'preview.html')
 
 
 def data_uri(path: pathlib.Path) -> str:
-    mime = {'.svg': 'image/svg+xml', '.png': 'image/png', '.woff2': 'font/woff2'}[path.suffix]
+    mime = {'.svg': 'image/svg+xml', '.png': 'image/png', '.webp': 'image/webp', '.woff2': 'font/woff2'}[path.suffix]
     return f'data:{mime};base64,' + base64.b64encode(path.read_bytes()).decode()
 
 
@@ -30,12 +30,18 @@ def rewrite_links(html: str) -> str:
         attr, url = m.group(1), m.group(2)
         if url.startswith(('/_astro/', '//')):
             return m.group(0)
+        if re.match(r'/photos/[\w\-]+-\d+\.webp$', url):
+            # Photos: inline the smallest saved width to keep the file small.
+            stem = re.sub(r'-\d+\.webp$', '', url.rsplit('/', 1)[1])
+            sizes = sorted((DIST / 'photos').glob(stem + '-*.webp'), key=lambda f: int(f.stem.rsplit('-', 1)[1]))
+            return f'{attr}="{data_uri(sizes[0])}"' if sizes else m.group(0)
         if re.match(r'/[\w\-./]*\.(svg|png)$', url):
             f = DIST / url.lstrip('/')
             return f'{attr}="{data_uri(f)}"' if f.exists() else m.group(0)
         if url.endswith('.xml'):
             return f'{attr}="#" data-preview-disabled'
         return f'{attr}="#{url}"'
+    html = re.sub(r'\s(srcset|sizes)="[^"]*"', '', html)
     return re.sub(r'\b(href|src)="(/[^"]*)"', fix, html)
 
 

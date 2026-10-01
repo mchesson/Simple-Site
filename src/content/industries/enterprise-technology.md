@@ -3,6 +3,7 @@ name: Enterprise Technology
 order: 3
 short: AI, System Integration and Cybersecurity
 summary: AI, system integration and cybersecurity projects that have to work the first time.
+photo: developer-workstation
 color: "#8DB33A"
 headline: Technology projects that have to work the first time.
 highlight: work the first time.

@@ -7,13 +7,14 @@ import IndustryRow from '../components/IndustryRow.astro';
 import StoryGrid from '../components/StoryGrid.astro';
 import CareersStrip from '../components/CareersStrip.astro';
 import CtaBand from '../components/CtaBand.astro';
+import Photo from '../components/Photo.astro';
 import { services } from '../data/site';
 import { getStories } from '../lib';
 
 const stories = (await getStories()).slice(0, 3);
 ---
 <Base>
-  <Banner tagline>
+  <Banner tagline photo="engineer-plant-floor">
     <h1>The teams behind <br /><span class="hl">complex technical projects.</span></h1>
     <p class="banner-sub">When the work is complex and the schedule is tight, we bring the expertise to get it right and the accountability to see it through.</p>
     <div class="row">
@@ -51,7 +52,7 @@ const stories = (await getStories()).slice(0, 3);
 
   <section class="sec dark">
     <div class="wrap grid g2 why">
-      <div class="photo" aria-hidden="true"></div>
+      <div class="photo" aria-hidden="true"><Photo id="team-reviewing-drawings" sizes="(max-width: 900px) 100vw, 600px" /></div>
       <div>
         <span class="eyebrow">Why Technical Source</span>
         <h2>We understand the work before we propose a plan.</h2>

@@ -21,7 +21,7 @@ const at = d.highlight ? d.headline.lastIndexOf(d.highlight) : -1;
 const [lead, hl] = at >= 0 ? [d.headline.slice(0, at), d.highlight] : [d.headline, ''];
 ---
 <Base title={d.name} description={d.summary} industry={industry.id}>
-  <Banner eyebrow={d.name} compact>
+  <Banner eyebrow={d.name} compact photo={d.photo}>
     <h1>{lead}{hl && <><br /><span class="hl">{hl}</span></>}</h1>
     <p class="banner-sub">{d.intro}</p>
     <div class="row">
