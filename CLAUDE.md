@@ -410,7 +410,14 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Set `ALLOW_INDEXING=true` and point `SITE_URL` at the real domain.
 - Add the domain in Vercel; verify it in Google Search Console and Bing
   Webmaster Tools and submit the sitemap.
-- Replace sample stories and photo placeholders.
+- Replace sample stories and photo placeholders. **Photos: use stock
+  photos for now** (owner, Oct 1, 2026): free-for-commercial-use libraries
+  (Unsplash, Pexels), downloaded into `public/` (never hotlinked), real
+  project settings (plants, data centers, engineers at work), no
+  staffing clichés (handshakes, people in suits pointing at screens).
+  Record each photo's source page in `src/data/photo-credits.ts`. Claude's
+  environment needs `images.unsplash.com`, `unsplash.com`, `pexels.com`
+  and `images.pexels.com` in its network access to fetch them.
 - Confirm the official LinkedIn URL and email in `src/data/site.ts`.
 - Confirm the full list of old WordPress URLs for `redirects`.
 
