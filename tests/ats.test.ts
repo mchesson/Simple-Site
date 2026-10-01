@@ -139,6 +139,25 @@ describe('TS Workspace payloads', () => {
     });
   });
 
+  it('Refer Them from a job page → referral carries the published job (id, title, link)', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    await POST({ request: post('http://site/api/refer', {
+      refFirstName: 'Jane', refLastName: 'Doe', refEmail: 'jane@example.com', relationship: 'contractor',
+      firstName: 'Dana', lastName: 'Whitfield', email: 'dana@example.com', role: 'CQV Lead', theyKnow: 'on', page: '/refer', jobId: 'job-1',
+    }) } as any);
+    expect(sent().job).toEqual({ id: 'job-1', title: 'CQV Lead', url: 'https://site.test/careers/jobs/cqv-lead-job-1' });
+  });
+
+  it('Refer Someone with an unknown job id → the id only; no job id → no job', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const base = { refFirstName: 'Jane', refLastName: 'Doe', refEmail: 'jane@example.com', relationship: 'client', firstName: 'Dana', lastName: 'Whitfield', email: 'dana@example.com', theyKnow: 'on' };
+    await POST({ request: post('http://site/api/refer', { ...base, jobId: 'gone-9' }) } as any);
+    expect(sent().job).toEqual({ id: 'gone-9' });
+    calls.length = 0;
+    await POST({ request: post('http://site/api/refer', base) } as any);
+    expect(sent().job).toBeUndefined();
+  });
+
   it('Refer Someone with a resume → referral as multipart', async () => {
     const { POST } = await import('../src/pages/api/refer');
     const fd = new FormData();

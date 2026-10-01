@@ -57,6 +57,7 @@ import { RELATIONSHIPS } from '../referral';
         </fieldset>
         <label class="tick"><input type="checkbox" name="theyKnow" required /> <span>They know I’m referring them.</span></label>
         <input type="hidden" name="page" value="/refer" />
+        <input type="hidden" name="jobId" value="" />
         <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
         <button class="btn btn-primary" type="submit">Send Referral</button>
         <p class="status" role="status" hidden></p>
@@ -82,6 +83,11 @@ import { RELATIONSHIPS } from '../referral';
   const role = new URLSearchParams(location.search).get('role');
   const roleInput = form?.querySelector<HTMLInputElement>('input[name="role"]');
   if (role && roleInput && !roleInput.value) roleInput.value = role.slice(0, 200);
+  // ...and its job id (?job=<Crelate id>), so TS Workspace can send the
+  // referral to that job's recruiter. The endpoint checks it's a published job.
+  const job = new URLSearchParams(location.search).get('job');
+  const jobInput = form?.querySelector<HTMLInputElement>('input[name="jobId"]');
+  if (job && jobInput && /^[\w-]{1,60}$/.test(job)) jobInput.value = job;
 </script>
 <style>
   .split { display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; align-items: start; }

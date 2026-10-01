@@ -29,7 +29,7 @@ and consistent with this file.
 | `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | **Terms of Use** (the old address is kept): short, plain terms written Oct 2026 (content, job postings, the chat assistant, what you send us, acceptable use, no warranties, North Carolina law). No privacy content: it links the Privacy Policy. "Last updated October 2026". **Counsel review pending before launch** |
 | `/employee-resources` | `src/pages/employee-resources.astro` | Sign-in links for consultants (Paychex Flex, ExpenseWire, Concur, ADP), same targets as the old page |
 | `/photo-credits` | `src/pages/photo-credits.astro` | Every photo with its photographer, source page and license, from `src/data/photo-credits.ts`. Linked from the footer's bottom row |
-| `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role) |
+| `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role and passes the job id, `?job=<Crelate id>`, so the referral reaches TS Workspace with the job and goes to its recruiter) |
 
 The footer's bottom row links Privacy Policy, Terms of Use, Employee
 Resources and Photo Credits.
