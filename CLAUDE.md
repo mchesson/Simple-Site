@@ -25,6 +25,7 @@ and consistent with this file.
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
 | `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
+| `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role) |
 
 Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
 
@@ -196,6 +197,20 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
     Crelate **candidate**, resume upload and a note ("general
     consideration"), no job. Resumes: PDF/Word, up to 4 MB (Vercel's request
     limit is 4.5 MB).
+  - **Refer Someone** (`/refer`, `src/pages/api/refer.ts`; owner, Oct 1,
+    2026; rewards come later) → email to the team inbox (subject "Referral:
+    <name> (from <referrer>)", reply goes to the referrer, resume attached
+    if given), plus Crelate **candidate** for the referred person (resume
+    uploaded if given) and a **note** naming the referrer, their email and
+    phone, and how they know us. Crelate has no referral record we can
+    link, so the referrer is only in the note. Fields: the referrer's name,
+    email, optional phone, "How do you know us?" (`RELATIONSHIPS` in
+    `src/referral.ts`: contractor now, former contractor, client, other);
+    the person's name, email **or** phone (a referrer may know only one; a
+    Crelate contact without an email is always new), optional LinkedIn
+    (linkedin.com links only), kind of work, optional resume (same limits
+    as apply), a note, and the required tick "They know I'm referring
+    them". Same spam protection (honeypot, origin check).
   - Email goes through Resend (`src/mail.ts`): `RESEND_API_KEY`, optional
     `MAIL_TO` (default `site.email`) and `MAIL_FROM`. Until technicalsource.com
     is verified in Resend (DNS records), the default test sender only delivers
@@ -304,7 +319,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   clicks (gclid, fbclid, li_fat_id, msclkid), landing page and date, for the
   first visit (90 days) and this visit, plus pages viewed and their industry.
 - It leaves the browser only with a form the visitor sends (contact, job
-  application, resume, chat "talk to a person"). `src/source.ts`
+  application, resume, chat "talk to a person", referral). `src/source.ts`
   (`describeSource`) turns it into plain lines in the info@ email and the
   Crelate note, e.g. `How they found us: LinkedIn (social), campaign
   "cq-post" (first visit 2026-09-30, landed on /industries/life-sciences)`.
@@ -350,13 +365,16 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 
 ## TS Workspace intake
 - Every submission (contact form, job application, "Not Looking Right Now?"
-  resume, chat "talk to a person") is also sent to TS Workspace, the
+  resume, chat "talk to a person", Refer Someone) is also sent to TS Workspace, the
   company's own ATS/CRM, by `sendToAts` in `src/ats.ts`. Format: the ATS
   repo's `docs/website-intake.md` (mchesson/ts-ats); keep the two in step.
   Email and Crelate are unchanged; Crelate stays until switch-over.
 - Types: `inquiry` (`/api/contact`), `application` (`/api/apply` with a job:
   job id, public title and our job page URL), `resume` (`/api/apply` without
-  a job), `chat` (`/api/chat-handoff`: `jobSeeker` and the transcript). Each
+  a job), `chat` (`/api/chat-handoff`: `jobSeeker` and the transcript),
+  `referral` (`/api/refer`: `contact` is the person referred, plus
+  `referral: { referrer, relationship, theyKnow: true, role, linkedin }`;
+  TS Workspace shows it under Applicants with "Referred by"). Each
   carries a new `externalId` (`web-<uuid>`, so the ATS never files one twice),
   `submittedAt`, contact fields, industry/service/message/page as the form
   has them, and `attribution` ("how they found us"). Resumes go as

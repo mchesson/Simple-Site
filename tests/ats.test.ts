@@ -115,6 +115,41 @@ describe('TS Workspace payloads', () => {
     });
   });
 
+  it('Refer Someone → referral with the referrer, as JSON without a resume', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const res = await POST({ request: post('http://site/api/refer', {
+      refFirstName: 'Jane', refLastName: 'Doe', refEmail: 'jane@example.com', refPhone: '9195550199', relationship: 'former_contractor',
+      firstName: 'Dana', lastName: 'Whitfield', email: '', phone: '919-555-0100', linkedin: 'linkedin.com/in/dana', role: 'CQV Engineer',
+      message: 'Great on fill-finish.', theyKnow: 'on', page: '/refer', source,
+    }) } as any);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(atsCall().headers['Content-Type']).toBe('application/json');
+    const { externalId, submittedAt, ...rest } = sent();
+    expect(externalId).toMatch(/^web-/);
+    expect(rest).toEqual({
+      type: 'referral',
+      contact: { firstName: 'Dana', lastName: 'Whitfield', phone: '919-555-0100' },
+      message: 'Great on fill-finish.',
+      page: '/refer',
+      referral: {
+        referrer: { firstName: 'Jane', lastName: 'Doe', email: 'jane@example.com', phone: '9195550199' },
+        relationship: 'former_contractor', theyKnow: true, role: 'CQV Engineer', linkedin: 'https://linkedin.com/in/dana',
+      },
+      attribution,
+    });
+  });
+
+  it('Refer Someone with a resume → referral as multipart', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ refFirstName: 'Jane', refLastName: 'Doe', refEmail: 'jane@example.com', relationship: 'client', firstName: 'Dana', lastName: 'Whitfield', email: 'dana@example.com', theyKnow: 'on' })) fd.set(k, v);
+    fd.set('resume', new File(['%PDF-1.4'], 'dana.pdf', { type: 'application/pdf' }));
+    expect(await (await POST({ request: post('http://site/api/refer', fd) } as any)).json()).toEqual({ ok: true });
+    expect(((atsCall().body as FormData).get('resume') as File).name).toBe('dana.pdf');
+    expect(sent().type).toBe('referral');
+    expect(sent().referral.relationship).toBe('client');
+  });
+
   it('"Not Looking Right Now?" → resume, no job', async () => {
     const { POST } = await import('../src/pages/api/apply');
     await POST({ request: post('http://site/api/apply', application({ jobId: '', page: '/careers' })) } as any);

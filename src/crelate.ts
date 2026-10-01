@@ -231,9 +231,10 @@ export const recruitingStages = hourly(async (): Promise<{ id: string; name: str
  *  candidate). Returns its Id. Reusing the existing record avoids duplicates
  *  when someone applies twice or is already in Crelate; an existing contact
  *  who applies for a job is also marked as a candidate. */
-export async function createContact(p: { firstName: string; lastName: string; email: string; phone?: string; kind: 'candidate' | 'client' }): Promise<string> {
+export async function createContact(p: { firstName: string; lastName: string; email?: string; phone?: string; kind: 'candidate' | 'client' }): Promise<string> {
   const bit = RECORD_TYPE[p.kind];
-  const existing = (await crelate('contacts', { params: { emails: p.email, limit: 1 } }).then(listOf, () => []))[0];
+  // Without an email (a referral may give only a phone) there's nothing safe to match on: always a new contact.
+  const existing = p.email ? (await crelate('contacts', { params: { emails: p.email, limit: 1 } }).then(listOf, () => []))[0] : undefined;
   if (existing?.Id) {
     const type = Number(existing.RecordType ?? 0);
     if (!(type & bit)) {
@@ -248,7 +249,7 @@ export async function createContact(p: { firstName: string; lastName: string; em
     FirstName: p.firstName,
     LastName: p.lastName,
     RecordType: bit,
-    EmailAddresses_Personal: { Value: p.email, IsPrimary: true },
+    ...(p.email && { EmailAddresses_Personal: { Value: p.email, IsPrimary: true } }),
     ...(p.phone && { PhoneNumbers_Mobile: { Value: p.phone, IsPrimary: true } }),
     ...(sourceId && { ContactSourceId: { Id: sourceId } }),
   };

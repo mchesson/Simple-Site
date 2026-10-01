@@ -172,6 +172,61 @@ describe('POST /api/contact', () => {
   });
 });
 
+describe('POST /api/refer', () => {
+  const referral = (extra: Record<string, string> = {}) => ({
+    refFirstName: 'Jane', refLastName: 'Doe', refEmail: 'jane@example.com', relationship: 'contractor',
+    firstName: 'Dana', lastName: 'Whitfield', email: 'dana@example.com', phone: '', role: 'CQV Engineer', theyKnow: 'on', ...extra,
+  });
+
+  it('emails the team and files the referred person as a Crelate candidate with a note naming the referrer', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const res = await POST({ request: post('http://site/api/refer', referral()) } as any);
+    expect(await res.json()).toEqual({ ok: true });
+    const mail = calls.find((c) => c.url.host === 'mail.test')!;
+    expect(mail.body.subject).toBe('Referral: Dana Whitfield (from Jane Doe)');
+    expect(mail.body.reply_to ?? mail.body.replyTo).toBe('jane@example.com');
+    expect(mail.body.text).toContain('Referred by: Jane Doe');
+    const created = crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!;
+    expect(created.body.entity.FirstName).toBe('Dana');
+    expect(created.body.entity.RecordType).toBe(1);
+    const note = crelateCalls().find((c) => c.url.pathname.endsWith('/notes'))!;
+    expect(note.body.entity.Display).toContain('Website referral from Jane Doe');
+    expect(note.body.entity.Display).toContain('How they know us: I work with Technical Source now (contractor)');
+  });
+
+  it('accepts a phone instead of an email for the person, and makes a new Crelate contact without one', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const res = await POST({ request: post('http://site/api/refer', referral({ email: '', phone: '(919) 555-0100' })) } as any);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(crelateCalls().some((c) => c.method === 'GET' && c.url.pathname.endsWith('/contacts'))).toBe(false);
+    const created = crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!;
+    expect(created.body.entity.EmailAddresses_Personal).toBeUndefined();
+    expect(created.body.entity.PhoneNumbers_Mobile.Value).toBe('(919) 555-0100');
+  });
+
+  it('requires the referrer, how they know us, a way to reach the person and the "they know" tick', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const status = async (extra: Record<string, string>) => (await POST({ request: post('http://site/api/refer', referral(extra)) } as any)).status;
+    expect(await status({ refEmail: 'nope' })).toBe(400);
+    expect(await status({ refFirstName: '' })).toBe(400);
+    expect(await status({ relationship: 'friend' })).toBe(400);
+    expect(await status({ relationship: 'toString' })).toBe(400);
+    expect(await status({ firstName: '' })).toBe(400);
+    expect(await status({ email: '', phone: '' })).toBe(400);
+    expect(await status({ email: 'jane@example.com' })).toBe(400);
+    expect(await status({ theyKnow: '' })).toBe(400);
+    expect(await status({ linkedin: 'https://evil.example/x' })).toBe(400);
+    expect(calls.length).toBe(0);
+  });
+
+  it('quietly ignores bots that fill the hidden field', async () => {
+    const { POST } = await import('../src/pages/api/refer');
+    const res = await POST({ request: post('http://site/api/refer', referral({ website: 'spam.example' })) } as any);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(calls.length).toBe(0);
+  });
+});
+
 describe('GET /api/jobs', () => {
   it('returns only public fields and links to our own job pages', async () => {
     const { GET } = await import('../src/pages/api/jobs');
