@@ -104,7 +104,7 @@ export const GET: APIRoute = async ({ url }) => {
     const result = await searchJobs({ q: url.searchParams.get('q') ?? '', loc: url.searchParams.get('loc') ?? '', radius: Number(url.searchParams.get('radius') ?? 50) });
     if (result.error) return json({ ok: false, error: result.error, jobs: [] });
     const { jobs: out, origin } = result;
-    return json({ ok: true, jobs: out, origin }, 200, { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' });
+    return json({ ok: true, jobs: out, origin }, 200, { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=60' });
   } catch (e) {
     console.error('[jobs] Crelate error', e instanceof CrelateError ? `${e.status} ${e.detail}` : e);
     return json({ ok: false, error: 'unavailable', jobs: [] });
