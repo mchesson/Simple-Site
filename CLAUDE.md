@@ -52,10 +52,24 @@ Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
   - `audience`: any of `clients`, `candidates`, `consultants`, `partners`
   - `linkedin`: ready-to-post copy; the story page has a "Copy LinkedIn Post" button
   - `anonymized: true` when client details are withheld for confidentiality
-  - `sample: true` marks prototype content (shows a "Sample" label); replace before launch
+  - `sample: true` marks prototype content (shows a "Sample" label); replace before launch.
+    **Hiding samples:** set `HIDE_SAMPLE_STORIES` = `true` in Vercel (TS
+    Website, Production) and redeploy: production builds then leave out every
+    sample story. Default (not set): samples still show, so Insights isn't
+    empty before real stories are approved. `astro dev` always shows them.
+    Rule in `src/story-filter.ts` (unit-tested).
   - `draft: true` hides the story from production builds
+  - `image`: a photo id from `src/data/photo-credits.ts` (see "Photos")
 - Stories appear on their industry page, the homepage, `/insights` and in RSS:
   `/insights/rss.xml`, `/insights/<industry-id>/rss.xml`, `/insights/company/rss.xml`.
+- **No empty story areas (owner, Oct 1, 2026):** an area with no stories
+  disappears entirely (no heading, no "coming soon"): the homepage's News &
+  Insights section, an industry page's Insights section, the /insights filter
+  buttons for industries (or Company News) with no stories, and "All" when
+  there's only one kind. With no stories at all, the Insights menu and footer
+  links go and `/insights` forwards to the homepage. Each comes back on the
+  next build once a story arrives (Markdown or TS Workspace feed). The RSS
+  files are always built (an empty feed is valid, so subscriptions keep working).
 - Naming client companies or consultants requires written approval.
 - **Stories from TS Workspace (Website Insights and Company News, Oct 2026):**
   approved posts come from TS Workspace, not from files here. Each week
@@ -147,28 +161,39 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Logo files in `public/`: `logo.svg`, `logo-white.svg` (mark + wordmark, no
   tagline), `mark.svg`, `mark-white.svg`, `favicon.svg`, rebuilt as vectors from
   the 2018 Illustrator EPS files.
-- **Photos** (stock for launch, owner Oct 1, 2026; see "Photos" below). A
-  `.photo` block without a photo shows the brand graphic (blue/aqua with the
-  chevron); the Insights banner, the 404 page and story thumbnails still do.
+- **Photos only on Insights stories** (owner, Oct 1, 2026: "I wanted pics in
+  Insights instead of sample, but the rest of the site I wanted left alone";
+  see "Photos" below). Every other `.photo` block (banners, the "Need Support"
+  band, homepage, Company, industry, Services, Careers and job pages, 404)
+  shows the brand graphic (blue/aqua with the chevron). Don't add photos
+  elsewhere without the owner asking.
 - `public/og-default.png` is the default LinkedIn preview; regenerate with
   `npm run og-image` after editing `scripts/og-image.html`.
 
 ## Photos
+- **Used only on Insights stories** (owner's rule, Oct 1, 2026: leave the
+  rest of the site's design alone): the photo on each story card (`/insights`,
+  the homepage's Insights section, an industry page's stories, "More ...
+  Insights" under a story) and at the top of each story page.
 - **Where they live:** `public/photos/<name>-<width>.webp`, two widths each
-  (1920/960 for banners, 1600/800 for the CTA band, 1200/600 for photos
-  beside text), cropped to 16:9 or 4:3 and kept under about 300 KB. Never
-  hotlinked.
+  (1920/960, 1600/800 or 1200/600), cropped to 16:9 or 4:3 and kept under
+  about 300 KB. Never hotlinked.
 - **One list:** `src/data/photo-credits.ts` holds every photo: file name,
   widths, shape, what it shows, photographer, source page, license, where it
   is used and an optional `focus` (which part to keep when cropped).
   `<Photo id="...">` (`src/components/Photo.astro`) draws one: `srcset`,
-  width/height (no layout shift), lazy unless `eager` (banners).
-- **Where each goes:** `<Banner photo="...">` (eager, under a dark navy wash
-  in `global.css` so white text keeps its contrast; the brand chevron sits on
-  top), `<CtaBand photo="...">` (default `fiber-patch-panel`), `<Photo>`
-  inside the `.photo` blocks on the homepage ("Why") and Company page, and
-  `photo:` in each industry's Markdown file (`src/content/industries/`).
-  An unknown id stops the build.
+  width/height (no layout shift), lazy unless `eager` (the story page's).
+- **Which photo a story gets:** `src/story-photo.ts` (`storyPhoto`, used
+  through `photoOf` in `src/lib.ts`; unit-tested). A Markdown story's
+  `image:` frontmatter names a photo id (an unknown id stops the build).
+  Without one (every story from TS Workspace today) a photo is picked from
+  the story's industry pool (`storyPhotoPools`: life sciences, data centers,
+  enterprise technology; company news gets the team photos), chosen by a hash
+  of the story's address; `assignStoryPhotos` (run by `getStories()`) then
+  steps past the photos of the cards next to it, in the full list and
+  within its industry, so neighbouring cards never repeat a photo. If TS Workspace later sends its own image, pass it
+  through `storyData` (`src/feed.ts`) as `image`; `storyPhoto` already
+  prefers it. LinkedIn previews of stories keep `og-default.png`.
 - **Today's photos** are Pexels stock (Pexels License: free for commercial
   use, no attribution required; we credit anyway on `/photo-credits`). Chosen
   for real project settings (plants, process equipment, data center halls,
@@ -182,7 +207,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   widths as WebP (e.g. with `sharp`, already installed: crop to the same
   shape, quality about 60), save them as `public/photos/<new-name>-<width>.webp`,
   add an entry to `photo-credits.ts` (creator "Technical Source", license
-  "Owned by Technical Source"), point the page at the new id, and delete the
+  "Owned by Technical Source"), point the story (or the pool) at the new id, and delete the
   stock files and entry it replaces. Photos of clients' sites or of people
   need their permission.
 - **Finding stock photos from a Claude session:** pexels.com and unsplash.com
@@ -493,8 +518,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   Webmaster Tools and submit the sitemap.
 - Replace sample stories (real posts now come from TS Workspace's Website
   Insights: `ATS_STORIES_URL` and the deploy hook are set, see "Stories").
-  **Photos: stock photos for now** (owner, Oct 1, 2026), in place on every
-  page except the Insights banner, the 404 page and story thumbnails (see
+  **Photos: stock photos on Insights stories only** (owner, Oct 1, 2026; see
   "Photos"); swap in our own project and team photos when we have them.
 - [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
   the owner is its admin) and email (info@technicalsource.com) confirmed

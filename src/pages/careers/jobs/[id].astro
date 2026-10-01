@@ -38,7 +38,7 @@ const posting = job && {
 ---
 {job ? (
   <Base title={`${job.title} | Careers`} description={job.summary || `${job.title}: an open position with ${site.name}.`} extraSchema={[posting]}>
-    <Banner eyebrow={location ? `Open Position · ${location}` : 'Open Position'} compact photo="electrical-testing">
+    <Banner eyebrow={location ? `Open Position · ${location}` : 'Open Position'} compact>
       <h1>{job.title}</h1>
       {job.subtitle && <p class="banner-sub">{job.subtitle}</p>}
       <div class="row">
@@ -71,7 +71,7 @@ const posting = job && {
   </Base>
 ) : (
   <Base title="Position Not Found | Careers" description="This position is no longer open.">
-    <Banner eyebrow="Careers" compact photo="electrical-testing">
+    <Banner eyebrow="Careers" compact>
       <h1>This position is <span class="hl">no longer open.</span></h1>
       <p class="banner-sub">It may have been filled or closed. See what’s open now.</p>
       <div class="row"><a class="btn btn-green" href="/careers#jobs">Search Open Positions</a></div>

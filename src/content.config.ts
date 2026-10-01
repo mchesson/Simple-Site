@@ -4,6 +4,7 @@ import { z } from 'astro/zod';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fetchFeed, storyData, storyHtml } from './feed';
+import { photos } from './data/photo-credits';
 
 // One Markdown file per industry in src/content/industries. Adding a file adds
 // the industry everywhere: menu, homepage row, industry page, footer, forms,
@@ -28,8 +29,6 @@ const industries = defineCollection({
     focus: z.array(z.object({ title: z.string(), body: z.string() })),
     /** "Expertise we bring": disciplines, phrased as capabilities. */
     expertise: z.array(z.string()),
-    /** Banner photo: an id from src/data/photo-credits.ts (leave out for the brand graphic). */
-    photo: z.string().optional(),
     draft: z.boolean().default(false),
   }),
 });

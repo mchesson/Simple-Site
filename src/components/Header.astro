@@ -1,11 +1,12 @@
 ---
-import { getIndustries } from '../lib';
-const industries = await getIndustries();
+import { getIndustries, hasStories } from '../lib';
+const [industries, insights] = await Promise.all([getIndustries(), hasStories()]);
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const links = [
   { href: '/company', label: 'Company' },
   { href: '/services', label: 'Services' },
-  { href: '/insights', label: 'Insights' },
+  // Insights only while there are stories to read.
+  ...(insights ? [{ href: '/insights', label: 'Insights' }] : []),
   { href: '/careers', label: 'Careers' },
 ];
 const current = (href: string) => (path.startsWith(href) ? 'page' : undefined);
@@ -36,7 +37,7 @@ const current = (href: string) => (path.startsWith(href) ? 'page' : undefined);
         <span class="label">Industries</span>
         {industries.map((i) => <a class="sub" href={`/industries/${i.id}`}>{i.data.name}</a>)}
         <a href="/services">Services</a>
-        <a href="/insights">Insights</a>
+        {insights && <a href="/insights">Insights</a>}
         <a href="/careers">Careers</a>
         <a class="btn btn-primary" href="/contact">Contact Us</a>
       </nav>

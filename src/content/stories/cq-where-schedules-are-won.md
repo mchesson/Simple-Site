@@ -4,6 +4,7 @@ date: 2026-09-08
 summary: "C&Q comes late in a capital project, which is exactly why gaps there hit the launch date hardest."
 industry: life-sciences
 type: insight
+image: capsule-filling
 audience: [clients, candidates]
 sample: true
 linkedin: |

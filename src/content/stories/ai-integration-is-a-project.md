@@ -4,6 +4,7 @@ date: 2026-08-18
 summary: "Enterprise AI succeeds or fails on implementation. Treating it as a project with a finish line changes how you plan it."
 industry: enterprise-technology
 type: insight
+image: developer-workstation
 audience: [clients, candidates]
 sample: true
 linkedin: |
