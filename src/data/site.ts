@@ -10,6 +10,9 @@ export const site = {
   // Google Analytics 4 (property "technicalsource.com", created Oct 1, 2026).
   // Not secret: it's in every page. Loaded only on production deployments.
   ga4: 'G-EBTTZVYNL1',
+  // LinkedIn Insight Tag partner ID (Campaign Manager ad account 558375778,
+  // added Oct 1, 2026). Not secret. Loaded only on production deployments.
+  linkedinPartnerId: '9789842',
   // Crelate job portal. The site lists jobs and takes applications itself;
   // this is only the fallback when the job list is switched off.
   jobsPortal: 'https://jobs.crelate.com/portal/technicalsource',
