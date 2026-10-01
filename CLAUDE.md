@@ -25,8 +25,8 @@ and consistent with this file.
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
 | `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
-| `/privacy-policy` | `src/pages/privacy-policy.astro` | Privacy Policy, rewritten Oct 2026 (forms → email, Crelate, TS Workspace; chat assistant; GA4 + LinkedIn Insight Tag; local storage; data kept in the U.S.; no selling, shared only with service providers, at your request or when the law requires). "Last updated October 2026". **Counsel review pending before launch** |
-| `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | **Terms of Use** (the old address is kept): short, plain terms written Oct 2026 (content, job postings, the chat assistant, what you send us, acceptable use, no warranties, North Carolina law). No privacy content: it links the Privacy Policy. "Last updated October 2026". **Counsel review pending before launch** |
+| `/privacy-policy` | `src/pages/privacy-policy.astro` | Privacy Policy, rewritten Oct 2026 (forms → email, Crelate, TS Workspace; chat assistant; GA4 + LinkedIn Insight Tag; local storage; data kept in the U.S.; no selling, shared only with service providers, at your request or when the law requires). "Last updated October 2026". Counsel review waived by the owner (Oct 1, 2026) |
+| `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | **Terms of Use** (the old address is kept): short, plain terms written Oct 2026 (content, job postings, the chat assistant, what you send us, acceptable use, no warranties, North Carolina law). No privacy content: it links the Privacy Policy. "Last updated October 2026". Counsel review waived by the owner (Oct 1, 2026) |
 | `/employee-resources` | `src/pages/employee-resources.astro` | Sign-in links for consultants (Paychex Flex, ExpenseWire, Concur, ADP), same targets as the old page |
 | `/photo-credits` | `src/pages/photo-credits.astro` | Every photo with its photographer, source page and license, from `src/data/photo-credits.ts`. Linked from the footer's bottom row |
 | `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role and passes the job id, `?job=<Crelate id>`, so the referral reaches TS Workspace with the job and goes to its recruiter) |
@@ -534,7 +534,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Each page needs a unique `title` and `description` passed to `Base`.
 
 ## Before launch
-- **Jobs test, start to finish (owner, Oct 1, 2026; pending):** an
+- [x] **Jobs test, start to finish (owner, Oct 1, 2026; passed Oct 1, 2026:
+  test req 1329 showed on the site and the owner's application reached the
+  req in Crelate, after the phone-format fix, PR #49):** an
   account manager posts a real job in Crelate on the portal. Check it
   appears on /careers within about 5 minutes, apply to it with a test
   application, confirm it reaches the inbox, Crelate (an application on
@@ -552,8 +554,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   (owner, Oct 1, 2026).
 - [x] Old WordPress URLs forwarded (`redirects`, Oct 2026).
 - [x] Privacy Policy fixed and a short, plain Terms of Use written (owner,
-  Oct 1, 2026). **Counsel review pending** for `/privacy-policy` and
-  `/terms-and-conditions` before launch. If forms or the chat start sending
+  Oct 1, 2026). **No counsel review before launch** (owner, Oct 1, 2026: "I don't need
+  legal review") for `/privacy-policy` and `/terms-and-conditions`. If forms or the chat start sending
   data somewhere new (or anywhere outside the U.S.), update the policy.
 
 ## Switching technicalsource.com from WordPress, with a way back
