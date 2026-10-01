@@ -81,7 +81,7 @@ describe('POST /api/apply', () => {
     const apply = crelateCalls().find((c) => c.url.pathname.endsWith('/jobs/job-1/apply'))!;
     expect(apply.method).toBe('POST');
     const form = apply.body as FormData;
-    expect(JSON.parse(String(form.get('applicant')))).toEqual({ FirstName: 'Ann', LastName: 'Lee', Email_Personal: 'ann@example.com', Phone_Mobile: '9195551234', ContactSourceId: { Id: 'src-web' } });
+    expect(JSON.parse(String(form.get('applicant')))).toEqual({ FirstName: 'Ann', LastName: 'Lee', Email_Personal: 'ann@example.com', Phone_Mobile: '+19195551234', ContactSourceId: { Id: 'src-web' } });
     expect((form.get('resumeFile') as File).name).toBe('cv.pdf');
 
     // Crelate made it a contact: the visitor's details go on as a note about the job.
@@ -201,7 +201,7 @@ describe('POST /api/refer', () => {
     expect(crelateCalls().some((c) => c.method === 'GET' && c.url.pathname.endsWith('/contacts'))).toBe(false);
     const created = crelateCalls().find((c) => c.method === 'POST' && c.url.pathname.endsWith('/contacts'))!;
     expect(created.body.entity.EmailAddresses_Personal).toBeUndefined();
-    expect(created.body.entity.PhoneNumbers_Mobile.Value).toBe('(919) 555-0100');
+    expect(created.body.entity.PhoneNumbers_Mobile.Value).toBe('+19195550100');
   });
 
   it('requires the referrer, how they know us, a way to reach the person and the "they know" tick', async () => {

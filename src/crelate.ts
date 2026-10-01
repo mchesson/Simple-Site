@@ -231,6 +231,19 @@ export const recruitingStages = hourly(async (): Promise<{ id: string; name: str
  *  candidate). Returns its Id. Reusing the existing record avoids duplicates
  *  when someone applies twice or is already in Crelate; an existing contact
  *  who applies for a job is also marked as a candidate. */
+/**
+ * A phone Crelate will accept: +1 and 10 digits for a US number. Crelate
+ * refuses anything else (e.g. a mistyped 11-digit number), and that refusal
+ * used to lose the whole application in Crelate, so an unreadable number is
+ * left out here (the team email and TS Workspace still get it as typed).
+ */
+export function crelatePhone(v?: string): string | undefined {
+  const d = String(v ?? '').replace(/\D/g, '');
+  if (d.length === 10) return `+1${d}`;
+  if (d.length === 11 && d.startsWith('1')) return `+${d}`;
+  return undefined;
+}
+
 export async function createContact(p: { firstName: string; lastName: string; email?: string; phone?: string; kind: 'candidate' | 'client' }): Promise<string> {
   const bit = RECORD_TYPE[p.kind];
   // Without an email (a referral may give only a phone) there's nothing safe to match on: always a new contact.
@@ -250,7 +263,7 @@ export async function createContact(p: { firstName: string; lastName: string; em
     LastName: p.lastName,
     RecordType: bit,
     ...(p.email && { EmailAddresses_Personal: { Value: p.email, IsPrimary: true } }),
-    ...(p.phone && { PhoneNumbers_Mobile: { Value: p.phone, IsPrimary: true } }),
+    ...(crelatePhone(p.phone) && { PhoneNumbers_Mobile: { Value: crelatePhone(p.phone), IsPrimary: true } }),
     ...(sourceId && { ContactSourceId: { Id: sourceId } }),
   };
   const id = idOf(await crelate('contacts', { method: 'POST', body: { entity } }));
@@ -267,7 +280,7 @@ export async function applyToJob(jobId: string, p: { firstName: string; lastName
     FirstName: p.firstName,
     LastName: p.lastName,
     Email_Personal: p.email,
-    ...(p.phone && { Phone_Mobile: p.phone }),
+    ...(crelatePhone(p.phone) && { Phone_Mobile: crelatePhone(p.phone) }),
     ...(sourceId && { ContactSourceId: { Id: sourceId } }),
   };
   const form = new FormData();
