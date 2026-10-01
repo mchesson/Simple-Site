@@ -6,7 +6,9 @@
 //    them and how they know us. Crelate has no referral record we can link,
 //    so the referrer lives in the note.
 // 3. Sends it to TS Workspace (src/ats.ts) as type "referral", alongside
-//    Crelate, where it shows under Applicants with "Referred by".
+//    Crelate, where it shows under Applicants with "Referred by". A referral
+//    from a job page ("Refer Them", /refer?job=<id>) carries that job, so TS
+//    Workspace can send it to the job's recruiter.
 // The visitor sees success if any one of them worked.
 import type { APIRoute } from 'astro';
 import { isConfigured, createContact, addNote, uploadResume, CrelateError } from '../../crelate';
@@ -15,6 +17,7 @@ import { json, readForm, clean, validEmail, back } from './_shared';
 import { describeSource, sourceAttribution } from '../../source';
 import { atsConfigured, sendToAts, newExternalId, type ReferrerRelationship } from '../../ats';
 import { RELATIONSHIPS, linkedinUrl } from '../../referral';
+import { jobPath, publicJobs } from '../../jobs';
 
 export const prerender = false;
 
@@ -46,6 +49,7 @@ export const POST: APIRoute = async ({ request }) => {
     role: clean(data.role, 200),
     message: clean(data.message, 4000),
     page: clean(data.page, 300),
+    jobId: clean(data.jobId, 60),
   };
   const theyKnow = ['on', 'true', 'yes'].includes(clean(data.theyKnow, 10).toLowerCase());
   const resume = files.resume;
@@ -66,6 +70,9 @@ export const POST: APIRoute = async ({ request }) => {
   }
 
   const linkedin = linkedinUrl(f.linkedin);
+  // From a job page: only a published job counts; its public title is used.
+  const job = f.jobId && isConfigured() ? await publicJobs().then((all) => all.find((j) => j.id === f.jobId), () => undefined) : undefined;
+  const siteUrl = (process.env.SITE_URL || new URL(request.url).origin).replace(/\/$/, '');
   const referrer = `${r.firstName} ${r.lastName}`;
   const details = [
     `Referral: ${f.firstName} ${f.lastName}`,
@@ -73,6 +80,7 @@ export const POST: APIRoute = async ({ request }) => {
     `Phone: ${f.phone || 'not given'}`,
     `LinkedIn: ${linkedin || 'not given'}`,
     `Kind of work: ${f.role || 'not given'}`,
+    job ? `Referred for: ${job.title} (${siteUrl}${jobPath(job)})` : null,
     `Resume: ${resume ? resume.name : 'not attached'}`,
     '',
     `Referred by: ${referrer}`,
@@ -90,7 +98,7 @@ export const POST: APIRoute = async ({ request }) => {
 
   const emailed = mailConfigured()
     ? await sendMail({
-        subject: `Referral: ${f.firstName} ${f.lastName} (from ${referrer})`, text: details, replyTo: r.email,
+        subject: `Referral: ${f.firstName} ${f.lastName}${job ? ` for ${job.title}` : ''} (from ${referrer})`, text: details, replyTo: r.email,
         ...(resume && bytes && { attachments: [{ filename: resume.name, content: bytes }] }),
       }).then(() => true, (e) => (log('email', e), false))
     : false;
@@ -103,6 +111,7 @@ export const POST: APIRoute = async ({ request }) => {
     contact: { firstName: f.firstName, lastName: f.lastName, email: f.email, phone: f.phone },
     message: f.message,
     page: f.page,
+    job: job ? { id: job.id, title: job.title, url: `${siteUrl}${jobPath(job)}` } : f.jobId ? { id: f.jobId } : undefined,
     referral: {
       referrer: { firstName: r.firstName, lastName: r.lastName, email: r.email, phone: r.phone },
       relationship: r.relationship,

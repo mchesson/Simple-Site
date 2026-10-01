@@ -64,7 +64,7 @@ const posting = job && {
         <h2>Apply for This Position</h2>
         <p class="lede">Send us your details and resume. A member of our team will review your application and be in touch.</p>
         <ApplyForm jobId={job.id} />
-        <p class="refer-line">Know someone who’d be a fit for this role? <a href={`/refer?role=${encodeURIComponent(job.title)}`}>Refer Them</a></p>
+        <p class="refer-line">Know someone who’d be a fit for this role? <a href={`/refer?role=${encodeURIComponent(job.title)}&job=${encodeURIComponent(job.id)}`}>Refer Them</a></p>
         <p class="back"><a href="/careers#jobs">← Back to All Open Positions</a></p>
       </div>
     </section>
