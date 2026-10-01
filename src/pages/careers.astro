@@ -62,6 +62,7 @@ const reasons = [
       <h2>Not Looking Right Now?</h2>
       <p class="lede">Send us your resume and we’ll reach out when a project fits your experience.</p>
       <ApplyForm button="Submit Your Resume" success="Thank you. We’ve received your resume and will reach out when a project fits your experience." />
+      <p class="refer-line">Know someone who’d be a great fit? <a href="/refer">Refer Someone</a></p>
     </div>
   </section>
 </Base>
@@ -122,6 +123,7 @@ const reasons = [
   search(true);
 </script>
 <style>
+  .refer-line { margin-top: 1.5rem; color: var(--muted); }
   .reasons { margin-top: 1.5rem; }
   .search { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1.25rem; }
   .search .btn { flex: 0 0 auto; }

@@ -64,6 +64,7 @@ const posting = job && {
         <h2>Apply for This Position</h2>
         <p class="lede">Send us your details and resume. A member of our team will review your application and be in touch.</p>
         <ApplyForm jobId={job.id} />
+        <p class="refer-line">Know someone who’d be a fit for this role? <a href={`/refer?role=${encodeURIComponent(job.title)}`}>Refer Them</a></p>
         <p class="back"><a href="/careers#jobs">← Back to All Open Positions</a></p>
       </div>
     </section>
@@ -104,6 +105,7 @@ const posting = job && {
 
   .narrow { max-width: 44rem; }
   .narrow :global(.apply-form) { margin-top: 1.5rem; }
+  .refer-line { margin-top: 1.5rem; color: var(--muted); }
   .back { margin-top: 2rem; font-weight: 600; }
   .back a { text-decoration: none; }
   .back a:hover { text-decoration: underline; }

@@ -13,11 +13,13 @@
 import { randomUUID } from 'node:crypto';
 import type { Attribution } from './source';
 
-export type AtsType = 'inquiry' | 'application' | 'resume' | 'chat';
+export type AtsType = 'inquiry' | 'application' | 'resume' | 'chat' | 'referral';
+export type ReferrerRelationship = 'contractor' | 'former_contractor' | 'client' | 'other';
 export type AtsPayload = {
   type: AtsType;
   externalId: string;
   submittedAt: string;
+  /** For a referral, the person being referred (email or phone; email may be empty). */
   contact: { firstName: string; lastName: string; email: string; phone?: string; company?: string; location?: string };
   industry?: string;
   service?: string;
@@ -25,6 +27,14 @@ export type AtsPayload = {
   job?: { id: string; title?: string; url?: string };
   jobSeeker?: boolean;
   transcript?: { role: 'user' | 'assistant'; text: string }[];
+  /** Referrals only: who referred them, how they know us, and their confirmation. */
+  referral?: {
+    referrer: { firstName: string; lastName: string; email: string; phone?: string };
+    relationship: ReferrerRelationship;
+    theyKnow: true;
+    role?: string;
+    linkedin?: string;
+  };
   page?: string;
   attribution?: Attribution;
 };

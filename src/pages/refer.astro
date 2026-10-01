@@ -1,0 +1,100 @@
+---
+// Refer Someone: anyone can recommend a person to us. Posts to /api/refer
+// (team email, Crelate candidate + note, TS Workspace "referral").
+import Base from '../layouts/Base.astro';
+import { RELATIONSHIPS } from '../referral';
+---
+<Base title="Refer Someone" description="Know someone who would be a great fit for project work? Refer them to Technical Source.">
+  <section class="sec">
+    <div class="wrap split">
+      <div>
+        <span class="eyebrow">Refer Someone</span>
+        <h1>Know someone we should meet?</h1>
+        <p class="lede">If you know a skilled professional who would do great work on our projects, tell us about them. A recruiter will reach out to them directly.</p>
+        <ul class="checks info">
+          <li>Anyone can refer: people working with us now, people who have worked with us, clients and friends of Technical Source.</li>
+          <li>Please let them know you’re referring them before you send this.</li>
+          <li>A resume helps, but it’s optional.</li>
+        </ul>
+        <p class="job">Looking for work yourself? <a href="/careers#jobs">Search Open Jobs</a></p>
+      </div>
+      <form class="form refer-form" action="/api/refer" method="post" enctype="multipart/form-data" data-form
+        data-success="Thank you for the referral. A recruiter will reach out to them, and we may follow up with you.">
+        <fieldset>
+          <legend>About You</legend>
+          <div class="pair">
+            <label>First name<input name="refFirstName" autocomplete="given-name" required /></label>
+            <label>Last name<input name="refLastName" autocomplete="family-name" required /></label>
+          </div>
+          <div class="pair">
+            <label>Email<input name="refEmail" type="email" autocomplete="email" required /></label>
+            <label><span>Phone <span class="hint">Optional</span></span><input name="refPhone" type="tel" autocomplete="tel" /></label>
+          </div>
+          <label>How do you know us?
+            <select name="relationship" required>
+              <option value="">Choose one</option>
+              {Object.entries(RELATIONSHIPS).map(([id, label]) => <option value={id}>{label}</option>)}
+            </select>
+          </label>
+        </fieldset>
+        <fieldset>
+          <legend>The Person You’re Referring</legend>
+          <div class="pair">
+            <label>First name<input name="firstName" autocomplete="off" required /></label>
+            <label>Last name<input name="lastName" autocomplete="off" required /></label>
+          </div>
+          <div class="pair">
+            <label>Email<input name="email" type="email" autocomplete="off" /></label>
+            <label>Phone<input name="phone" type="tel" autocomplete="off" /></label>
+          </div>
+          <p class="hint field-hint">An email or a phone number is enough.</p>
+          <label><span>LinkedIn <span class="hint">Optional</span></span><input name="linkedin" autocomplete="off" placeholder="linkedin.com/in/their-name" /></label>
+          <label>What kind of work do they do?<input name="role" placeholder="e.g. CQV engineer, electrical commissioning" /></label>
+          <label><span>Resume <span class="hint">Optional. PDF or Word, up to 4 MB</span></span>
+            <input name="resume" type="file" accept=".pdf,.doc,.docx,.rtf,.txt" />
+          </label>
+          <label><span>Anything we should know <span class="hint">Optional</span></span><textarea name="message" rows="4" placeholder="How you know them, what they’re great at, when they’re available"></textarea></label>
+        </fieldset>
+        <label class="tick"><input type="checkbox" name="theyKnow" required /> <span>They know I’m referring them.</span></label>
+        <input type="hidden" name="page" value="/refer" />
+        <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off" /></label></div>
+        <button class="btn btn-primary" type="submit">Send Referral</button>
+        <p class="status" role="status" hidden></p>
+      </form>
+    </div>
+  </section>
+</Base>
+<script>
+  import '../scripts/forms.ts';
+  // The person needs an email or a phone: ask for one before sending.
+  const form = document.querySelector<HTMLFormElement>('.refer-form');
+  const email = form?.querySelector<HTMLInputElement>('input[name="email"]');
+  const phone = form?.querySelector<HTMLInputElement>('input[name="phone"]');
+  const check = () => {
+    if (!email || !phone) return;
+    email.setCustomValidity(email.value.trim() || phone.value.trim() ? '' : 'Please add an email or a phone number for the person you’re referring.');
+  };
+  email?.addEventListener('input', check);
+  phone?.addEventListener('input', check);
+  form?.addEventListener('submit', check, { capture: true });
+  check();
+  // "Refer Them" on a job page passes its title (?role=...).
+  const role = new URLSearchParams(location.search).get('role');
+  const roleInput = form?.querySelector<HTMLInputElement>('input[name="role"]');
+  if (role && roleInput && !roleInput.value) roleInput.value = role.slice(0, 200);
+</script>
+<style>
+  .split { display: grid; gap: 3rem; grid-template-columns: 1fr 1fr; align-items: start; }
+  @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }
+  h1 { font-size: clamp(2.2rem, 4.5vw, 3.4rem); }
+  .info { margin-top: 2rem; }
+  .job { margin-top: 2rem; color: var(--muted); }
+  fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 1rem; min-width: 0; }
+  legend { font-family: var(--font-head); font-size: 1.35rem; font-weight: 600; color: var(--ink); padding: 0; margin-bottom: 1rem; }
+  fieldset + fieldset { margin-top: 1rem; }
+  .hint { font-weight: 400; color: var(--muted); font-size: .85rem; margin-left: .35rem; }
+  .field-hint { margin: -.5rem 0 0; margin-left: 0; }
+  .refer-form input[type='file'] { padding: .6rem .7rem; background: #fff; }
+  .tick { display: flex !important; align-items: flex-start; gap: .6rem; font-weight: 600; }
+  .tick input { width: 1.15rem; height: 1.15rem; padding: 0; margin: .15rem 0 0; flex: none; accent-color: var(--blue); }
+</style>
