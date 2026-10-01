@@ -273,7 +273,7 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   (published titles and status fields), `?check=4` (links on the public
   portal page).
 - `/api/jobs` pages through every Crelate job (100 per request, 5 at a time,
-  up to 10,000; Vercel `maxDuration: 60`), cached 10 minutes per instance.
+  up to 10,000; Vercel `maxDuration: 60`), cached 3 minutes per instance, and 1 minute at Vercel's edge (owner, Oct 1, 2026: a job closed in Crelate must leave the site quickly; about 5 minutes at most).
 - **Forms deliver by email first, then Crelate and TS Workspace** (side by
   side; see "TS Workspace intake"). The visitor sees success if any of them
   worked:

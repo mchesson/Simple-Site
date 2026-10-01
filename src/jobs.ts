@@ -9,9 +9,9 @@ export const jobsEnabled = () => process.env.JOBS_LIST_ENABLED === 'true';
 
 let cache: { at: number; raw: any[]; capped: boolean } | null = null;
 const PAGE = 100, MAX = 10000, PARALLEL = 5;
-/** Every job in Crelate (paged, a few pages at a time), cached for 10 minutes. */
+/** Every job in Crelate (paged, a few pages at a time), cached for 3 minutes (a closed job leaves the site within about 5). */
 export async function allJobs(): Promise<{ raw: any[]; capped: boolean }> {
-  if (cache && Date.now() - cache.at < 10 * 60 * 1000) return cache;
+  if (cache && Date.now() - cache.at < 3 * 60 * 1000) return cache;
   const raw: any[] = [];
   let done = false;
   for (let offset = 0; offset < MAX && !done; offset += PAGE * PARALLEL) {
