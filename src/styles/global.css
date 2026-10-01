@@ -100,7 +100,7 @@ a.card:hover h3 { color: var(--blue); }
   background: var(--aqua); clip-path: var(--chev);
 }
 
-/* Brand graphic used wherever a photo will go */
+/* Brand graphic used wherever a photo will go (only Insights stories put a <Photo> in it) */
 .photo {
   position: relative; overflow: hidden; border-radius: var(--radius); min-height: 18rem;
   background:

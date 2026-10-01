@@ -3,6 +3,7 @@ title: "Technical Source Celebrates 11 Years"
 date: 2026-09-15
 summary: "More than a decade of supporting complex technical projects, and a new look to go with it."
 type: company-news
+image: team-working-session
 audience: [clients, candidates, consultants, partners]
 sample: true
 linkedin: |

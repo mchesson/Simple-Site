@@ -4,6 +4,7 @@ date: 2026-08-28
 summary: "AI demand is compressing data center delivery windows, and commissioning is where the pressure shows."
 industry: data-centers
 type: insight
+image: data-center-aisle
 audience: [clients, candidates]
 sample: true
 linkedin: |

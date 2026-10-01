@@ -25,13 +25,14 @@ and consistent with this file.
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
 | `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
-| `/privacy-policy` | `src/pages/privacy-policy.astro` | Ported from the old WordPress Privacy Policy, updated for this site (forms → email, Crelate, TS Workspace; chat assistant; GA4 + LinkedIn Insight Tag; local storage). "Last updated October 2026". **Owner/counsel review before launch** |
-| `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | Ported from the old WordPress Terms & Conditions (which read like a privacy notice). **Owner/counsel review before launch** |
+| `/privacy-policy` | `src/pages/privacy-policy.astro` | Privacy Policy, rewritten Oct 2026 (forms → email, Crelate, TS Workspace; chat assistant; GA4 + LinkedIn Insight Tag; local storage; data kept in the U.S.; no selling, shared only with service providers, at your request or when the law requires). "Last updated October 2026". **Counsel review pending before launch** |
+| `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | **Terms of Use** (the old address is kept): short, plain terms written Oct 2026 (content, job postings, the chat assistant, what you send us, acceptable use, no warranties, North Carolina law). No privacy content: it links the Privacy Policy. "Last updated October 2026". **Counsel review pending before launch** |
 | `/employee-resources` | `src/pages/employee-resources.astro` | Sign-in links for consultants (Paychex Flex, ExpenseWire, Concur, ADP), same targets as the old page |
+| `/photo-credits` | `src/pages/photo-credits.astro` | Every photo with its photographer, source page and license, from `src/data/photo-credits.ts`. Linked from the footer's bottom row |
 | `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role) |
 
-The footer's bottom row links Privacy Policy, Terms and Conditions and
-Employee Resources.
+The footer's bottom row links Privacy Policy, Terms of Use, Employee
+Resources and Photo Credits.
 
 **One address per page, no trailing slash** (`trailingSlash: 'never'`):
 Vercel forwards `/company/` to `/company` (308); canonical links and the
@@ -67,11 +68,53 @@ purpose. The old site had no blog posts and no job pages of its own.
   - `audience`: any of `clients`, `candidates`, `consultants`, `partners`
   - `linkedin`: ready-to-post copy; the story page has a "Copy LinkedIn Post" button
   - `anonymized: true` when client details are withheld for confidentiality
-  - `sample: true` marks prototype content (shows a "Sample" label); replace before launch
+  - `sample: true` marks prototype content (shows a "Sample" label); replace before launch.
+    **Hiding samples:** set `HIDE_SAMPLE_STORIES` = `true` in Vercel (TS
+    Website, Production) and redeploy: production builds then leave out every
+    sample story. Default (not set): samples still show, so Insights isn't
+    empty before real stories are approved. `astro dev` always shows them.
+    Rule in `src/story-filter.ts` (unit-tested).
   - `draft: true` hides the story from production builds
+  - `image`: a photo id from `src/data/photo-credits.ts` (see "Photos")
 - Stories appear on their industry page, the homepage, `/insights` and in RSS:
   `/insights/rss.xml`, `/insights/<industry-id>/rss.xml`, `/insights/company/rss.xml`.
+- **No empty story areas (owner, Oct 1, 2026):** an area with no stories
+  disappears entirely (no heading, no "coming soon"): the homepage's News &
+  Insights section, an industry page's Insights section, the /insights filter
+  buttons for industries (or Company News) with no stories, and "All" when
+  there's only one kind. With no stories at all, the Insights menu and footer
+  links go and `/insights` forwards to the homepage. Each comes back on the
+  next build once a story arrives (Markdown or TS Workspace feed). The RSS
+  files are always built (an empty feed is valid, so subscriptions keep working).
 - Naming client companies or consultants requires written approval.
+- **Stories from TS Workspace (Website Insights and Company News, Oct 2026):**
+  approved posts come from TS Workspace, not from files here. Each week
+  TS Workspace picks articles about major projects per industry and drafts
+  Company News from what staff enter; the owner approves by email or in
+  TS Workspace (/insights). Approved ones are read from its public feed
+  (`ATS_STORIES_URL`, https://tsworkspace.com/api/public/stories) **when
+  the site builds**, by the `feedStories` collection
+  (`src/content.config.ts`, reader and checks in `src/feed.ts`), and show
+  everywhere Markdown stories do (homepage, industry pages, /insights, story
+  pages, all RSS feeds). `getStories()` in `src/lib.ts` merges both; use its
+  `Story` type, not `CollectionEntry<'stories'>`.
+  - An insight is our own short write-up, never a copy: the page says "Our
+    summary of an article from <source>" with "Read the original at
+    <source>" (top and bottom, `rel="noopener nofollow"`), then "What It
+    Means" (our take). Company news has no source.
+  - Feed text is plain text and is escaped (`storyHtml`); only http/https
+    source links. Bad stories are skipped one by one; a Markdown story with
+    the same address wins; an industry the site doesn't have is skipped.
+  - **Within minutes:** TS Workspace calls a Vercel **deploy hook** for this
+    project on every approval, edit or withdrawal (its
+    `WEBSITE_DEPLOY_HOOK_URL`). Without the hook, new approvals show at the
+    next deploy.
+  - **Never breaks the build:** without `ATS_STORIES_URL`, or if TS
+    Workspace is down or answers nonsense, the site builds with the Markdown
+    stories (keeping the last good feed when Astro's cache has one). A
+    "collection feedStories ... is empty" warning in the build log is normal
+    then.
+  - To change a feed story, edit or withdraw it in TS Workspace, not here.
 
 ## Positioning (internal reference, never site wording)
 Source: the confidential "Defining Our Lane" strategy deck (June 2026).
@@ -134,10 +177,60 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Logo files in `public/`: `logo.svg`, `logo-white.svg` (mark + wordmark, no
   tagline), `mark.svg`, `mark-white.svg`, `favicon.svg`, rebuilt as vectors from
   the 2018 Illustrator EPS files.
-- Photos: every `.photo` block is a brand-graphic placeholder. Drop an `<img>`
-  inside it once real photography is available (project sites, team, office).
+- **Photos only on Insights stories** (owner, Oct 1, 2026: "I wanted pics in
+  Insights instead of sample, but the rest of the site I wanted left alone";
+  see "Photos" below). Every other `.photo` block (banners, the "Need Support"
+  band, homepage, Company, industry, Services, Careers and job pages, 404)
+  shows the brand graphic (blue/aqua with the chevron). Don't add photos
+  elsewhere without the owner asking.
 - `public/og-default.png` is the default LinkedIn preview; regenerate with
   `npm run og-image` after editing `scripts/og-image.html`.
+
+## Photos
+- **Used only on Insights stories** (owner's rule, Oct 1, 2026: leave the
+  rest of the site's design alone): the photo on each story card (`/insights`,
+  the homepage's Insights section, an industry page's stories, "More ...
+  Insights" under a story) and at the top of each story page.
+- **Where they live:** `public/photos/<name>-<width>.webp`, two widths each
+  (1920/960, 1600/800 or 1200/600), cropped to 16:9 or 4:3 and kept under
+  about 300 KB. Never hotlinked.
+- **One list:** `src/data/photo-credits.ts` holds every photo: file name,
+  widths, shape, what it shows, photographer, source page, license, where it
+  is used and an optional `focus` (which part to keep when cropped).
+  `<Photo id="...">` (`src/components/Photo.astro`) draws one: `srcset`,
+  width/height (no layout shift), lazy unless `eager` (the story page's).
+- **Which photo a story gets:** `src/story-photo.ts` (`storyPhoto`, used
+  through `photoOf` in `src/lib.ts`; unit-tested). A Markdown story's
+  `image:` frontmatter names a photo id (an unknown id stops the build).
+  Without one (every story from TS Workspace today) a photo is picked from
+  the story's industry pool (`storyPhotoPools`: life sciences, data centers,
+  enterprise technology; company news gets the team photos), chosen by a hash
+  of the story's address; `assignStoryPhotos` (run by `getStories()`) then
+  steps past the photos of the cards next to it, in the full list and
+  within its industry, so neighbouring cards never repeat a photo. If TS Workspace later sends its own image, pass it
+  through `storyData` (`src/feed.ts`) as `image`; `storyPhoto` already
+  prefers it. LinkedIn previews of stories keep `og-default.png`.
+- **Today's photos** are Pexels stock (Pexels License: free for commercial
+  use, no attribution required; we credit anyway on `/photo-credits`). Chosen
+  for real project settings (plants, process equipment, data center halls,
+  construction, engineers at work), no staffing clichés, no readable company
+  logos, no close-up portraits.
+- **Credits rule:** every photo on the site has an entry in
+  `photo-credits.ts`, so it appears on `/photo-credits` (footer link). A
+  CC BY / CC BY-SA photo must keep its credit there; never use NC or ND
+  licenses.
+- **Replacing with our own photos later:** export the photo, make the two
+  widths as WebP (e.g. with `sharp`, already installed: crop to the same
+  shape, quality about 60), save them as `public/photos/<new-name>-<width>.webp`,
+  add an entry to `photo-credits.ts` (creator "Technical Source", license
+  "Owned by Technical Source"), point the story (or the pool) at the new id, and delete the
+  stock files and entry it replaces. Photos of clients' sites or of people
+  need their permission.
+- **Finding stock photos from a Claude session:** pexels.com and unsplash.com
+  pages are blocked here, but the image server `images.pexels.com` works:
+  find photo page URLs with a web search (`site:pexels.com/photo ...`), then
+  download `https://images.pexels.com/photos/<id>/pexels-photo-<id>.jpeg`
+  and look at it before using it. Wikimedia refuses this environment.
 
 ## Crelate (ATS + CRM) and form email
 - **Visitors never leave the site.** They search jobs, read postings and apply
@@ -349,7 +442,19 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   (`sourceAttribution` in `src/source.ts`; see "TS Workspace intake").
 
 ## Analytics
-- GA4 + LinkedIn Insight Tag to be added at launch.
+- **Google Analytics 4 (added Oct 1, 2026):** account "Technical Source",
+  property technicalsource.com (Eastern time, USD), web stream ID
+  `G-EBTTZVYNL1` in `src/data/site.ts` (`ga4`). `Base.astro` loads it only
+  when `VERCEL_ENV` is `production`, so previews and local builds don't
+  count. The owner signs in at analytics.google.com with their work-email
+  Google account. No Measurement Protocol API secret is used.
+- **LinkedIn Insight Tag (added Oct 1, 2026):** partner ID `9789842`
+  (`site.linkedinPartnerId`), Campaign Manager ad account 558375778 (no
+  payment card, so "On hold"; no ads run). Loaded before `</body>` only
+  on production deployments. Shows which companies and job titles visit
+  (in Campaign Manager, after about 300 visitors); a "Website form sent"
+  sales-lead conversion was started there. The paid service that names
+  visiting companies is decided later (owner, Oct 1, 2026).
 
 ## Hosting
 - Vercel team **teksourcetalent**, project **simple-site**, connected to this
@@ -406,6 +511,12 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Checks: `/api/apply?check=1` includes `tsWorkspace: { url, key }`
   (true/false only); `/api/apply?check=2` tests the connection with the key
   (the ATS answers `{ ok: true }`, a wrong key 401).
+- **Stories feed (read, not sent):** approved Website Insights and Company
+  News come back from TS Workspace's public `GET /api/public/stories` at
+  build time (see "Stories"). Setting: `ATS_STORIES_URL` (plain, not
+  secret: the feed is public). TS Workspace rebuilds the site through a
+  Vercel deploy hook (Settings → Git → Deploy Hooks, branch `master`), whose
+  URL is set in TS Workspace as `WEBSITE_DEPLOY_HOOK_URL`.
 - Not sent (the site doesn't collect them): `pagesViewed` (only a page count
   is kept), industry and service for applications and chats.
   `industryOfInterest` is the remembered industry id in words
@@ -426,20 +537,18 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Set `ALLOW_INDEXING=true` and point `SITE_URL` at the real domain.
 - Add the domain in Vercel; verify it in Google Search Console and Bing
   Webmaster Tools and submit the sitemap.
-- Replace sample stories and photo placeholders. **Photos: use stock
-  photos for now** (owner, Oct 1, 2026): free-for-commercial-use libraries
-  (Unsplash, Pexels), downloaded into `public/` (never hotlinked), real
-  project settings (plants, data centers, engineers at work), no
-  staffing clichés (handshakes, people in suits pointing at screens).
-  Record each photo's source page in `src/data/photo-credits.ts`. Claude's
-  environment needs `images.unsplash.com`, `unsplash.com`, `pexels.com`
-  and `images.pexels.com` in its network access to fetch them.
-- Confirm the official LinkedIn URL and email in `src/data/site.ts`.
+- Replace sample stories (real posts now come from TS Workspace's Website
+  Insights: `ATS_STORIES_URL` and the deploy hook are set, see "Stories").
+  **Photos: stock photos on Insights stories only** (owner, Oct 1, 2026; see
+  "Photos"); swap in our own project and team photos when we have them.
+- [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
+  the owner is its admin) and email (info@technicalsource.com) confirmed
+  (owner, Oct 1, 2026).
 - [x] Old WordPress URLs forwarded (`redirects`, Oct 2026).
-- Owner/counsel to review `/privacy-policy` and `/terms-and-conditions`.
-  The privacy policy says the site uses Google Analytics and the LinkedIn
-  Insight Tag: add them at launch (or change the policy). If forms or the
-  chat start sending data somewhere new, update the policy.
+- [x] Privacy Policy fixed and a short, plain Terms of Use written (owner,
+  Oct 1, 2026). **Counsel review pending** for `/privacy-policy` and
+  `/terms-and-conditions` before launch. If forms or the chat start sending
+  data somewhere new (or anywhere outside the U.S.), update the policy.
 
 ## Switching technicalsource.com from WordPress, with a way back
 The old WordPress site runs on technicalsource.com today; this site
@@ -473,7 +582,8 @@ WordPress quickly if this site breaks. The plan:
 ## Showing the site in chat
 `npm run preview:file` builds the site and packs it into one self-contained
 `preview.html` (all pages, CSS, fonts, logos inlined; hash-based links). Send that
-file to the user under a new file name each time (viewers cache by name). If you
+file to the user under a new file name each time (viewers cache by name).
+Photos are inlined at their small width (about 7 MB in all). If you
 change a page script, mirror it in `scripts/preview-runtime.js`. Forms and
 the chat only work on the live site (the chat bubble stays hidden in the
 preview).
@@ -493,7 +603,8 @@ preview).
   anything stays hidden.
 
 ## Tests
-- `npm test` runs everything: unit tests (`tests/`, Vitest) for job posting
+- `npm test` runs everything: unit tests (`tests/`, Vitest) for the TS
+  Workspace stories feed (`tests/feed.test.ts`), job posting
   parsing, the Crelate privacy allowlist, location search, the form
   endpoints (Crelate and email faked, key only in the header), the TS
   Workspace intake (`tests/ats.test.ts`: each form's payload, missing

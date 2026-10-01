@@ -63,15 +63,17 @@ const stories = (await getStories()).slice(0, 3);
     </div>
   </section>
 
-  <section class="sec">
-    <div class="wrap">
-      <div class="row head">
-        <div><span class="eyebrow">Insights</span><h2>News & Insights</h2></div>
-        <a class="btn btn-outline" href="/insights">All Insights</a>
+  {stories.length > 0 && (
+    <section class="sec">
+      <div class="wrap">
+        <div class="row head">
+          <div><span class="eyebrow">Insights</span><h2>News & Insights</h2></div>
+          <a class="btn btn-outline" href="/insights">All Insights</a>
+        </div>
+        <StoryGrid stories={stories} sortByVisitor />
       </div>
-      <StoryGrid stories={stories} sortByVisitor />
-    </div>
-  </section>
+    </section>
+  )}
 
   <CareersStrip />
   <CtaBand />

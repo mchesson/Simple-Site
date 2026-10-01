@@ -1,7 +1,7 @@
 ---
-import { getIndustries } from '../lib';
+import { getIndustries, hasStories } from '../lib';
 import { site } from '../data/site';
-const industries = await getIndustries();
+const [industries, insights] = await Promise.all([getIndustries(), hasStories()]);
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer">
@@ -19,7 +19,7 @@ const year = new Date().getFullYear();
       <ul>
         <li><a href="/company">About Us</a></li>
         <li><a href="/services">Services</a></li>
-        <li><a href="/insights">Insights</a></li>
+        {insights && <li><a href="/insights">Insights</a></li>}
         <li><a href="/contact">Contact</a></li>
       </ul>
     </nav>
@@ -35,7 +35,7 @@ const year = new Date().getFullYear();
   </div>
   <div class="wrap"><div class="legal">
     <p>© {year} Technical Source. All rights reserved.</p>
-    <ul class="small"><li><a href="/privacy-policy">Privacy Policy</a></li><li><a href="/terms-and-conditions">Terms and Conditions</a></li><li><a href="/employee-resources">Employee Resources</a></li></ul>
+    <ul class="small"><li><a href="/privacy-policy">Privacy Policy</a></li><li><a href="/terms-and-conditions">Terms of Use</a></li><li><a href="/employee-resources">Employee Resources</a></li><li><a href="/photo-credits">Photo Credits</a></li></ul>
   </div></div>
 </footer>
 

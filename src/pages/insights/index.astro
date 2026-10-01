@@ -3,8 +3,13 @@ import Base from '../../layouts/Base.astro';
 import Banner from '../../components/Banner.astro';
 import StoryGrid from '../../components/StoryGrid.astro';
 import { getIndustries, getStories } from '../../lib';
+import { storyFilters } from '../../story-filter';
 const [stories, industries] = await Promise.all([getStories(), getIndustries()]);
-const filters = [{ id: 'all', label: 'All' }, ...industries.map((i) => ({ id: i.id, label: i.data.name })), { id: 'company', label: 'Company News' }];
+// No stories at all: the page isn't shown (the menus hide their Insights link too).
+if (stories.length === 0) return Astro.redirect('/');
+// Only industries that have stories get a button; "All" only when there's a choice.
+const has = storyFilters(industries.map((i) => ({ id: i.id, name: i.data.name })), stories.map((s) => ({ industry: s.data.industry?.id })));
+const filters = has.length > 1 ? [{ id: 'all', label: 'All' }, ...has] : [];
 ---
 <Base title="Insights" description="News and insights from Technical Source.">
   <Banner eyebrow="Insights" compact>
@@ -13,9 +18,11 @@ const filters = [{ id: 'all', label: 'All' }, ...industries.map((i) => ({ id: i.
   </Banner>
   <section class="sec">
     <div class="wrap">
-      <div class="filters" role="group" aria-label="Filter by industry">
-        {filters.map((f) => <button type="button" data-filter={f.id} aria-pressed={f.id === 'all' ? 'true' : 'false'}>{f.label}</button>)}
-      </div>
+      {filters.length > 0 && (
+        <div class="filters" role="group" aria-label="Filter by industry">
+          {filters.map((f) => <button type="button" data-filter={f.id} aria-pressed={f.id === 'all' ? 'true' : 'false'}>{f.label}</button>)}
+        </div>
+      )}
       <StoryGrid stories={stories} id="stories" />
       <p class="empty" hidden>No stories here yet.</p>
     </div>

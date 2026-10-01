@@ -3,10 +3,16 @@ export const site = {
   tagline: 'Connecting Talent. Delivering Excellence.',
   description:
     'Technical Source provides the expertise and teams behind complex technical projects in life sciences, data centers and enterprise technology.',
-  // TODO(confirm): two LinkedIn company pages exist publicly; confirm the official one.
+  // Official company page; the owner is its admin (confirmed Oct 1, 2026).
   linkedin: 'https://www.linkedin.com/company/technical-source-llc',
-  // TODO(confirm): general inbox shown in public listings. No phone numbers on the site.
+  // General inbox (confirmed by the owner, Oct 1, 2026). No phone numbers on the site.
   email: 'info@technicalsource.com',
+  // Google Analytics 4 (property "technicalsource.com", created Oct 1, 2026).
+  // Not secret: it's in every page. Loaded only on production deployments.
+  ga4: 'G-EBTTZVYNL1',
+  // LinkedIn Insight Tag partner ID (Campaign Manager ad account 558375778,
+  // added Oct 1, 2026). Not secret. Loaded only on production deployments.
+  linkedinPartnerId: '9789842',
   // Crelate job portal. The site lists jobs and takes applications itself;
   // this is only the fallback when the job list is switched off.
   jobsPortal: 'https://jobs.crelate.com/portal/technicalsource',
