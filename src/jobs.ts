@@ -4,6 +4,7 @@
 // the allowlisted public portal fields ever leave this file (see toPublicJob).
 import { crelate, listOf, isPublished, toPublicJob, type PublicJob } from './crelate';
 import { resolveLocation, jobPoint, miles, isRemote } from './geo';
+import { withFallback, parseSnapshot, type Saved } from './jobs-fallback';
 
 export const jobsEnabled = () => process.env.JOBS_LIST_ENABLED === 'true';
 
@@ -27,9 +28,31 @@ export async function allJobs(): Promise<{ raw: any[]; capped: boolean }> {
   return cache;
 }
 
-/** Published jobs, public fields only. */
-export async function publicJobs(): Promise<PublicJob[]> {
+/** Published jobs straight from Crelate, public fields only (no fallback: the build snapshot uses this). */
+export async function freshPublicJobs(): Promise<PublicJob[]> {
   return (await allJobs()).raw.filter(isPublished).map(toPublicJob);
+}
+
+let lastGood: Saved | null = null;
+let snapshotRead: Promise<Saved | null> | null = null;
+/** The list saved at the site's last build (public fields only), read once per server. */
+function buildSnapshot(): Promise<Saved | null> {
+  snapshotRead ??= (async () => {
+    const base = process.env.SITE_URL || 'https://technicalsource.com';
+    const res = await fetch(`${base}/jobs-snapshot.json`, { signal: AbortSignal.timeout(5000) });
+    return res.ok ? parseSnapshot(await res.json()) : null;
+  })().catch(() => { snapshotRead = null; return null; });
+  return snapshotRead;
+}
+
+/** Published jobs, public fields only. When Crelate can't be read, the last list read (see jobs-fallback.ts). */
+export async function publicJobs(): Promise<PublicJob[]> {
+  const { jobs } = await withFallback(freshPublicJobs, {
+    memory: () => lastGood,
+    remember: (s) => { lastGood = s; },
+    snapshot: buildSnapshot,
+  });
+  return jobs;
 }
 
 const slugify = (s: string) => s.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70);
