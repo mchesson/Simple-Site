@@ -57,6 +57,34 @@ Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
 - Stories appear on their industry page, the homepage, `/insights` and in RSS:
   `/insights/rss.xml`, `/insights/<industry-id>/rss.xml`, `/insights/company/rss.xml`.
 - Naming client companies or consultants requires written approval.
+- **Stories from TS Workspace (Website Insights and Company News, Oct 2026):**
+  approved posts come from TS Workspace, not from files here. Each week
+  TS Workspace picks articles about major projects per industry and drafts
+  Company News from what staff enter; the owner approves by email or in
+  TS Workspace (/insights). Approved ones are read from its public feed
+  (`ATS_STORIES_URL`, https://tsworkspace.com/api/public/stories) **when
+  the site builds**, by the `feedStories` collection
+  (`src/content.config.ts`, reader and checks in `src/feed.ts`), and show
+  everywhere Markdown stories do (homepage, industry pages, /insights, story
+  pages, all RSS feeds). `getStories()` in `src/lib.ts` merges both; use its
+  `Story` type, not `CollectionEntry<'stories'>`.
+  - An insight is our own short write-up, never a copy: the page says "Our
+    summary of an article from <source>" with "Read the original at
+    <source>" (top and bottom, `rel="noopener nofollow"`), then "What It
+    Means" (our take). Company news has no source.
+  - Feed text is plain text and is escaped (`storyHtml`); only http/https
+    source links. Bad stories are skipped one by one; a Markdown story with
+    the same address wins; an industry the site doesn't have is skipped.
+  - **Within minutes:** TS Workspace calls a Vercel **deploy hook** for this
+    project on every approval, edit or withdrawal (its
+    `WEBSITE_DEPLOY_HOOK_URL`). Without the hook, new approvals show at the
+    next deploy.
+  - **Never breaks the build:** without `ATS_STORIES_URL`, or if TS
+    Workspace is down or answers nonsense, the site builds with the Markdown
+    stories (keeping the last good feed when Astro's cache has one). A
+    "collection feedStories ... is empty" warning in the build log is normal
+    then.
+  - To change a feed story, edit or withdraw it in TS Workspace, not here.
 
 ## Positioning (internal reference, never site wording)
 Source: the confidential "Defining Our Lane" strategy deck (June 2026).
@@ -430,6 +458,12 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Checks: `/api/apply?check=1` includes `tsWorkspace: { url, key }`
   (true/false only); `/api/apply?check=2` tests the connection with the key
   (the ATS answers `{ ok: true }`, a wrong key 401).
+- **Stories feed (read, not sent):** approved Website Insights and Company
+  News come back from TS Workspace's public `GET /api/public/stories` at
+  build time (see "Stories"). Setting: `ATS_STORIES_URL` (plain, not
+  secret: the feed is public). TS Workspace rebuilds the site through a
+  Vercel deploy hook (Settings → Git → Deploy Hooks, branch `master`), whose
+  URL is set in TS Workspace as `WEBSITE_DEPLOY_HOOK_URL`.
 - Not sent (the site doesn't collect them): `pagesViewed` (only a page count
   is kept), industry and service for applications and chats.
   `industryOfInterest` is the remembered industry id in words
@@ -450,10 +484,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Set `ALLOW_INDEXING=true` and point `SITE_URL` at the real domain.
 - Add the domain in Vercel; verify it in Google Search Console and Bing
   Webmaster Tools and submit the sitemap.
-- Replace sample stories. **Photos: stock photos for now** (owner, Oct 1,
-  2026), in place on every page except the Insights banner, the 404 page
-  and story thumbnails (see "Photos"); swap in our own project and team
-  photos when we have them.
+- Replace sample stories (real posts now come from TS Workspace's Website
+  Insights: `ATS_STORIES_URL` and the deploy hook are set, see "Stories").
+  **Photos: stock photos for now** (owner, Oct 1, 2026), in place on every
+  page except the Insights banner, the 404 page and story thumbnails (see
+  "Photos"); swap in our own project and team photos when we have them.
 - [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
   the owner is its admin) and email (info@technicalsource.com) confirmed
   (owner, Oct 1, 2026).
@@ -512,7 +547,8 @@ preview).
   anything stays hidden.
 
 ## Tests
-- `npm test` runs everything: unit tests (`tests/`, Vitest) for job posting
+- `npm test` runs everything: unit tests (`tests/`, Vitest) for the TS
+  Workspace stories feed (`tests/feed.test.ts`), job posting
   parsing, the Crelate privacy allowlist, location search, the form
   endpoints (Crelate and email faked, key only in the header), the TS
   Workspace intake (`tests/ats.test.ts`: each form's payload, missing

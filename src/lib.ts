@@ -8,13 +8,23 @@ export async function getIndustries() {
   return all.sort((a, b) => a.data.order - b.data.order);
 }
 
-/** Published stories, newest first. Drafts show only in `astro dev`. */
-export async function getStories() {
-  const all = await getCollection('stories', visible);
+/** A Markdown story, or an approved one from TS Workspace (src/feed.ts). */
+export type Story = CollectionEntry<'stories'> | CollectionEntry<'feedStories'>;
+
+/** The original article an insight from TS Workspace summarizes (Markdown stories have none). */
+export const sourceOf = (s: Story) => ('source' in s.data ? s.data.source : undefined);
+
+/**
+ * Published stories, newest first: the Markdown files plus the approved
+ * stories from TS Workspace. Drafts show only in `astro dev`.
+ */
+export async function getStories(): Promise<Story[]> {
+  const [md, feed] = await Promise.all([getCollection('stories', visible), getCollection('feedStories', visible)]);
+  const all: Story[] = [...md, ...feed];
   return all.sort((a, b) => b.data.date.valueOf() - a.data.date.valueOf());
 }
 
-export const typeLabel: Record<CollectionEntry<'stories'>['data']['type'], string> = {
+export const typeLabel: Record<Story['data']['type'], string> = {
   'company-news': 'Company News',
   insight: 'Insight',
   'case-study': 'Case Study',

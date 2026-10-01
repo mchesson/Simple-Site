@@ -1,7 +1,7 @@
 ---
-import type { CollectionEntry } from 'astro:content';
 import StoryCard from './StoryCard.astro';
-interface Props { stories: CollectionEntry<'stories'>[]; id?: string; sortByVisitor?: boolean }
+import type { Story } from '../lib';
+interface Props { stories: Story[]; id?: string; sortByVisitor?: boolean }
 const { stories, id, sortByVisitor = false } = Astro.props;
 ---
 <ul class="story-grid" id={id} data-industry-sort={sortByVisitor ? '' : undefined}>
