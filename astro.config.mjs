@@ -2,6 +2,7 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import vercel from '@astrojs/vercel';
+import { securityHeadersIntegration } from './src/security-headers.mjs';
 
 export default defineConfig({
   // Styles are small: put them in each page so it can draw without waiting.
@@ -9,7 +10,10 @@ export default defineConfig({
   // Set SITE_URL on the host for test copies (e.g. https://teksourcetalent.com)
   // so canonical and LinkedIn share links point at that copy.
   site: process.env.SITE_URL || 'https://technicalsource.com',
-  integrations: [sitemap()],
+  // securityHeadersIntegration: frame, sniffing, referrer and permissions
+  // headers on every route (src/security-headers.mjs). It runs after the
+  // Vercel adapter (Astro runs the adapter's hooks first).
+  integrations: [sitemap(), securityHeadersIntegration()],
   // One address per page, without a trailing slash: Vercel forwards /company/
   // to /company (308). Old WordPress links all end in a slash, so this also
   // makes the redirects below answer for them.
