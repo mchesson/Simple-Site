@@ -4,11 +4,14 @@ If the new site on technicalsource.com breaks, this puts the old WordPress
 site back. It changes only the two **website** records at GoDaddy. Email
 (Microsoft 365) is never touched, before, during or after.
 
-## Saved before the switch (fill in from the owner's GoDaddy screenshots)
+## Saved before the switch (read Oct 1, 2026 through Vercel's domain check)
 | Record | Type | Old value (WordPress) | New value (Vercel) |
 |---|---|---|---|
-| `@` (technicalsource.com) | A | _from screenshot_ | _from Vercel_ |
-| `www` | CNAME or A | _from screenshot_ | _from Vercel_ |
+| `@` (technicalsource.com) | A | `51.161.116.70` | `216.150.1.1` and `216.150.16.1` (two A records) |
+| `www` | CNAME | `technicalsource.com` (points at `@`) | `45d2f71ac51bfe29.vercel-dns-016.com` |
+
+If Vercel's newer addresses ever give trouble, its older single address
+`76.76.21.21` (A) and `cname.vercel-dns.com` (CNAME) also work.
 
 Also kept: the WordPress backup file (owner's OneDrive), and the full list of
 every DNS record as screenshots. WordPress hosting stays paid and untouched
@@ -26,10 +29,11 @@ The site is back to that version within a minute. Claude can also do this.
 ## Option 2: go back to WordPress completely (5–15 minutes)
 1. Sign in to **godaddy.com** → **My Products** → **technicalsource.com** →
    **DNS** (Manage DNS).
-2. Find the record **Type A, Name `@`**. Click the pencil (Edit). Change
-   **Value** to the old WordPress value in the table above. Save.
-3. Find the record **Name `www`**. Edit it back to the old value and the old
-   type from the table (if it was a CNAME, it goes back to a CNAME). Save.
+2. Find the **Type A, Name `@`** record(s). Delete the second one if there
+   are two, then edit the remaining one (pencil icon) so **Value** is
+   `51.161.116.70`. Save.
+3. Find the **Name `www`** record (CNAME). Edit **Value** back to
+   `technicalsource.com` (GoDaddy may show it as `@`). Save.
 4. **Do not change anything else**: no MX, TXT, SPF, DKIM, DMARC,
    autodiscover or `_vercel` records.
 5. Wait 5–15 minutes (the TTL was lowered to 5 minutes before the switch).
