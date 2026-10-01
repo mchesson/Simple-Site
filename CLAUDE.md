@@ -25,10 +25,26 @@ and consistent with this file.
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
 | `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
-| `/photo-credits` | `src/pages/photo-credits.astro` | Every photo with its photographer, source page and license, from `src/data/photo-credits.ts`. Linked from the footer's bottom line |
+| `/privacy-policy` | `src/pages/privacy-policy.astro` | Privacy Policy, rewritten Oct 2026 (forms → email, Crelate, TS Workspace; chat assistant; GA4 + LinkedIn Insight Tag; local storage; data kept in the U.S.; no selling, shared only with service providers, at your request or when the law requires). "Last updated October 2026". **Counsel review pending before launch** |
+| `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | **Terms of Use** (the old address is kept): short, plain terms written Oct 2026 (content, job postings, the chat assistant, what you send us, acceptable use, no warranties, North Carolina law). No privacy content: it links the Privacy Policy. "Last updated October 2026". **Counsel review pending before launch** |
+| `/employee-resources` | `src/pages/employee-resources.astro` | Sign-in links for consultants (Paychex Flex, ExpenseWire, Concur, ADP), same targets as the old page |
+| `/photo-credits` | `src/pages/photo-credits.astro` | Every photo with its photographer, source page and license, from `src/data/photo-credits.ts`. Linked from the footer's bottom row |
 | `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role) |
 
-Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
+The footer's bottom row links Privacy Policy, Terms of Use, Employee
+Resources and Photo Credits.
+
+**One address per page, no trailing slash** (`trailingSlash: 'never'`):
+Vercel forwards `/company/` to `/company` (308); canonical links and the
+sitemap use the no-slash form.
+
+**Old WordPress URLs** (every page in the old site's sitemap, Oct 2026, plus
+its feed and XML sitemaps) forward permanently via `redirects` in
+`astro.config.mjs`. Old links end in a slash, so they take two hops
+(`/contact-us/` → `/contact-us` → `/contact`). `/company`, `/privacy-policy`,
+`/terms-and-conditions` and `/employee-resources` keep their old addresses.
+WordPress paths like `/wp-admin` and `/wp-login.php` are left to 404 on
+purpose. The old site had no blog posts and no job pages of its own.
 
 ## Industries: one file each
 - Each industry is a Markdown file in `src/content/industries/` (schema in
@@ -420,8 +436,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   `?utm_source=linkedin&utm_medium=social&utm_campaign=<post-name>`
   (add `&industry=<id>` for industry-specific links).
 - Anonymous visitors are not identified or tracked; visit counts and
-  sources for everyone come from analytics at launch. A privacy policy page
-  should mention this before launch.
+  sources for everyone come from analytics at launch. `/privacy-policy`
+  describes this ("Forms on Our Website").
 - The same data goes to TS Workspace with each lead as `attribution`
   (`sourceAttribution` in `src/source.ts`; see "TS Workspace intake").
 
@@ -534,7 +550,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
   the owner is its admin) and email (info@technicalsource.com) confirmed
   (owner, Oct 1, 2026).
-- Confirm the full list of old WordPress URLs for `redirects`.
+- [x] Old WordPress URLs forwarded (`redirects`, Oct 2026).
+- [x] Privacy Policy fixed and a short, plain Terms of Use written (owner,
+  Oct 1, 2026). **Counsel review pending** for `/privacy-policy` and
+  `/terms-and-conditions` before launch. If forms or the chat start sending
+  data somewhere new (or anywhere outside the U.S.), update the policy.
 
 ## Switching technicalsource.com from WordPress, with a way back
 The old WordPress site runs on technicalsource.com today; this site
