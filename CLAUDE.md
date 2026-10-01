@@ -454,7 +454,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   2026), in place on every page except the Insights banner, the 404 page
   and story thumbnails (see "Photos"); swap in our own project and team
   photos when we have them.
-- Confirm the official LinkedIn URL and email in `src/data/site.ts`.
+- [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
+  the owner is its admin) and email (info@technicalsource.com) confirmed
+  (owner, Oct 1, 2026).
 - Confirm the full list of old WordPress URLs for `redirects`.
 
 ## Switching technicalsource.com from WordPress, with a way back
