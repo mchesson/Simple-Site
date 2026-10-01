@@ -1,0 +1,45 @@
+---
+// Sign-in links for our consultants, carried over from the old WordPress
+// site's Employee Resources page (same link targets).
+import Base from '../layouts/Base.astro';
+import Banner from '../components/Banner.astro';
+const tools = [
+  { name: 'Paychex Flex', url: 'https://myapps.paychex.com/loginLite_remote/userlogin.do#/', c: 'var(--blue)' },
+  { name: 'ExpenseWire', url: 'https://web.expensewire.com/expensewire/SignInPage.aspx', c: 'var(--aqua)' },
+  { name: 'Concur', url: 'https://www.concursolutions.com/nui/signin', c: 'var(--energy)' },
+  { name: 'ADP', url: 'https://workforcenow.adp.com/workforcenow/login.html', c: 'var(--blue)' },
+];
+---
+<Base title="Employee Resources" description="Sign-in links for Technical Source consultants: payroll, timesheets and expenses.">
+  <Banner eyebrow="For Our Consultants" compact>
+    <h1>Employee Resources</h1>
+    <p class="banner-sub">Helpful links for our consultants to reach payroll, timesheets and expense accounts.</p>
+  </Banner>
+
+  <section class="sec">
+    <div class="wrap">
+      <ul class="grid tools">
+        {tools.map((t) => (
+          <li>
+            <a class="card" href={t.url} rel="noopener" style={`--c: ${t.c}`}>
+              <h2>{t.name}</h2>
+              <p>Sign In <span aria-hidden="true">→</span></p>
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p class="help">Contact your recruiter if you have any trouble accessing these resources.</p>
+    </div>
+  </section>
+</Base>
+<style>
+  /* Four links: 4 across, 2 by 2, or 1 per row, never a lone one on its own row. */
+  .tools { list-style: none; margin: 0; padding: 0; grid-template-columns: repeat(4, 1fr); gap: 2.25rem 3rem; }
+  @media (max-width: 1000px) { .tools { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .tools { grid-template-columns: 1fr; } }
+  .tools h2 { font-size: 1.6rem; margin-bottom: .4rem; }
+  .tools a { display: block; padding-bottom: .5rem; }
+  .tools a:hover h2 { color: var(--blue); }
+  .tools p { color: var(--blue); font-weight: 600; }
+  .help { margin: 3rem 0 0; color: var(--muted); font-size: 1.05rem; }
+</style>

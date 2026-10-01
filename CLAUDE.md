@@ -25,9 +25,25 @@ and consistent with this file.
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
 | `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
+| `/privacy-policy` | `src/pages/privacy-policy.astro` | Ported from the old WordPress Privacy Policy, updated for this site (forms → email, Crelate, TS Workspace; chat assistant; GA4 + LinkedIn Insight Tag; local storage). "Last updated October 2026". **Owner/counsel review before launch** |
+| `/terms-and-conditions` | `src/pages/terms-and-conditions.astro` | Ported from the old WordPress Terms & Conditions (which read like a privacy notice). **Owner/counsel review before launch** |
+| `/employee-resources` | `src/pages/employee-resources.astro` | Sign-in links for consultants (Paychex Flex, ExpenseWire, Concur, ADP), same targets as the old page |
 | `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role) |
 
-Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
+The footer's bottom row links Privacy Policy, Terms and Conditions and
+Employee Resources.
+
+**One address per page, no trailing slash** (`trailingSlash: 'never'`):
+Vercel forwards `/company/` to `/company` (308); canonical links and the
+sitemap use the no-slash form.
+
+**Old WordPress URLs** (every page in the old site's sitemap, Oct 2026, plus
+its feed and XML sitemaps) forward permanently via `redirects` in
+`astro.config.mjs`. Old links end in a slash, so they take two hops
+(`/contact-us/` → `/contact-us` → `/contact`). `/company`, `/privacy-policy`,
+`/terms-and-conditions` and `/employee-resources` keep their old addresses.
+WordPress paths like `/wp-admin` and `/wp-login.php` are left to 404 on
+purpose. The old site had no blog posts and no job pages of its own.
 
 ## Industries: one file each
 - Each industry is a Markdown file in `src/content/industries/` (schema in
@@ -327,8 +343,8 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   `?utm_source=linkedin&utm_medium=social&utm_campaign=<post-name>`
   (add `&industry=<id>` for industry-specific links).
 - Anonymous visitors are not identified or tracked; visit counts and
-  sources for everyone come from analytics at launch. A privacy policy page
-  should mention this before launch.
+  sources for everyone come from analytics at launch. `/privacy-policy`
+  describes this ("Forms on Our Website").
 - The same data goes to TS Workspace with each lead as `attribution`
   (`sourceAttribution` in `src/source.ts`; see "TS Workspace intake").
 
@@ -419,7 +435,11 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   environment needs `images.unsplash.com`, `unsplash.com`, `pexels.com`
   and `images.pexels.com` in its network access to fetch them.
 - Confirm the official LinkedIn URL and email in `src/data/site.ts`.
-- Confirm the full list of old WordPress URLs for `redirects`.
+- [x] Old WordPress URLs forwarded (`redirects`, Oct 2026).
+- Owner/counsel to review `/privacy-policy` and `/terms-and-conditions`.
+  The privacy policy says the site uses Google Analytics and the LinkedIn
+  Insight Tag: add them at launch (or change the policy). If forms or the
+  chat start sending data somewhere new, update the policy.
 
 ## Switching technicalsource.com from WordPress, with a way back
 The old WordPress site runs on technicalsource.com today; this site
