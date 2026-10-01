@@ -12,6 +12,7 @@ import Footer from '../components/Footer.astro';
 import Chat from '../components/Chat.astro';
 import { site } from '../data/site';
 import { getIndustries } from '../lib';
+import { jsonLd } from '../html';
 
 interface Props {
   title?: string;
@@ -71,7 +72,7 @@ const ogImage = new URL(image, Astro.site);
     <meta name="theme-color" content="#212121" />
     {!indexable && <meta name="robots" content="noindex, nofollow" />}
     {process.env.GOOGLE_SITE_VERIFICATION && <meta name="google-site-verification" content={process.env.GOOGLE_SITE_VERIFICATION} />}
-    <script type="application/ld+json" set:html={JSON.stringify(schema)} />
+    <script type="application/ld+json" set:html={jsonLd(schema)} />
     {analytics && <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${analytics}`}></script>}
     {analytics && <script is:inline define:vars={{ id: analytics }}>
       window.dataLayer = window.dataLayer || [];

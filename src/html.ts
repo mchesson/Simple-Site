@@ -1,6 +1,11 @@
 // Turns job descriptions from Crelate (rich-text HTML) into safe site content.
 // Used on the server only (src/crelate.ts).
 
+/** JSON for a <script type="application/ld+json"> block. Every "<" is written
+ *  as < (still the same JSON), so a job title or story title containing
+ *  "</script>" can never end the block and run as page script. */
+export const jsonLd = (value: unknown) => JSON.stringify(value).replace(/</g, '\\u003c');
+
 const NAMED: Record<string, string> = {
   nbsp: ' ', amp: '&', lt: '<', gt: '>', quot: '"', apos: "'",
   rsquo: '’', lsquo: '‘', rdquo: '”', ldquo: '“', ndash: '–', mdash: '—',
