@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import Banner from '../components/Banner.astro';
 import CtaBand from '../components/CtaBand.astro';
+import Photo from '../components/Photo.astro';
 import { site } from '../data/site';
 const values = [
   ['Candor', 'We tell you what we see and we do what we say.'],
@@ -12,7 +13,7 @@ const values = [
 ];
 ---
 <Base title="Company" description="Technical Source has supported complex technical projects for more than a decade.">
-  <Banner tagline compact>
+  <Banner tagline compact photo="construction-scaffolding">
     <h1>More than a decade behind <span class="hl">complex technical projects.</span></h1>
     <p class="banner-sub">We bring industry knowledge, experienced people and real accountability to projects where the work is technical and the stakes are high, wherever those projects are.</p>
   </Banner>
@@ -24,7 +25,7 @@ const values = [
         <h2>We lead with industry knowledge.</h2>
         <p class="lede">We take the time to understand your project, your standards and your schedule. Then we bring the right expertise to move the work forward.</p>
       </div>
-      <div class="photo" aria-hidden="true"></div>
+      <div class="photo" aria-hidden="true"><Photo id="team-working-session" sizes="(max-width: 900px) 100vw, 600px" /></div>
     </div>
   </section>
 
@@ -56,7 +57,7 @@ const values = [
         <h2>Supporting Projects Nationwide</h2>
         <p class="lede">Our people support projects across the country, wherever the work is.</p>
       </div>
-      <div class="photo" aria-hidden="true"></div>
+      <div class="photo" aria-hidden="true"><Photo id="tower-cranes-dusk" sizes="(max-width: 900px) 100vw, 600px" /></div>
     </div>
   </section>
 

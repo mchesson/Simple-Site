@@ -25,6 +25,7 @@ and consistent with this file.
 | `/careers` | `src/pages/careers.astro` | Kept low-key; job search in site style (`#jobs`); "Not Looking Right Now?" resume form |
 | `/careers/jobs/<title>-<id>` | `src/pages/careers/jobs/[id].astro` | One job in site style, rendered on request from Crelate, with its application form (`#apply`) |
 | `/contact` | `src/pages/contact.astro` | Form emails the team inbox and files in Crelate and TS Workspace |
+| `/photo-credits` | `src/pages/photo-credits.astro` | Every photo with its photographer, source page and license, from `src/data/photo-credits.ts`. Linked from the footer's bottom line |
 | `/refer` | `src/pages/refer.astro` | Refer Someone: anyone recommends a person (email, Crelate candidate + note, TS Workspace `referral`). Linked from the footer (Connect), Careers ("Not Looking Right Now?") and each job page ("Refer Them", which fills in the role) |
 
 Old WordPress URLs redirect via `redirects` in `astro.config.mjs`.
@@ -118,10 +119,49 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Logo files in `public/`: `logo.svg`, `logo-white.svg` (mark + wordmark, no
   tagline), `mark.svg`, `mark-white.svg`, `favicon.svg`, rebuilt as vectors from
   the 2018 Illustrator EPS files.
-- Photos: every `.photo` block is a brand-graphic placeholder. Drop an `<img>`
-  inside it once real photography is available (project sites, team, office).
+- **Photos** (stock for launch, owner Oct 1, 2026; see "Photos" below). A
+  `.photo` block without a photo shows the brand graphic (blue/aqua with the
+  chevron); the Insights banner, the 404 page and story thumbnails still do.
 - `public/og-default.png` is the default LinkedIn preview; regenerate with
   `npm run og-image` after editing `scripts/og-image.html`.
+
+## Photos
+- **Where they live:** `public/photos/<name>-<width>.webp`, two widths each
+  (1920/960 for banners, 1600/800 for the CTA band, 1200/600 for photos
+  beside text), cropped to 16:9 or 4:3 and kept under about 300 KB. Never
+  hotlinked.
+- **One list:** `src/data/photo-credits.ts` holds every photo: file name,
+  widths, shape, what it shows, photographer, source page, license, where it
+  is used and an optional `focus` (which part to keep when cropped).
+  `<Photo id="...">` (`src/components/Photo.astro`) draws one: `srcset`,
+  width/height (no layout shift), lazy unless `eager` (banners).
+- **Where each goes:** `<Banner photo="...">` (eager, under a dark navy wash
+  in `global.css` so white text keeps its contrast; the brand chevron sits on
+  top), `<CtaBand photo="...">` (default `fiber-patch-panel`), `<Photo>`
+  inside the `.photo` blocks on the homepage ("Why") and Company page, and
+  `photo:` in each industry's Markdown file (`src/content/industries/`).
+  An unknown id stops the build.
+- **Today's photos** are Pexels stock (Pexels License: free for commercial
+  use, no attribution required; we credit anyway on `/photo-credits`). Chosen
+  for real project settings (plants, process equipment, data center halls,
+  construction, engineers at work), no staffing clichés, no readable company
+  logos, no close-up portraits.
+- **Credits rule:** every photo on the site has an entry in
+  `photo-credits.ts`, so it appears on `/photo-credits` (footer link). A
+  CC BY / CC BY-SA photo must keep its credit there; never use NC or ND
+  licenses.
+- **Replacing with our own photos later:** export the photo, make the two
+  widths as WebP (e.g. with `sharp`, already installed: crop to the same
+  shape, quality about 60), save them as `public/photos/<new-name>-<width>.webp`,
+  add an entry to `photo-credits.ts` (creator "Technical Source", license
+  "Owned by Technical Source"), point the page at the new id, and delete the
+  stock files and entry it replaces. Photos of clients' sites or of people
+  need their permission.
+- **Finding stock photos from a Claude session:** pexels.com and unsplash.com
+  pages are blocked here, but the image server `images.pexels.com` works:
+  find photo page URLs with a web search (`site:pexels.com/photo ...`), then
+  download `https://images.pexels.com/photos/<id>/pexels-photo-<id>.jpeg`
+  and look at it before using it. Wikimedia refuses this environment.
 
 ## Crelate (ATS + CRM) and form email
 - **Visitors never leave the site.** They search jobs, read postings and apply
@@ -410,14 +450,10 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Set `ALLOW_INDEXING=true` and point `SITE_URL` at the real domain.
 - Add the domain in Vercel; verify it in Google Search Console and Bing
   Webmaster Tools and submit the sitemap.
-- Replace sample stories and photo placeholders. **Photos: use stock
-  photos for now** (owner, Oct 1, 2026): free-for-commercial-use libraries
-  (Unsplash, Pexels), downloaded into `public/` (never hotlinked), real
-  project settings (plants, data centers, engineers at work), no
-  staffing clichés (handshakes, people in suits pointing at screens).
-  Record each photo's source page in `src/data/photo-credits.ts`. Claude's
-  environment needs `images.unsplash.com`, `unsplash.com`, `pexels.com`
-  and `images.pexels.com` in its network access to fetch them.
+- Replace sample stories. **Photos: stock photos for now** (owner, Oct 1,
+  2026), in place on every page except the Insights banner, the 404 page
+  and story thumbnails (see "Photos"); swap in our own project and team
+  photos when we have them.
 - [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
   the owner is its admin) and email (info@technicalsource.com) confirmed
   (owner, Oct 1, 2026).
@@ -455,7 +491,8 @@ WordPress quickly if this site breaks. The plan:
 ## Showing the site in chat
 `npm run preview:file` builds the site and packs it into one self-contained
 `preview.html` (all pages, CSS, fonts, logos inlined; hash-based links). Send that
-file to the user under a new file name each time (viewers cache by name). If you
+file to the user under a new file name each time (viewers cache by name).
+Photos are inlined at their small width (about 7 MB in all). If you
 change a page script, mirror it in `scripts/preview-runtime.js`. Forms and
 the chat only work on the live site (the chat bubble stays hidden in the
 preview).

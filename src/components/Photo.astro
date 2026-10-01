@@ -1,0 +1,23 @@
+---
+// One photo from src/data/photo-credits.ts, as an <img> that fills its .photo
+// block (object-fit: cover). Decorative: the .photo block is aria-hidden.
+// `eager` for photos at the top of the page (banners); everything else lazy.
+import { getPhoto } from '../data/photo-credits';
+interface Props { id: string; eager?: boolean; sizes?: string }
+const { id, eager = false, sizes = '100vw' } = Astro.props;
+const p = getPhoto(id);
+const [large] = p.widths;
+const src = (w: number) => `/photos/${p.name}-${w}.webp`;
+---
+<img
+  src={src(large)}
+  srcset={p.widths.map((w) => `${src(w)} ${w}w`).join(', ')}
+  sizes={sizes}
+  width={large}
+  height={Math.round(large / p.aspect)}
+  alt=""
+  loading={eager ? 'eager' : 'lazy'}
+  fetchpriority={eager ? 'high' : undefined}
+  decoding="async"
+  style={p.focus ? `object-position: ${p.focus}` : undefined}
+/>
