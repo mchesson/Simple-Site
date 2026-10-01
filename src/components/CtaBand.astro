@@ -1,6 +1,9 @@
 ---
-interface Props { title?: string; body?: string; href?: string; label?: string }
+import Photo from './Photo.astro';
+// `photo` is an id from src/data/photo-credits.ts.
+interface Props { title?: string; body?: string; href?: string; label?: string; photo?: string }
 const {
+  photo = 'fiber-patch-panel',
   title = 'Need Support on Your Project?',
   body = 'Whether you need one specialist or a full team, tell us what you’re working on and we’ll show you how we can help.',
   href = '/contact',
@@ -8,7 +11,7 @@ const {
 } = Astro.props;
 ---
 <section class="banner cta">
-  <div class="photo" aria-hidden="true"></div>
+  <div class="photo" aria-hidden="true"><Photo id={photo} /></div>
   <div class="wrap row inner">
     <div><h2>{title}</h2><p>{body}</p></div>
     <a class="btn btn-green" href={href}>{label}</a>
@@ -16,6 +19,8 @@ const {
 </section>
 <style>
   .cta > .photo { opacity: .35; }
+  /* With a photo the banner wash keeps text readable; a little more photo shows. */
+  :global(.cta > .photo:has(img)) { opacity: .6; }
   .inner { justify-content: space-between; padding-block: 3.5rem; gap: 1.5rem; }
   h2 { margin: 0 0 .3rem; }
   p { margin: 0; color: #DDD; max-width: 44rem; }

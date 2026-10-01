@@ -100,7 +100,7 @@ a.card:hover h3 { color: var(--blue); }
   background: var(--aqua); clip-path: var(--chev);
 }
 
-/* Brand graphic used wherever a photo will go */
+/* Photo block: a photo (<Photo id=...>, src/data/photo-credits.ts) or, without one, this brand graphic */
 .photo {
   position: relative; overflow: hidden; border-radius: var(--radius); min-height: 18rem;
   background:
@@ -117,6 +117,17 @@ a.card:hover h3 { color: var(--blue); }
 /* Banner */
 .banner { position: relative; isolation: isolate; overflow: hidden; background: var(--ink); color: #fff; }
 .banner > .photo { position: absolute; inset: 0; border-radius: 0; min-height: 0; opacity: .55; z-index: -1; }
+.photo img { z-index: 0; }
+/* Banner photos: full strength under a dark navy wash, darkest behind the
+   text, so white text keeps its contrast over any part of the photo. The
+   brand chevron stays on top. */
+.banner > .photo:has(img) { opacity: 1; }
+.banner > .photo:has(img)::before { z-index: 2; background: rgb(255 255 255 / .09); }
+.banner > .photo:has(img)::after {
+  content: ''; position: absolute; inset: 0; z-index: 1;
+  background: linear-gradient(100deg, rgb(14 26 40 / .86) 0%, rgb(14 26 40 / .74) 50%, rgb(13 60 100 / .5) 100%);
+}
+@media (max-width: 700px) { .banner > .photo:has(img)::after { background: rgb(14 26 40 / .78); } }
 .banner-in { padding-block: clamp(4.5rem, 10vw, 8rem); }
 .banner h1 { font-size: clamp(2.2rem, 4.6vw, 3.7rem); line-height: 1.22; letter-spacing: .005em; margin-bottom: 1.4rem; }
 .banner .hl { color: var(--energy); }

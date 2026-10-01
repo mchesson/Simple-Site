@@ -1,13 +1,15 @@
 ---
 // Dark full-width banner used at the top of every page. An optional
 // slot="aside" (the homepage's 3D chevron) sits to the right of the text.
-interface Props { tagline?: boolean; eyebrow?: string; compact?: boolean }
-const { tagline = false, eyebrow, compact = false } = Astro.props;
+// `photo` is an id from src/data/photo-credits.ts; without one the brand graphic shows.
+interface Props { tagline?: boolean; eyebrow?: string; compact?: boolean; photo?: string }
+const { tagline = false, eyebrow, compact = false, photo } = Astro.props;
 import { site } from '../data/site';
+import Photo from './Photo.astro';
 const aside = Astro.slots.has('aside');
 ---
 <section class:list={['banner', { compact }]}>
-  <div class="photo" aria-hidden="true"><slot name="photo" /></div>
+  <div class="photo" aria-hidden="true">{photo && <Photo id={photo} eager />}<slot name="photo" /></div>
   <div class:list={['wrap', 'banner-in', { split: aside }]}>
     <div>
       {tagline && <p class="tag">{site.tagline}</p>}

@@ -28,6 +28,8 @@ const industries = defineCollection({
     focus: z.array(z.object({ title: z.string(), body: z.string() })),
     /** "Expertise we bring": disciplines, phrased as capabilities. */
     expertise: z.array(z.string()),
+    /** Banner photo: an id from src/data/photo-credits.ts (leave out for the brand graphic). */
+    photo: z.string().optional(),
     draft: z.boolean().default(false),
   }),
 });
