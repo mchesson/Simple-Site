@@ -288,6 +288,12 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   (field names), `?check=2` (counts and status-field values), `?check=3`
   (published titles and status fields), `?check=4` (links on the public
   portal page).
+- **When Crelate can't be read** (Oct 1, 2026: Crelate turned the API user
+  off and Careers fell back to the portal), `publicJobs` keeps showing the
+  last list: the one this server read last, else `/jobs-snapshot.json`,
+  saved at each build (public posting fields only; `src/jobs-fallback.ts`,
+  tested). The portal button shows only when nothing was ever saved. The log
+  says `[jobs] Crelate unavailable; showing the list saved <time>`.
 - `/api/jobs` pages through every Crelate job (100 per request, 5 at a time,
   up to 10,000; Vercel `maxDuration: 60`), cached 3 minutes per instance, and 1 minute at Vercel's edge (owner, Oct 1, 2026: a job closed in Crelate must leave the site quickly; about 5 minutes at most).
 - **Forms deliver by email first, then Crelate and TS Workspace** (side by
