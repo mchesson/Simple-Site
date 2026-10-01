@@ -518,6 +518,12 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
 - Each page needs a unique `title` and `description` passed to `Base`.
 
 ## Before launch
+- **Jobs test, start to finish (owner, Oct 1, 2026; pending):** an
+  account manager posts a real job in Crelate on the portal. Check it
+  appears on /careers within about 5 minutes, apply to it with a test
+  application, confirm it reaches the inbox, Crelate (an application on
+  that job) and TS Workspace (/applicants), then confirm that closing it in
+  Crelate takes it off the site within about 5 minutes.
 - Set `ALLOW_INDEXING=true` and point `SITE_URL` at the real domain.
 - Add the domain in Vercel; verify it in Google Search Console and Bing
   Webmaster Tools and submit the sitemap.
