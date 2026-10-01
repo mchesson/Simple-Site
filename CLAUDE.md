@@ -418,7 +418,9 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   Record each photo's source page in `src/data/photo-credits.ts`. Claude's
   environment needs `images.unsplash.com`, `unsplash.com`, `pexels.com`
   and `images.pexels.com` in its network access to fetch them.
-- Confirm the official LinkedIn URL and email in `src/data/site.ts`.
+- [x] Official LinkedIn page (`linkedin.com/company/technical-source-llc`,
+  the owner is its admin) and email (info@technicalsource.com) confirmed
+  (owner, Oct 1, 2026).
 - Confirm the full list of old WordPress URLs for `redirects`.
 
 ## Switching technicalsource.com from WordPress, with a way back
