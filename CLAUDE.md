@@ -432,8 +432,13 @@ Source: the confidential "Defining Our Lane" strategy deck (June 2026).
   when `VERCEL_ENV` is `production`, so previews and local builds don't
   count. The owner signs in at analytics.google.com with their work-email
   Google account. No Measurement Protocol API secret is used.
-- LinkedIn Insight Tag: still to add (needs the partner ID from LinkedIn
-  Campaign Manager).
+- **LinkedIn Insight Tag (added Oct 1, 2026):** partner ID `9789842`
+  (`site.linkedinPartnerId`), Campaign Manager ad account 558375778 (no
+  payment card, so "On hold"; no ads run). Loaded before `</body>` only
+  on production deployments. Shows which companies and job titles visit
+  (in Campaign Manager, after about 300 visitors); a "Website form sent"
+  sales-lead conversion was started there. The paid service that names
+  visiting companies is decided later (owner, Oct 1, 2026).
 
 ## Hosting
 - Vercel team **teksourcetalent**, project **simple-site**, connected to this
